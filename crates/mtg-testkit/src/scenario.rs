@@ -42,6 +42,9 @@ pub struct Scenario {
     /// CR rules the scenario demonstrates.
     #[serde(default)]
     pub cr: Vec<String>,
+    /// Real cards this scenario verifies (`tests/scenarios-real/`, M3 plan B-D13).
+    #[serde(default)]
+    pub verifies: Vec<String>,
     pub players: Vec<PlayerSpec>,
     #[serde(default)]
     pub turn: TurnSpec,
@@ -143,6 +146,9 @@ pub struct Expect {
     /// `P1` → the top cards of that player's library, top first, in order.
     #[serde(default)]
     pub library_top: BTreeMap<String, Vec<String>>,
+    /// `P1` → that player's mana pool as symbols in WUBRGC order, e.g. `"{B}{B}{B}"` (`""` = empty).
+    #[serde(default)]
+    pub pool: BTreeMap<String, String>,
     /// Card name → counter kind (`+1/+1`, `-1/-1`, `charge`, `loyalty`) →
     /// count, for the first permanent with that name. Unlisted kinds aren't checked.
     #[serde(default)]
@@ -500,6 +506,21 @@ fn check_expect(game: &Game, e: &Expect, at: &str) -> Result<(), ScenarioError> 
         if &actual != want {
             return Err(fail(format!(
                 "{p}'s library top is {actual:?}, expected {want:?}"
+            )));
+        }
+    }
+    for (p, want) in &e.pool {
+        let id = player_id(p, n).map_err(fail)?;
+        let pool = game.player_state(id).pool;
+        let mut actual = String::new();
+        for t in mtg_engine::ManaType::ALL {
+            for _ in 0..pool.get(t) {
+                actual.push_str(t.symbol());
+            }
+        }
+        if &actual != want {
+            return Err(fail(format!(
+                "{p}'s mana pool is {actual:?}, expected {want:?}"
             )));
         }
     }

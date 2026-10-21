@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: "Prismatic Vista fetches a basic land"
+cr: ["602.2", "701.23b", "205.4a"]
+verifies: [Prismatic Vista]
+players:
+  - battlefield: [Prismatic Vista]
+    library: [Tundra, Island, Swamp]
+  - {}
+script:
+  - choose: Activate Prismatic Vista ability 1
+  - pass_all
+  - check:
+      decision: { player: P1, kind: choose_card, options: [Stop, Find Island, Find Swamp] }
+  - choose: Find Swamp
+expect:
+  life: { P1: 19 }
+  zones:
+    P1.battlefield: [Swamp]
+    P1.graveyard: [Prismatic Vista]

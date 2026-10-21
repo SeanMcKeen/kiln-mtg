@@ -1,0 +1,4 @@
+card: Simic Signet
+faces:
+  - abilities:
+      - activated: { cost: [{ mana: "{1}" }, tap], effect: { add_mana: { mana: { fixed: "{G}{U}" } } } }

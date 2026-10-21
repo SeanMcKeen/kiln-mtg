@@ -1,0 +1,17 @@
+scenario: mtg-scenario/1
+name: "Mind Stone taps for {C}, or pays {1}, taps and sacrifices itself to draw"
+cr: ["605.1a", "602.2", "701.21a"]
+verifies: [Mind Stone]
+players:
+  - battlefield: [Mind Stone, Island]
+  - {}
+script:
+  - choose: Activate Mind Stone ability 2
+  - choose: Pay with Island
+  - check:
+      zones:
+        P1.graveyard: [Mind Stone]
+  - pass_all
+expect:
+  zones:
+    P1.hand: [Test Wastes]

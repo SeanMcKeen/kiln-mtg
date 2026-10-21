@@ -1,0 +1,10 @@
+card: Cabal Ritual
+faces:
+  - abilities:
+      - spell:
+          effect:
+            # Threshold: the count is taken as the spell resolves (it's on the stack, not in the graveyard).
+            if:
+              condition: { at_least: [{ count: { zone: graveyard, controller: you } }, 7] }
+              then: { add_mana: { mana: { fixed: "{B}{B}{B}{B}{B}" } } }
+              otherwise: { add_mana: { mana: { fixed: "{B}{B}{B}" } } }

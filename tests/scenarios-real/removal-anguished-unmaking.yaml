@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: "Anguished Unmaking exiles a nonland permanent; its caster loses 3 life"
+cr: ["406.1", "119.3"]
+verifies: [Anguished Unmaking]
+players:
+  - battlefield: [Plains, Swamp, Island]
+    hand: [Anguished Unmaking]
+  - battlefield: [Tropical Island, Sol Ring]
+script:
+  - choose: Cast Anguished Unmaking
+  - check:
+      decision: { player: P1, kind: choose_target, options: [Target Sol Ring (P2)] }
+  - choose: Target Sol Ring (P2)
+  - choose: Pay with Plains, Swamp, Island
+  - pass_all
+expect:
+  zones:
+    exile: [Sol Ring]
+  life: { P1: 17 }

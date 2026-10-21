@@ -1,0 +1,6 @@
+card: Dismember
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { object: { types: [creature] } } }]
+          effect: { pump: { what: { one: { target: 0 } }, power: -5, toughness: -5 } }

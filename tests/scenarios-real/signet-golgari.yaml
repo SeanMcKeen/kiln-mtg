@@ -1,0 +1,13 @@
+scenario: mtg-scenario/1
+name: "Golgari Signet: pay {1} and tap for {B}{G}"
+cr: ["605.3a", "602.2b"]
+verifies: [Golgari Signet]
+players:
+  - battlefield: [Golgari Signet, Island]
+  - {}
+script:
+  - choose: "Activate Golgari Signet for {B}{G}"
+  - choose: Pay with Island
+expect:
+  pool: { P1: "{B}{G}" }
+  tapped: { Golgari Signet: true, Island: true }

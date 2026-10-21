@@ -1,0 +1,9 @@
+card: An Offer You Can't Refuse
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { spell: { not_types: [creature] } } }]
+          effect:
+            seq:
+              - counter: { one: { target: 0 } }
+              - create_token: { token: { predefined: Treasure }, count: 2, controller: { controller_of: { target: 0 } } }

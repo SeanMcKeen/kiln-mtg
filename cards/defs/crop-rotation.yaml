@@ -1,0 +1,10 @@
+card: Crop Rotation
+faces:
+  - abilities:
+      - spell:
+          additional_costs:
+            - sacrifice: { chosen_from: { who: you, zone: battlefield, filter: { types: [land] }, count: 1 } }
+          effect:
+            seq:
+              - search: { who: you, filter: { types: [land] }, count: 1, to: battlefield, reveal: false }
+              - shuffle: you

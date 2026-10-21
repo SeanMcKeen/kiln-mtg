@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: "Polluted Delta fetches a Island or Swamp card, including a dual land with those types"
+cr: ["602.2", "701.23b", "305.7"]
+verifies: [Polluted Delta]
+players:
+  - battlefield: [Polluted Delta]
+    library: [Plains, Island, Swamp, Mountain, Forest, Underground Sea]
+  - {}
+script:
+  - choose: Activate Polluted Delta ability 1
+  - check:
+      life: { P1: 19 }
+  - pass_all
+  - check:
+      decision: { player: P1, kind: choose_card, options: [Stop, Find Island, Find Swamp, Find Underground Sea] }
+  - choose: Find Underground Sea
+expect:
+  zones:
+    P1.battlefield: [Underground Sea]
+    P1.graveyard: [Polluted Delta]

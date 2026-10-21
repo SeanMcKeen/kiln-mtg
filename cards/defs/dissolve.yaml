@@ -1,0 +1,9 @@
+card: Dissolve
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { spell: {} } }]
+          effect:
+            seq:
+              - counter: { one: { target: 0 } }
+              - scry: { who: you, amount: 1 }

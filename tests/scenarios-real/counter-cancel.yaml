@@ -1,0 +1,21 @@
+scenario: mtg-scenario/1
+name: "Cancel counters a spell"
+cr: ["701.6a"]
+verifies: [Cancel]
+players:
+  - battlefield: [Mountain]
+    hand: [Lightning Bolt]
+  - battlefield: [Island, Island, Island]
+    hand: [Cancel]
+script:
+  - choose: Cast Lightning Bolt
+  - choose: Target P2
+  - choose: Pay with Mountain
+  - pass: 1
+  - choose: Cast Cancel
+    player: P2
+  - choose: Target Lightning Bolt
+  - choose: Pay with Island, Island, Island
+  - pass_all
+expect:
+  life: { P2: 20 }

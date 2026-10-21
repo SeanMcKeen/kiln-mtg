@@ -1,0 +1,23 @@
+scenario: mtg-scenario/1
+name: "Swan Song counters an instant; its controller gets a 2/2 flying Bird"
+cr: ["701.6a", "111.2"]
+verifies: [Swan Song]
+players:
+  - battlefield: [Mountain]
+    hand: [Lightning Bolt]
+  - battlefield: [Island]
+    hand: [Swan Song]
+script:
+  - choose: Cast Lightning Bolt
+  - choose: Target P2
+  - choose: Pay with Mountain
+  - pass: 1
+  - choose: Cast Swan Song
+    player: P2
+  - choose: Target Lightning Bolt
+  - choose: Pay with Island
+  - pass_all
+expect:
+  zones:
+    P1.battlefield: [Mountain, Bird Token]
+  life: { P2: 20 }

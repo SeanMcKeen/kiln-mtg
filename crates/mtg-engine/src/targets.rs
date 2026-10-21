@@ -78,7 +78,33 @@ impl Game {
         {
             return false;
         }
+        if f.min_mana_value.is_some() || f.max_mana_value.is_some() {
+            let mv = self.mana_value_of(id);
+            if f.min_mana_value.is_some_and(|m| mv < m) || f.max_mana_value.is_some_and(|m| mv > m)
+            {
+                return false;
+            }
+        }
         true
+    }
+
+    /// CR 202.3: an object's mana value; on the stack, X is its announced value (CR 202.3e).
+    pub(crate) fn mana_value_of(&self, id: ObjectId) -> u32 {
+        let Some(o) = self.obj(id) else { return 0 };
+        let def = self.def(o.def);
+        let mut mv = def.mana_value();
+        if o.zone == ZoneId::Stack
+            && let Some(item) = self.stack.iter().find(|s| s.is_spell() && s.object == id)
+        {
+            let xs = def.mana_cost.as_ref().map_or(0, |c| {
+                c.symbols()
+                    .iter()
+                    .filter(|s| matches!(s, mtg_core::ManaSymbol::Variable(_)))
+                    .count()
+            });
+            mv += item.x * u32::try_from(xs).unwrap_or(0);
+        }
+        mv
     }
 
     /// Legal choices for one target slot (CR 115.1, 601.2c), for a spell or

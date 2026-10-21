@@ -1,0 +1,13 @@
+scenario: mtg-scenario/1
+name: "Rakdos Signet: pay {1} and tap for {B}{R}"
+cr: ["605.3a", "602.2b"]
+verifies: [Rakdos Signet]
+players:
+  - battlefield: [Rakdos Signet, Island]
+  - {}
+script:
+  - choose: "Activate Rakdos Signet for {B}{R}"
+  - choose: Pay with Island
+expect:
+  pool: { P1: "{B}{R}" }
+  tapped: { Rakdos Signet: true, Island: true }

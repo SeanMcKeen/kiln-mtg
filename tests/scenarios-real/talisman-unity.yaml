@@ -1,0 +1,17 @@
+scenario: mtg-scenario/1
+name: "Talisman of Unity: {C} for free, or {G} or {W} for 1 damage"
+cr: ["605.3a", "605.3b", "120.3"]
+verifies: [Talisman of Unity]
+players:
+  - battlefield: [Talisman of Unity]
+  - {}
+script:
+  - check:
+      decision: { player: P1, kind: priority, options_include: ["Tap Talisman of Unity for {C}", Tap Talisman of Unity for mana] }
+  - choose: Tap Talisman of Unity for mana
+  - check:
+      decision: { player: P1, kind: choose_mana, options: ["Add {W}", "Add {G}"] }
+  - choose: "Add {W}"
+expect:
+  pool: { P1: "{W}" }
+  life: { P1: 19 }

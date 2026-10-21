@@ -1,0 +1,25 @@
+scenario: mtg-scenario/1
+name: "Mana Leak: the controller pays {3}"
+cr: ["118.12", "701.6a"]
+verifies: [Mana Leak]
+players:
+  - battlefield: [Mountain, Island, Island, Island]
+    hand: [Lightning Bolt]
+  - battlefield: [Island, Island]
+    hand: [Mana Leak]
+script:
+  - choose: Cast Lightning Bolt
+  - choose: Target P2
+  - choose: Pay with Mountain
+  - pass: 1
+  - choose: Cast Mana Leak
+    player: P2
+  - choose: Target Lightning Bolt
+  - choose: Pay with Island, Island
+  - pass_all
+  - choose: Pay
+    player: P1
+  - choose: Pay with Island, Island, Island
+  - pass_all
+expect:
+  life: { P2: 17 }

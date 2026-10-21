@@ -1,0 +1,13 @@
+scenario: mtg-scenario/1
+name: "Boros Signet: pay {1} and tap for {R}{W}"
+cr: ["605.3a", "602.2b"]
+verifies: [Boros Signet]
+players:
+  - battlefield: [Boros Signet, Island]
+  - {}
+script:
+  - choose: "Activate Boros Signet for {W}{R}"
+  - choose: Pay with Island
+expect:
+  pool: { P1: "{W}{R}" }
+  tapped: { Boros Signet: true, Island: true }

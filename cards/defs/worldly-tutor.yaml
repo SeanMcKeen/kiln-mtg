@@ -1,0 +1,5 @@
+card: Worldly Tutor
+faces:
+  - abilities:
+      - spell:
+          effect: { search: { who: you, filter: { types: [creature] }, count: 1, to: top_of_library, reveal: true } }

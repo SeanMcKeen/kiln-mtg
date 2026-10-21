@@ -1,0 +1,12 @@
+card: Generous Gift
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { object: {} } }]
+          effect:
+            seq:
+              - destroy: { one: { target: 0 } }
+              - create_token:
+                  token: { creature: { power: 3, toughness: 3, colors: G, subtypes: [Elephant] } }
+                  count: 1
+                  controller: { controller_of: { target: 0 } }

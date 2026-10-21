@@ -1,0 +1,21 @@
+scenario: mtg-scenario/1
+name: "Spell Pierce: the controller can't pay {2}, so the spell is countered"
+cr: ["118.12", "701.6a"]
+verifies: [Spell Pierce]
+players:
+  - battlefield: [Island, Island, Island]
+    hand: [Divination]
+  - battlefield: [Island]
+    hand: [Spell Pierce]
+script:
+  - choose: Cast Divination
+  - choose: Pay with Island, Island, Island
+  - pass: 1
+  - choose: Cast Spell Pierce
+    player: P2
+  - choose: Target Divination
+  - choose: Pay with Island
+  - pass_all
+expect:
+  zones:
+    P1.graveyard: [Divination]

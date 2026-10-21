@@ -92,6 +92,8 @@ ADR-0007 is still open, but its fixed constraint is that **every option compiles
 
 | B7 | ✅ 2026-10-21 | `GreedyPolicy` (`mtg-policy`, spec `greedy`): one-ply heuristics over the `PlayerView`; classifies effects as harmful or helpful from the IR. **Beats random 850–150 in 1,000 two-player games** on the synthetic M3 cards (seats alternated, invariants checked every decision, no draws or aborts); CI runs 200. |
 
+| B8 | ✅ 2026-10-21 | **123 real cards verified.** Harness (`mtg-testkit::real`, `mtg dev verify-cards`): characteristics from the local card DB plus IR from `cards/defs/` (143 definitions, no Oracle text), 109 CR-cited scenarios in `tests/scenarios-real/` with `verifies:` lists. Families: 45 mana rocks, rituals, dorks and lands (10 Talismans, 10 Signets, 10 fetch lands, Ancient Tomb, Strip Mine, Wasteland…), 23 removal, 19 counterspells, 13 card draw, 22 tutors. 20 definitions are rejected with the feature they need (triggers, statics, replacements, commander). Real scenarios run where a DB exists; their CR citations are checked in CI (Q25). IR gained `min_mana_value`/`max_mana_value` filters (X counted on the stack, CR 202.3e). |
+
 Semantics fixed while building B2 (documented in `ir.rs`):
 - A search for "a card" must find one if possible (701.23d); a filter states a quality, so finding nothing is allowed (701.23b).
 - `search … to: top_of_library` means search, shuffle, then put on top (701.24b).

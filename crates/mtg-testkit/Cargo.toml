@@ -9,6 +9,8 @@ publish.workspace = true
 
 [dependencies]
 mtg-core.workspace = true
+mtg-cards.workspace = true
+mtg-data = { workspace = true, default-features = false }
 mtg-engine.workspace = true
 regex.workspace = true
 serde.workspace = true

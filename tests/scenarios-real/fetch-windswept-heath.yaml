@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: "Windswept Heath fetches a Forest or Plains card, including a dual land with those types"
+cr: ["602.2", "701.23b", "305.7"]
+verifies: [Windswept Heath]
+players:
+  - battlefield: [Windswept Heath]
+    library: [Plains, Island, Swamp, Mountain, Forest, Savannah]
+  - {}
+script:
+  - choose: Activate Windswept Heath ability 1
+  - check:
+      life: { P1: 19 }
+  - pass_all
+  - check:
+      decision: { player: P1, kind: choose_card, options: [Stop, Find Plains, Find Forest, Find Savannah] }
+  - choose: Find Savannah
+expect:
+  zones:
+    P1.battlefield: [Savannah]
+    P1.graveyard: [Windswept Heath]

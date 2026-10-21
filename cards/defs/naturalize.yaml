@@ -1,0 +1,6 @@
+card: Naturalize
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { object: { types: [artifact, enchantment] } } }]
+          effect: { destroy: { one: { target: 0 } } }

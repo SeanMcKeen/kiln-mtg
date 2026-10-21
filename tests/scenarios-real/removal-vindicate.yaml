@@ -1,0 +1,16 @@
+scenario: mtg-scenario/1
+name: "Vindicate destroys any target permanent, at sorcery speed"
+cr: ["701.8a", "307.1"]
+verifies: [Vindicate]
+players:
+  - battlefield: [Plains, Swamp, Island]
+    hand: [Vindicate]
+  - battlefield: [Tropical Island]
+script:
+  - choose: Cast Vindicate
+  - choose: Target Tropical Island (P2)
+  - choose: Pay with Plains, Swamp, Island
+  - pass_all
+expect:
+  zones:
+    P2.graveyard: [Tropical Island]

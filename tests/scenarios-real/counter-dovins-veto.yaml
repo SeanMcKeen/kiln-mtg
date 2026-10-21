@@ -1,0 +1,21 @@
+scenario: mtg-scenario/1
+name: "Dovin's Veto counters a noncreature spell"
+cr: ["701.6a"]
+verifies: [Dovin's Veto]
+players:
+  - battlefield: [Island, Island, Island]
+    hand: [Divination]
+  - battlefield: [Plains, Island]
+    hand: [Dovin's Veto]
+script:
+  - choose: Cast Divination
+  - choose: Pay with Island, Island, Island
+  - pass: 1
+  - choose: Cast Dovin's Veto
+    player: P2
+  - choose: Target Divination
+  - choose: Pay with Plains, Island
+  - pass_all
+expect:
+  zones:
+    P1.graveyard: [Divination]

@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: "Arid Mesa fetches a Mountain or Plains card, including a dual land with those types"
+cr: ["602.2", "701.23b", "305.7"]
+verifies: [Arid Mesa]
+players:
+  - battlefield: [Arid Mesa]
+    library: [Plains, Island, Swamp, Mountain, Forest, Plateau]
+  - {}
+script:
+  - choose: Activate Arid Mesa ability 1
+  - check:
+      life: { P1: 19 }
+  - pass_all
+  - check:
+      decision: { player: P1, kind: choose_card, options: [Stop, Find Plains, Find Mountain, Find Plateau] }
+  - choose: Find Plateau
+expect:
+  zones:
+    P1.battlefield: [Plateau]
+    P1.graveyard: [Arid Mesa]

@@ -1,0 +1,16 @@
+scenario: mtg-scenario/1
+name: "Night's Whisper: draw two, lose 2 life"
+cr: ["121.1", "119.3"]
+verifies: [Night's Whisper]
+players:
+  - battlefield: [Swamp, Swamp]
+    hand: [Night's Whisper]
+  - {}
+script:
+  - choose: Cast Night's Whisper
+  - choose: Pay with Swamp, Swamp
+  - pass_all
+expect:
+  life: { P1: 18 }
+  zones:
+    P1.hand: [Test Wastes, Test Wastes]

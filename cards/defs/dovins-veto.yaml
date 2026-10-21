@@ -1,0 +1,7 @@
+card: Dovin's Veto
+faces:
+  - abilities:
+      - static: { effect: { rule: cant_be_countered } }
+      - spell:
+          targets: [{ what: { spell: { not_types: [creature] } } }]
+          effect: { counter: { one: { target: 0 } } }

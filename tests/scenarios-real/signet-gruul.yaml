@@ -1,0 +1,13 @@
+scenario: mtg-scenario/1
+name: "Gruul Signet: pay {1} and tap for {R}{G}"
+cr: ["605.3a", "602.2b"]
+verifies: [Gruul Signet]
+players:
+  - battlefield: [Gruul Signet, Island]
+  - {}
+script:
+  - choose: "Activate Gruul Signet for {R}{G}"
+  - choose: Pay with Island
+expect:
+  pool: { P1: "{R}{G}" }
+  tapped: { Gruul Signet: true, Island: true }

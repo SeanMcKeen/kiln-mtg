@@ -1,0 +1,16 @@
+scenario: mtg-scenario/1
+name: "Windfall: everyone discards, then draws as many as the most discarded"
+cr: ["101.4", "701.9a"]
+verifies: [Windfall]
+players:
+  - battlefield: [Island, Island, Island]
+    hand: [Windfall, Opt]
+  - hand: [Murder, Murder, Murder]
+script:
+  - choose: Cast Windfall
+  - choose: Pay with Island, Island, Island
+  - pass_all
+expect:
+  zones:
+    P1.hand: [Test Wastes, Test Wastes, Test Wastes]
+    P2.hand: [Test Wastes, Test Wastes, Test Wastes]

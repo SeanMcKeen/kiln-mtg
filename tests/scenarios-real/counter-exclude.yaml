@@ -1,0 +1,22 @@
+scenario: mtg-scenario/1
+name: "Exclude counters a creature spell and draws a card"
+cr: ["701.6a", "121.1"]
+verifies: [Exclude]
+players:
+  - battlefield: [Forest, Forest]
+    hand: [Grizzly Bears]
+  - battlefield: [Island, Island, Island]
+    hand: [Exclude]
+script:
+  - choose: Cast Grizzly Bears
+  - choose: Pay with Forest, Forest
+  - pass: 1
+  - choose: Cast Exclude
+    player: P2
+  - choose: Target Grizzly Bears
+  - choose: Pay with Island, Island, Island
+  - pass_all
+expect:
+  zones:
+    P1.graveyard: [Grizzly Bears]
+    P2.hand: [Test Wastes]

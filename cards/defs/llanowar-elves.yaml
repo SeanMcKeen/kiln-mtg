@@ -1,0 +1,4 @@
+card: Llanowar Elves
+faces:
+  - abilities:
+      - activated: { cost: [tap], effect: { add_mana: { mana: { fixed: "{G}" } } } }

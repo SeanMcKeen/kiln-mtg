@@ -1,0 +1,17 @@
+scenario: mtg-scenario/1
+name: "Strip Mine destroys target land"
+cr: ["602.2", "701.8a"]
+verifies: [Strip Mine]
+players:
+  - battlefield: [Strip Mine]
+  - battlefield: [Island]
+script:
+  - check:
+      decision: { player: P1, kind: priority, options_include: ["Tap Strip Mine for {C}", Activate Strip Mine ability 2] }
+  - choose: Activate Strip Mine ability 2
+  - choose: Target Island (P2)
+  - pass_all
+expect:
+  zones:
+    P1.graveyard: [Strip Mine]
+    P2.graveyard: [Island]

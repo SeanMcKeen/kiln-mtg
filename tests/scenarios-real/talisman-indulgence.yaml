@@ -1,0 +1,17 @@
+scenario: mtg-scenario/1
+name: "Talisman of Indulgence: {C} for free, or {B} or {R} for 1 damage"
+cr: ["605.3a", "605.3b", "120.3"]
+verifies: [Talisman of Indulgence]
+players:
+  - battlefield: [Talisman of Indulgence]
+  - {}
+script:
+  - check:
+      decision: { player: P1, kind: priority, options_include: ["Tap Talisman of Indulgence for {C}", Tap Talisman of Indulgence for mana] }
+  - choose: Tap Talisman of Indulgence for mana
+  - check:
+      decision: { player: P1, kind: choose_mana, options: ["Add {B}", "Add {R}"] }
+  - choose: "Add {R}"
+expect:
+  pool: { P1: "{R}" }
+  life: { P1: 19 }

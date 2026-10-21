@@ -1,0 +1,9 @@
+card: Anguished Unmaking
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { object: { not_types: [land] } } }]
+          effect:
+            seq:
+              - exile: { what: { one: { target: 0 } } }
+              - lose_life: { who: you, amount: 3 }

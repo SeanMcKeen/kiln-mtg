@@ -737,6 +737,12 @@ pub struct ObjectFilter {
     /// "a card with the chosen name".
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub named: Option<String>,
+    /// "with mana value N or greater" (CR 202.3).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub min_mana_value: Option<u32>,
+    /// "with mana value N or less" (CR 202.3).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_mana_value: Option<u32>,
 }
 
 /// Numbers (CR 107.1).

@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: "Natural Order: sacrifice a green creature, put a green creature onto the battlefield"
+cr: ["118.8", "701.21a", "701.23b"]
+verifies: [Natural Order]
+players:
+  - battlefield: [Forest, Forest, Forest, Forest, Llanowar Elves, Test Golem]
+    hand: [Natural Order]
+    library: [Birds of Paradise, Test Ogre, Grizzly Bears]
+  - {}
+script:
+  - choose: Cast Natural Order
+  - choose: Pay with Forest, Forest, Forest, Forest
+  - pass_all
+  - check:
+      decision: { player: P1, kind: choose_card, options: [Stop, Find Birds of Paradise, Find Grizzly Bears] }
+  - choose: Find Grizzly Bears
+expect:
+  zones:
+    P1.battlefield: [Forest, Forest, Forest, Forest, Test Golem, Grizzly Bears]
+    P1.graveyard: [Llanowar Elves, Natural Order]

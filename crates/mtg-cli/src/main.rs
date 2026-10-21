@@ -130,6 +130,17 @@ enum DeckCmd {
 
 #[derive(Debug, Subcommand)]
 enum DevCmd {
+    /// Verify real cards: build `cards/defs/` against the card DB and run
+    /// `tests/scenarios-real/` (M3 plan, B-D13). Exit code 1 if a scenario fails.
+    VerifyCards {
+        #[command(flatten)]
+        db: DbArgs,
+        /// List every verified card with its scenarios.
+        #[arg(long)]
+        list: bool,
+        #[arg(long)]
+        json: bool,
+    },
     /// Check every `CR x.y` citation in code and docs against the Comprehensive Rules.
     CrCheck {
         /// Normalized CR text (see CLAUDE.md for how to download it).
@@ -256,6 +267,41 @@ fn run(cli: Cli) -> Result<ExitCode> {
             json,
         }) => cr_check(&cr, &paths, require, json),
         Command::Dev(DevCmd::Fuzz(args)) => fuzz(&args),
+        Command::Dev(DevCmd::VerifyCards { db, list, json }) => {
+            let (db, _) = db.load()?;
+            let r = mtg_testkit::real::verify(&db).map_err(|e| anyhow::anyhow!(e))?;
+            if json {
+                print_json(&r)?;
+            } else {
+                println!(
+                    "{} definitions: {} verified, {} unsupported, {} unverified, {} failing scenario(s)",
+                    r.definitions,
+                    r.verified.len(),
+                    r.unsupported.len(),
+                    r.unverified.len(),
+                    r.failures.len()
+                );
+                if list {
+                    for (card, files) in &r.verified {
+                        println!("  verified  {card}  ({})", files.join(", "));
+                    }
+                }
+                for u in &r.unsupported {
+                    println!("  unsupported  {}: {}", u.card, u.reason);
+                }
+                for c in &r.unverified {
+                    println!("  unverified  {c}");
+                }
+                for (f, e) in &r.failures {
+                    println!("  FAILED  {f}: {e}");
+                }
+            }
+            Ok(if r.failures.is_empty() {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::from(1)
+            })
+        }
         Command::Dev(DevCmd::CardSpike {
             sample,
             seed,

@@ -1,0 +1,21 @@
+scenario: mtg-scenario/1
+name: "Essence Scatter counters a creature spell"
+cr: ["701.6a"]
+verifies: [Essence Scatter]
+players:
+  - battlefield: [Forest, Forest]
+    hand: [Grizzly Bears]
+  - battlefield: [Island, Island]
+    hand: [Essence Scatter]
+script:
+  - choose: Cast Grizzly Bears
+  - choose: Pay with Forest, Forest
+  - pass: 1
+  - choose: Cast Essence Scatter
+    player: P2
+  - choose: Target Grizzly Bears
+  - choose: Pay with Island, Island
+  - pass_all
+expect:
+  zones:
+    P1.graveyard: [Grizzly Bears]

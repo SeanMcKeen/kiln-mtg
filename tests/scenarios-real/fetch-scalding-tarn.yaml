@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: "Scalding Tarn fetches a Island or Mountain card, including a dual land with those types"
+cr: ["602.2", "701.23b", "305.7"]
+verifies: [Scalding Tarn]
+players:
+  - battlefield: [Scalding Tarn]
+    library: [Plains, Island, Swamp, Mountain, Forest, Volcanic Island]
+  - {}
+script:
+  - choose: Activate Scalding Tarn ability 1
+  - check:
+      life: { P1: 19 }
+  - pass_all
+  - check:
+      decision: { player: P1, kind: choose_card, options: [Stop, Find Island, Find Mountain, Find Volcanic Island] }
+  - choose: Find Volcanic Island
+expect:
+  zones:
+    P1.battlefield: [Volcanic Island]
+    P1.graveyard: [Scalding Tarn]

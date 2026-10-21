@@ -470,3 +470,13 @@
   abilities:
     - activated: { cost: [tap], effect: { put_counters: { what: { one: this }, counter: charge, amount: 1 } } }
     - activated: { cost: [{ remove_counters: { counter: charge, amount: 1 } }], effect: { gain_life: { who: you, amount: 2 } } }
+
+# ---- plain objects for searches (M3 B8) --------------------------------------
+
+- name: Test Enchantment
+  cost: "{1}{W}"
+  types: Enchantment
+
+- name: Test Blade
+  cost: "{1}"
+  types: Artifact — Equipment

@@ -1,0 +1,17 @@
+scenario: mtg-scenario/1
+name: "Talisman of Progress: {C} for free, or {W} or {U} for 1 damage"
+cr: ["605.3a", "605.3b", "120.3"]
+verifies: [Talisman of Progress]
+players:
+  - battlefield: [Talisman of Progress]
+  - {}
+script:
+  - check:
+      decision: { player: P1, kind: priority, options_include: ["Tap Talisman of Progress for {C}", Tap Talisman of Progress for mana] }
+  - choose: Tap Talisman of Progress for mana
+  - check:
+      decision: { player: P1, kind: choose_mana, options: ["Add {W}", "Add {U}"] }
+  - choose: "Add {U}"
+expect:
+  pool: { P1: "{U}" }
+  life: { P1: 19 }

@@ -1,0 +1,6 @@
+card: Gut Shot
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: any }]
+          effect: { deal_damage: { to: { target: 0 }, amount: 1 } }

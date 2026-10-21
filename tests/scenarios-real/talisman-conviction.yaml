@@ -1,0 +1,17 @@
+scenario: mtg-scenario/1
+name: "Talisman of Conviction: {C} for free, or {R} or {W} for 1 damage"
+cr: ["605.3a", "605.3b", "120.3"]
+verifies: [Talisman of Conviction]
+players:
+  - battlefield: [Talisman of Conviction]
+  - {}
+script:
+  - check:
+      decision: { player: P1, kind: priority, options_include: ["Tap Talisman of Conviction for {C}", Tap Talisman of Conviction for mana] }
+  - choose: Tap Talisman of Conviction for mana
+  - check:
+      decision: { player: P1, kind: choose_mana, options: ["Add {W}", "Add {R}"] }
+  - choose: "Add {W}"
+expect:
+  pool: { P1: "{W}" }
+  life: { P1: 19 }

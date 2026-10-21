@@ -1,0 +1,6 @@
+card: Spell Snare
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { spell: { min_mana_value: 2, max_mana_value: 2 } } }]
+          effect: { counter: { one: { target: 0 } } }

@@ -1,0 +1,12 @@
+card: Rapid Hybridization
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { object: { types: [creature] } } }]
+          effect:
+            seq:
+              - destroy: { one: { target: 0 } }
+              - create_token:
+                  token: { creature: { power: 3, toughness: 3, colors: G, subtypes: [Frog, Lizard] } }
+                  count: 1
+                  controller: { controller_of: { target: 0 } }

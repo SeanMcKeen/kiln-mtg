@@ -1,0 +1,9 @@
+card: Infernal Grasp
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { object: { types: [creature] } } }]
+          effect:
+            seq:
+              - destroy: { one: { target: 0 } }
+              - lose_life: { who: you, amount: 2 }

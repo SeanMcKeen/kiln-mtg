@@ -1,0 +1,13 @@
+scenario: mtg-scenario/1
+name: "Dimir Signet: pay {1} and tap for {U}{B}"
+cr: ["605.3a", "602.2b"]
+verifies: [Dimir Signet]
+players:
+  - battlefield: [Dimir Signet, Island]
+  - {}
+script:
+  - choose: "Activate Dimir Signet for {U}{B}"
+  - choose: Pay with Island
+expect:
+  pool: { P1: "{U}{B}" }
+  tapped: { Dimir Signet: true, Island: true }

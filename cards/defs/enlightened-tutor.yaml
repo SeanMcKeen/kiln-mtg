@@ -1,0 +1,5 @@
+card: Enlightened Tutor
+faces:
+  - abilities:
+      - spell:
+          effect: { search: { who: you, filter: { types: [artifact, enchantment] }, count: 1, to: top_of_library, reveal: true } }

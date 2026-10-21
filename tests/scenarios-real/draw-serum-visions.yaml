@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: "Serum Visions: draw a card, then scry 2"
+cr: ["121.1", "701.22a"]
+verifies: [Serum Visions]
+players:
+  - battlefield: [Island]
+    hand: [Serum Visions]
+    library: [Opt, Divination, Murder]
+  - {}
+script:
+  - choose: Cast Serum Visions
+  - choose: Pay with Island
+  - pass_all
+  - choose: Put on bottom Divination
+  - choose: Stop
+expect:
+  zones:
+    P1.hand: [Opt]
+  library_top:
+    P1: [Murder, Divination]

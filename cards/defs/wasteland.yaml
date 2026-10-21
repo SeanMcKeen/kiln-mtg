@@ -1,0 +1,8 @@
+card: Wasteland
+faces:
+  - abilities:
+      - activated: { cost: [tap], effect: { add_mana: { mana: { fixed: "{C}" } } } }
+      - activated:
+          cost: [tap, { sacrifice: { one: this } }]
+          targets: [{ what: { object: { types: [land], not_supertypes: [basic] } } }]
+          effect: { destroy: { one: { target: 0 } } }

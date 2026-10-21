@@ -1,0 +1,21 @@
+scenario: mtg-scenario/1
+name: "Spell Snare counters a spell with mana value 2"
+cr: ["202.3", "701.6a"]
+verifies: [Spell Snare]
+players:
+  - battlefield: [Forest, Forest]
+    hand: [Grizzly Bears]
+  - battlefield: [Island]
+    hand: [Spell Snare]
+script:
+  - choose: Cast Grizzly Bears
+  - choose: Pay with Forest, Forest
+  - pass: 1
+  - choose: Cast Spell Snare
+    player: P2
+  - choose: Target Grizzly Bears
+  - choose: Pay with Island
+  - pass_all
+expect:
+  zones:
+    P1.graveyard: [Grizzly Bears]

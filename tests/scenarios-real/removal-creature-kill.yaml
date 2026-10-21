@@ -1,0 +1,27 @@
+scenario: mtg-scenario/1
+name: "Destroy target creature: Murder, Terminate, Infernal Grasp; Go for the Throat can't hit artifact creatures"
+cr: ["701.8a", "115.1"]
+verifies: [Terminate, Infernal Grasp, Go for the Throat]
+players:
+  - battlefield: [Swamp, Swamp, Swamp, Swamp, Mountain, Island]
+    hand: [Terminate, Infernal Grasp, Go for the Throat]
+  - battlefield: [Grizzly Bears, Test Ogre, Test Golem, Test Bear]
+script:
+  - choose: Cast Go for the Throat
+  - check:
+      decision: { player: P1, kind: choose_target, options_exclude: [Target Test Golem (P2)], options_include: [Target Test Bear (P2)] }
+  - choose: Target Test Bear (P2)
+  - choose: Pay with Swamp, Island
+  - pass_all
+  - choose: Cast Terminate
+  - choose: Target Grizzly Bears (P2)
+  - choose: Pay with Swamp, Mountain
+  - pass_all
+  - choose: Cast Infernal Grasp
+  - choose: Target Test Golem (P2)
+  - choose: Pay with Swamp, Swamp
+  - pass_all
+expect:
+  zones:
+    P2.graveyard: [Test Bear, Grizzly Bears, Test Golem]
+  life: { P1: 18 }

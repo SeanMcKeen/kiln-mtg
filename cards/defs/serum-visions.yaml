@@ -1,0 +1,8 @@
+card: Serum Visions
+faces:
+  - abilities:
+      - spell:
+          effect:
+            seq:
+              - draw: { who: you, amount: 1 }
+              - scry: { who: you, amount: 2 }

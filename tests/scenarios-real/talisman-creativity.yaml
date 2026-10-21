@@ -1,0 +1,17 @@
+scenario: mtg-scenario/1
+name: "Talisman of Creativity: {C} for free, or {U} or {R} for 1 damage"
+cr: ["605.3a", "605.3b", "120.3"]
+verifies: [Talisman of Creativity]
+players:
+  - battlefield: [Talisman of Creativity]
+  - {}
+script:
+  - check:
+      decision: { player: P1, kind: priority, options_include: ["Tap Talisman of Creativity for {C}", Tap Talisman of Creativity for mana] }
+  - choose: Tap Talisman of Creativity for mana
+  - check:
+      decision: { player: P1, kind: choose_mana, options: ["Add {U}", "Add {R}"] }
+  - choose: "Add {R}"
+expect:
+  pool: { P1: "{R}" }
+  life: { P1: 19 }

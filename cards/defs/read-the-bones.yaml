@@ -1,0 +1,9 @@
+card: Read the Bones
+faces:
+  - abilities:
+      - spell:
+          effect:
+            seq:
+              - scry: { who: you, amount: 2 }
+              - draw: { who: you, amount: 2 }
+              - lose_life: { who: you, amount: 2 }

@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: "Bloodstained Mire fetches a Swamp or Mountain card, including a dual land with those types"
+cr: ["602.2", "701.23b", "305.7"]
+verifies: [Bloodstained Mire]
+players:
+  - battlefield: [Bloodstained Mire]
+    library: [Plains, Island, Swamp, Mountain, Forest, Badlands]
+  - {}
+script:
+  - choose: Activate Bloodstained Mire ability 1
+  - check:
+      life: { P1: 19 }
+  - pass_all
+  - check:
+      decision: { player: P1, kind: choose_card, options: [Stop, Find Swamp, Find Mountain, Find Badlands] }
+  - choose: Find Badlands
+expect:
+  zones:
+    P1.battlefield: [Badlands]
+    P1.graveyard: [Bloodstained Mire]

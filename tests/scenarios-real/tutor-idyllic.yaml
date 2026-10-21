@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: "Idyllic Tutor finds a card"
+cr: ["701.23b", "701.20a"]
+verifies: [Idyllic Tutor]
+players:
+  - battlefield: [Plains, Plains, Plains]
+    hand: [Idyllic Tutor]
+    library: [Swamp, Lightning Bolt, Sol Ring, Grizzly Bears, Divination, Test Enchantment]
+  - {}
+script:
+  - choose: Cast Idyllic Tutor
+  - choose: Pay with Plains, Plains, Plains
+  - pass_all
+  - check:
+      decision: { player: P1, kind: choose_card, options: [Stop, Find Test Enchantment] }
+  - choose: Find Test Enchantment
+expect:
+  zones:
+    P1.hand: [Test Enchantment]

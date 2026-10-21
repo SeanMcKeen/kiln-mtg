@@ -1,0 +1,13 @@
+scenario: mtg-scenario/1
+name: "Orzhov Signet: pay {1} and tap for {W}{B}"
+cr: ["605.3a", "602.2b"]
+verifies: [Orzhov Signet]
+players:
+  - battlefield: [Orzhov Signet, Island]
+  - {}
+script:
+  - choose: "Activate Orzhov Signet for {W}{B}"
+  - choose: Pay with Island
+expect:
+  pool: { P1: "{W}{B}" }
+  tapped: { Orzhov Signet: true, Island: true }

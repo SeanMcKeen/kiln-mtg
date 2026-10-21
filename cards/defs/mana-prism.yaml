@@ -1,0 +1,5 @@
+card: Mana Prism
+faces:
+  - abilities:
+      - activated: { cost: [tap], effect: { add_mana: { mana: { fixed: "{C}" } } } }
+      - activated: { cost: [{ mana: "{1}" }, tap], effect: { add_mana: { mana: { any_color: 1 } } } }

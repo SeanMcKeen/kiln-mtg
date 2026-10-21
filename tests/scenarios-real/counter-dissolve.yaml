@@ -1,0 +1,24 @@
+scenario: mtg-scenario/1
+name: "Dissolve counters a spell, then scry 1"
+cr: ["701.6a", "701.22a"]
+verifies: [Dissolve]
+players:
+  - battlefield: [Mountain]
+    hand: [Lightning Bolt]
+  - battlefield: [Island, Island, Island]
+    hand: [Dissolve]
+script:
+  - choose: Cast Lightning Bolt
+  - choose: Target P2
+  - choose: Pay with Mountain
+  - pass: 1
+  - choose: Cast Dissolve
+    player: P2
+  - choose: Target Lightning Bolt
+  - choose: Pay with Island, Island, Island
+  - pass_all
+  - check:
+      decision: { player: P2, kind: choose_card, options: [Stop, Put on bottom Test Wastes] }
+  - choose: Stop
+expect:
+  life: { P2: 20 }

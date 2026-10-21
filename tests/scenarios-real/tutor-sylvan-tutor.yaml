@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: "Sylvan Tutor finds a card"
+cr: ["701.23b", "701.24b"]
+verifies: [Sylvan Tutor]
+players:
+  - battlefield: [Forest]
+    hand: [Sylvan Tutor]
+    library: [Swamp, Lightning Bolt, Sol Ring, Grizzly Bears, Divination]
+  - {}
+script:
+  - choose: Cast Sylvan Tutor
+  - choose: Pay with Forest
+  - pass_all
+  - check:
+      decision: { player: P1, kind: choose_card, options: [Stop, Find Grizzly Bears] }
+  - choose: Find Grizzly Bears
+expect:
+  library_top:
+    P1: [Grizzly Bears]

@@ -1,0 +1,23 @@
+scenario: mtg-scenario/1
+name: "Force of Will cast for its alternative cost"
+cr: ["118.9", "601.2b", "701.6a"]
+verifies: [Force of Will]
+players:
+  - battlefield: [Mountain]
+    hand: [Lightning Bolt]
+  - battlefield: [Plains]
+    hand: [Force of Will, Brainstorm]
+script:
+  - choose: Cast Lightning Bolt
+  - choose: Target P2
+  - choose: Pay with Mountain
+  - pass: 1
+  - choose: Cast Force of Will
+    player: P2
+  - choose: Target Lightning Bolt
+  - pass_all
+expect:
+  life: { P2: 19 }
+  zones:
+    exile: [Brainstorm]
+    P1.graveyard: [Lightning Bolt]

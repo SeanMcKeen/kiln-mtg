@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: "Consider: surveil 1, then draw"
+cr: ["701.25a", "121.1"]
+verifies: [Consider]
+players:
+  - battlefield: [Island]
+    hand: [Consider]
+    library: [Swamp, Murder]
+  - {}
+script:
+  - choose: Cast Consider
+  - choose: Pay with Island
+  - pass_all
+  - check:
+      decision: { player: P1, kind: choose_card, options: [Stop, Take Swamp] }
+  - choose: Take Swamp
+expect:
+  zones:
+    P1.graveyard: [Swamp, Consider]
+    P1.hand: [Murder]

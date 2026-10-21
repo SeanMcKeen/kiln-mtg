@@ -1,0 +1,13 @@
+scenario: mtg-scenario/1
+name: "Izzet Signet: pay {1} and tap for {U}{R}"
+cr: ["605.3a", "602.2b"]
+verifies: [Izzet Signet]
+players:
+  - battlefield: [Izzet Signet, Island]
+  - {}
+script:
+  - choose: "Activate Izzet Signet for {U}{R}"
+  - choose: Pay with Island
+expect:
+  pool: { P1: "{U}{R}" }
+  tapped: { Izzet Signet: true, Island: true }

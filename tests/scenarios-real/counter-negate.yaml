@@ -1,0 +1,22 @@
+scenario: mtg-scenario/1
+name: "Negate counters a noncreature spell"
+cr: ["701.6a"]
+verifies: [Negate]
+players:
+  - battlefield: [Island, Island, Island]
+    hand: [Divination]
+  - battlefield: [Island, Island]
+    hand: [Negate]
+script:
+  - choose: Cast Divination
+  - choose: Pay with Island, Island, Island
+  - pass: 1
+  - choose: Cast Negate
+    player: P2
+  - choose: Target Divination
+  - choose: Pay with Island, Island
+  - pass_all
+expect:
+  zones:
+    P1.graveyard: [Divination]
+    P1.hand: []

@@ -1,0 +1,27 @@
+scenario: mtg-scenario/1
+name: "Assassin's Trophy: destroy an opponent's permanent; its controller may fetch a basic land"
+cr: ["701.8a", "701.23b", "608.2d"]
+verifies: [Assassin's Trophy]
+players:
+  - battlefield: [Swamp, Forest, Sol Ring]
+    hand: [Assassin's Trophy]
+  - battlefield: [Thran Dynamo]
+    library: [Tundra, Island, Swamp]
+script:
+  - choose: Cast Assassin's Trophy
+  # Only an opponent's permanent is a legal target.
+  - check:
+      decision: { player: P1, kind: choose_target, options: [Target Thran Dynamo (P2)] }
+  - choose: Target Thran Dynamo (P2)
+  - choose: Pay with Swamp, Forest
+  - pass_all
+  - check:
+      decision: { player: P2, kind: optional, options: ["No", "Yes"] }
+  - choose: "Yes"
+  - check:
+      decision: { player: P2, kind: choose_card, options: [Stop, Find Island, Find Swamp] }
+  - choose: Find Island
+expect:
+  zones:
+    P2.battlefield: [Island]
+    P2.graveyard: [Thran Dynamo]

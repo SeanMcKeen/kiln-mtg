@@ -1,0 +1,18 @@
+scenario: mtg-scenario/1
+name: "Wasteland can target only nonbasic lands"
+cr: ["602.2", "602.2b", "601.2c", "205.4a", "701.8a"]
+verifies: [Wasteland]
+players:
+  - battlefield: [Wasteland]
+  - battlefield: [Island, Tropical Island]
+script:
+  - choose: Activate Wasteland ability 2
+  - check:
+      # Targets are chosen before costs are paid (CR 602.2b, 601.2c), so Wasteland can target itself.
+      decision: { player: P1, kind: choose_target, options: [Target Wasteland (P1), Target Tropical Island (P2)] }
+  - choose: Target Tropical Island (P2)
+  - pass_all
+expect:
+  zones:
+    P2.battlefield: [Island]
+    P2.graveyard: [Tropical Island]

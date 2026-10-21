@@ -827,7 +827,9 @@ dependencies = [
 name = "mtg-testkit"
 version = "0.1.0"
 dependencies = [
+ "mtg-cards",
  "mtg-core",
+ "mtg-data",
  "mtg-engine",
  "regex",
  "serde",

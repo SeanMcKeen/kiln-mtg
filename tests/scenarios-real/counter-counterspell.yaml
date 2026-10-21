@@ -1,0 +1,23 @@
+scenario: mtg-scenario/1
+name: "Counterspell counters a spell"
+cr: ["701.6a"]
+verifies: [Counterspell, Lightning Bolt]
+players:
+  - battlefield: [Mountain]
+    hand: [Lightning Bolt]
+  - battlefield: [Island, Island]
+    hand: [Counterspell]
+script:
+  - choose: Cast Lightning Bolt
+  - choose: Target P2
+  - choose: Pay with Mountain
+  - pass: 1
+  - choose: Cast Counterspell
+    player: P2
+  - choose: Target Lightning Bolt
+  - choose: Pay with Island, Island
+  - pass_all
+expect:
+  life: { P2: 20 }
+  zones:
+    P1.graveyard: [Lightning Bolt]

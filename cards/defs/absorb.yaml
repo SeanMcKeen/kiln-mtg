@@ -1,0 +1,9 @@
+card: Absorb
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { spell: {} } }]
+          effect:
+            seq:
+              - counter: { one: { target: 0 } }
+              - gain_life: { who: you, amount: 3 }

@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: "Verdant Catacombs fetches a Swamp or Forest card, including a dual land with those types"
+cr: ["602.2", "701.23b", "305.7"]
+verifies: [Verdant Catacombs]
+players:
+  - battlefield: [Verdant Catacombs]
+    library: [Plains, Island, Swamp, Mountain, Forest, Bayou]
+  - {}
+script:
+  - choose: Activate Verdant Catacombs ability 1
+  - check:
+      life: { P1: 19 }
+  - pass_all
+  - check:
+      decision: { player: P1, kind: choose_card, options: [Stop, Find Swamp, Find Forest, Find Bayou] }
+  - choose: Find Bayou
+expect:
+  zones:
+    P1.battlefield: [Bayou]
+    P1.graveyard: [Verdant Catacombs]

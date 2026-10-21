@@ -67,7 +67,21 @@ fn scenario_citations_exist() {
         return;
     }
     let tree = RuleTree::load(&cr).unwrap_or_else(|e| panic!("{e}"));
-    for f in files() {
+    // Real-card scenarios need the card DB to run, but their citations can always be checked.
+    let mut real: Vec<PathBuf> = std::fs::read_dir(root().join("tests/scenarios-real"))
+        .map(|d| {
+            d.filter_map(|e| e.ok().map(|e| e.path()))
+                .filter(|p| p.extension().is_some_and(|x| x == "yaml"))
+                .collect()
+        })
+        .unwrap_or_default();
+    real.sort();
+    assert!(
+        real.len() >= 100,
+        "expected the real-card scenarios, found {}",
+        real.len()
+    );
+    for f in files().into_iter().chain(real) {
         let s = scenario::load(&f).unwrap_or_else(|e| panic!("{e}"));
         for r in &s.cr {
             let id = r

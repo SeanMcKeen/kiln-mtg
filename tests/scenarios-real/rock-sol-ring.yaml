@@ -1,0 +1,18 @@
+scenario: mtg-scenario/1
+name: Sol Ring makes two colorless mana in one activation
+cr: ["605.3a", "106.4", "601.2g"]
+verifies: [Sol Ring]
+players:
+  - battlefield: [Sol Ring, Island]
+    hand: [Mind Stone]
+  - {}
+script:
+  - choose: Cast Mind Stone
+  - check:
+      decision: { player: P1, kind: pay_mana, options_include: [Pay with Sol Ring] }
+  - choose: Pay with Sol Ring
+  - pass_all
+expect:
+  zones:
+    P1.battlefield: [Sol Ring, Island, Mind Stone]
+  tapped: { Sol Ring: true, Island: false }

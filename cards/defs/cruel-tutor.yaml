@@ -1,0 +1,8 @@
+card: Cruel Tutor
+faces:
+  - abilities:
+      - spell:
+          effect:
+            seq:
+              - search: { who: you, filter: {}, count: 1, to: top_of_library, reveal: false }
+              - lose_life: { who: you, amount: 2 }

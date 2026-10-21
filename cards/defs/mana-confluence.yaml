@@ -1,0 +1,4 @@
+card: Mana Confluence
+faces:
+  - abilities:
+      - activated: { cost: [tap, { pay_life: 1 }], effect: { add_mana: { mana: { any_color: 1 } } } }

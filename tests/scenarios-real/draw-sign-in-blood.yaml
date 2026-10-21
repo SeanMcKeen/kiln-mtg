@@ -1,0 +1,17 @@
+scenario: mtg-scenario/1
+name: "Sign in Blood: target player draws two and loses 2 life"
+cr: ["115.1", "121.1", "119.3"]
+verifies: [Sign in Blood]
+players:
+  - battlefield: [Swamp, Swamp]
+    hand: [Sign in Blood]
+  - {}
+script:
+  - choose: Cast Sign in Blood
+  - choose: Target P2
+  - choose: Pay with Swamp, Swamp
+  - pass_all
+expect:
+  life: { P2: 18 }
+  zones:
+    P2.hand: [Test Wastes, Test Wastes]

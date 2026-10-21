@@ -1,0 +1,9 @@
+card: Smash to Smithereens
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { object: { types: [artifact] } } }]
+          effect:
+            seq:
+              - destroy: { one: { target: 0 } }
+              - deal_damage: { to: { player: { controller_of: { target: 0 } } }, amount: 3 }

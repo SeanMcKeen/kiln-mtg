@@ -1,0 +1,17 @@
+scenario: mtg-scenario/1
+name: "Beast Within destroys a permanent and its controller gets a 3/3 token"
+cr: ["701.8a", "111.2", "608.2h"]
+verifies: [Beast Within]
+players:
+  - battlefield: [Forest, Forest, Forest]
+    hand: [Beast Within]
+  - battlefield: [Sol Ring]
+script:
+  - choose: Cast Beast Within
+  - choose: Target Sol Ring (P2)
+  - choose: Pay with Forest, Forest, Forest
+  - pass_all
+expect:
+  zones:
+    P2.battlefield: [Beast Token]
+    P2.graveyard: [Sol Ring]

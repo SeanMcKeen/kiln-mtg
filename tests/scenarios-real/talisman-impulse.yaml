@@ -1,0 +1,17 @@
+scenario: mtg-scenario/1
+name: "Talisman of Impulse: {C} for free, or {R} or {G} for 1 damage"
+cr: ["605.3a", "605.3b", "120.3"]
+verifies: [Talisman of Impulse]
+players:
+  - battlefield: [Talisman of Impulse]
+  - {}
+script:
+  - check:
+      decision: { player: P1, kind: priority, options_include: ["Tap Talisman of Impulse for {C}", Tap Talisman of Impulse for mana] }
+  - choose: Tap Talisman of Impulse for mana
+  - check:
+      decision: { player: P1, kind: choose_mana, options: ["Add {R}", "Add {G}"] }
+  - choose: "Add {G}"
+expect:
+  pool: { P1: "{G}" }
+  life: { P1: 19 }
