@@ -13,7 +13,7 @@ Each question has an owner note and a target milestone. Move a question to **Res
 | # | Question | Notes | Target |
 |---|---|---|---|
 | Q1 | **Project name?** "mtg-rules-engine" is a working title. | Avoid WotC trademarks in the name (e.g. "Magic"). | M0 |
-| Q2 | Review the proposed ADRs: 0004 and 0005 (M2 evidence: ready to accept), 0009 (M1 evidence: ready to accept), 0008 and 0011 (M7/M8). Accept or amend? | [[ADR Index]] | now |
+| Q2 | Review ADR-0008 and ADR-0011 when M7/M8 produce evidence (0004, 0005, 0007 and 0009 were accepted on 2026-10-21). | [[ADR Index]] | M7 |
 | Q3 | Create the GitHub repo (public or private) and `git init`? | [[M0 Groundwork]] | M0 |
 | Q4 | Should deck *optimization* (suggesting swaps from sims) become a goal later? | Currently a non-goal ([[Scope & Non-Goals]]) | post-M9 |
 | Q5 | Arena-only digital mechanics (Alchemy) ever? | Non-goal for now | — |
@@ -30,11 +30,8 @@ Each question has an owner note and a target milestone. Move a question to **Res
 ## Cards
 | # | Question | Owner note | Target |
 |---|---|---|---|
-| Q20 | **Card definition approach.** Spike done ([[Card Definition Spike Results]]); D (hybrid) recommended. **Awaiting the user's decision.** M3 Phase B didn't need it (the engine runs the shared IR; YAML definitions served as the front-end for 123 verified cards), but the production parser and renderer lint wait for it. | [[ADR-0007 Card Definition Approach]] | M3 |
 | Q23 | "Spell commander" (5 cards) isn't in the 2026-06-19 CR. M1 treats it as CR 903.3a "can be your commander" text. Revisit when the CR adds it. | [[Commander]], [[CR Update Process]] | next CR |
-| Q24 | Use phase.rs's per-card coverage as a differential oracle? The spike wires it into `mtg dev card-spike --phase-coverage`; the recommendation is yes, for flagging disagreements only. | [[phase.rs Evaluation]] | M3 |
-| Q25 | **Where do real-card scenarios run?** Verified-card scenarios need characteristics (cost, type line, P/T) from the card DB, which isn't committed. M3 runs them only when `data/cache/current` or `MTG_CARD_DB` exists, so CI covers synthetic cards plus the real scenarios' CR citations (109 scenarios, 123 cards pass locally). Option: a CI job that downloads Scryfall bulk data at CI time, like the CR check does (nothing committed, but it adds network use and Scryfall's terms apply). | [[M3 Card Definitions v1]], [[Card Data Sources]] | M3 |
-| Q22 | DSL syntax for overrides. Spike evidence: the IR's own YAML form (single-key maps, strict schema) worked for 40 cards. Decided with ADR-0007. | [[Option - Hybrid IR]] | M3 |
+| Q25 | **Where do real-card scenarios run?** Verified-card scenarios need characteristics (cost, type line, P/T) from the card DB, which isn't committed. M3 runs them only when `data/cache/current` or `MTG_CARD_DB` exists, so CI covers synthetic cards plus the real scenarios' CR citations (109 scenarios, 123 cards pass locally). Option: a CI job that downloads Scryfall bulk data at CI time, like the CR check does (nothing committed, but it adds network use and Scryfall's terms apply). **Recommendation:** do that once a repository with CI exists (Q3), caching the download per day. Until then, local runs only. | [[M3 Card Definitions v1]], [[Card Data Sources]] | with Q3 |
 
 ## Simulation & policies
 | # | Question | Owner note | Target |
@@ -63,3 +60,6 @@ Each question has an owner note and a target milestone. Move a question to **Res
 | R11 | Payment plans (Q13) | Outcome-distinct plans (interchangeable sources grouped), capped at 32, plus a manual mode that offers only steps keeping the payment completable ([[M2 Core Game Loop]]) |
 | R13 | Castability: precise pre-check vs. lazy check with rewind (Q14) | **Precise pre-check.** M3 extends it to modes, alternative and additional costs, X, hybrid and Phyrexian symbols: each casting choice is offered only while a complete cast still exists, so CR 601.2e never fails and no rewind (CR 733) is needed. Mana and other costs are checked independently, which is exact because mana is paid first (CR 601.2g–h). Revisit if cost modifiers in M5 break independence ([[M3 Card Definitions v1]]) |
 | R12 | Scenario file syntax (part of Q22) | YAML via `yaml_serde`, matched by option label ([[Scenario File Format]]). Card-definition overrides stay open under Q22 |
+| R14 | Card definition approach (Q20) | **D, hybrid**: parser first, strict YAML overrides, named Rust escapes, mandatory renderer lint ([[ADR-0007 Card Definition Approach]], accepted 2026-10-21) |
+| R15 | DSL syntax for overrides (Q22) | The IR's own strict YAML form (single-key maps, `deny_unknown_fields`), as in `cards/defs/` (ADR-0007) |
+| R16 | phase.rs coverage as a differential oracle (Q24) | Yes, for flagging disagreements only; it never marks a card supported ([[phase.rs Evaluation]], accepted with ADR-0007) |

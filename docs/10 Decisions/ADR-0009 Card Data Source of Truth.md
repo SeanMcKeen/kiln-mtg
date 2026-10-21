@@ -1,13 +1,13 @@
 ---
 type: adr
-status: proposed
+status: accepted
 tags: [adr, card-data]
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # ADR-0009: Card Data Source of Truth
 
-## Decision (proposed)
+## Decision
 - **Primary source:** Scryfall bulk `oracle_cards`, plus `rulings` and `oracle_tags`. **Oracle ID** is the primary card key.
 - **Secondary:** MTGJSON (MIT, checksummed) for cross-checks and printings.
 - Name resolution handles duplicate names (40 cases in the 2026-10-20 data) by format legality and paper availability.
@@ -31,4 +31,4 @@ See [[Card Data Sources]] and [[Ingestion Pipeline]].
 - **Scryfall's `color_identity` isn't a pure CR 903.4 value.** It includes basic-land-type colors and is empty for some preview cards whose rules text has mana symbols. Validation uses the union with a recomputed value. That's a small caveat, not a reason to switch sources.
 - **MTGJSON cross-checks haven't been built yet.** They aren't needed for M1's exit criterion.
 
-**Status:** ready to accept. This is the user's call ([[12 Open Questions]] Q2).
+**Status: accepted (2026-10-21)** by the user, on this evidence.

@@ -1,14 +1,14 @@
 ---
 type: adr
-status: open
+status: accepted
 tags: [adr, card-definitions]
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # ADR-0007: Card Definition Approach
 
 ## Status
-**Open.** The user asked for this to be researched rather than decided up front. It's decided by the [[Card Definition Spike Plan]] in [[M3 Card Definitions v1]].
+**Accepted (2026-10-21): Option D, hybrid.** The user asked for this to be researched rather than decided up front, then approved the researched recommendation below.
 
 ## Context
 See [[Card Definitions Problem Statement]] and [[Oracle Text Corpus Analysis]]: ~32k Commander-legal cards, and 89% of distinct ability lines are unique, so composition is required.
@@ -26,7 +26,9 @@ See [[Card Definitions Problem Statement]] and [[Oracle Text Corpus Analysis]]: 
 - Never silently produce a blank card.
 
 ## Decision
-*Pending: the user decides.* The spike is done; data and scoring are in [[Card Definition Spike Results]].
+**Option D, hybrid IR**, with the shape listed under the recommendation: a compositional Oracle-text parser first, strict YAML overrides for the long tail, named Rust escapes only for truly unique cards, a mandatory renderer lint, and CR-cited scenarios for `verified`. Data and scoring are in [[Card Definition Spike Results]].
+
+Precedence when sources disagree: a YAML override replaces the parser's output for that card; an escape replaces only the ability it names. A card the parser can't fully cover, and that has no override, stays `unsupported`. It's never partly parsed.
 
 ## Recommendation after the spike (2026-10-21)
 **Option D, hybrid**, weighted score 4.10. The other options scored A 3.40, B 3.50, C 2.70 and E 3.10.
