@@ -235,7 +235,19 @@ fn effect(e: &Effect) -> Check {
         },
         Effect::WinGame(who) => player(who),
         Effect::EntersTapped => Err("\"enters tapped\" is a replacement effect (M4)".into()),
-        Effect::CreateToken { .. } => Err("tokens (M3 B6)".into()),
+        Effect::CreateToken {
+            token,
+            count,
+            controller,
+        } => {
+            crate::card::token_def(token).map_err(|e| e.reason)?;
+            player(controller)?;
+            quantity(count)
+        }
+        Effect::PutCounters { what, amount, .. } | Effect::RemoveCounters { what, amount, .. } => {
+            set(what)?;
+            quantity(amount)
+        }
         Effect::Amass { .. } => Err("amass (later)".into()),
         Effect::Delayed { .. } => Err("delayed triggered abilities (M4)".into()),
         Effect::Escape(x) => Err(format!("escape function {:?}", x.function)),
@@ -276,7 +288,9 @@ fn quantity(q: &Quantity) -> Check {
     match q {
         Quantity::Fixed(_) => Ok(()),
         Quantity::Expr(e) => match e {
-            QuantityExpr::PowerOf(o) | QuantityExpr::ManaValueOf(o) => object(o),
+            QuantityExpr::PowerOf(o)
+            | QuantityExpr::ManaValueOf(o)
+            | QuantityExpr::CountersOn { what: o, .. } => object(o),
             QuantityExpr::CardsInLibrary(p) => player(p),
             QuantityExpr::Plus(q, _) => quantity(q),
             QuantityExpr::OpponentsDealtCombatDamageThisTurn => {

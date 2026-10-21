@@ -9,6 +9,7 @@ pub mod builder;
 pub mod card;
 mod cast;
 mod combat;
+mod counters;
 pub mod decision;
 pub mod decks;
 mod effects;

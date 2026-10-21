@@ -10,6 +10,8 @@ use std::collections::BTreeMap;
 use mtg_core::{ObjectId, PlayerId};
 use serde::{Deserialize, Serialize};
 
+use mtg_cards::ir::CounterKind;
+
 use crate::card::Keywords;
 use crate::decision::DecisionKind;
 use crate::engine::{Game, Task};
@@ -31,6 +33,19 @@ struct SbaChecks {
     losers: Vec<(PlayerId, LossReason)>,
     /// Creatures to put into the graveyard; `true` = destroyed (CR 704.5g–h) rather than put (CR 704.5f).
     dying: Vec<(ObjectId, bool)>,
+    /// Tokens outside the battlefield (CR 704.5d).
+    tokens: Vec<ObjectId>,
+    /// Permanents with both +1/+1 and -1/-1 counters, and the pairs to remove (CR 704.5q).
+    pairs: Vec<(ObjectId, u32)>,
+}
+
+impl SbaChecks {
+    fn any(&self) -> bool {
+        !self.losers.is_empty()
+            || !self.dying.is_empty()
+            || !self.tokens.is_empty()
+            || !self.pairs.is_empty()
+    }
 }
 
 impl Game {
@@ -80,13 +95,17 @@ impl Game {
                 dying.push((id, true));
             }
         }
-        SbaChecks { losers, dying }
+        SbaChecks {
+            losers,
+            dying,
+            tokens: self.tokens_off_battlefield(),
+            pairs: self.counter_pairs(),
+        }
     }
 
     /// Whether any SBA would be performed now (used by cleanup, CR 514.3a).
     pub(crate) fn sba_pending(&self) -> bool {
-        let c = self.sba_checks();
-        !c.losers.is_empty() || !c.dying.is_empty() || !self.legend_groups().is_empty()
+        self.sba_checks().any() || !self.legend_groups().is_empty()
     }
 
     pub(crate) fn sba_step(&mut self, mut t: SbaTask) {
@@ -100,12 +119,25 @@ impl Game {
             return;
         }
         // Perform everything simultaneously (CR 704.3).
-        let SbaChecks { losers, dying } = self.sba_checks();
+        let checks = self.sba_checks();
         let mut legend_out: Vec<ObjectId> = Vec::new();
         for (_, group) in self.legend_groups() {
             legend_out.extend(group.into_iter().filter(|id| !t.kept.contains(id)));
         }
-        let performed = !losers.is_empty() || !dying.is_empty() || !legend_out.is_empty();
+        let performed = checks.any() || !legend_out.is_empty();
+        let SbaChecks {
+            losers,
+            dying,
+            tokens,
+            pairs,
+        } = checks;
+        for id in tokens {
+            self.cease_to_exist(id);
+        }
+        for (id, n) in pairs {
+            self.remove_counters(id, CounterKind::PlusOne, n);
+            self.remove_counters(id, CounterKind::MinusOne, n);
+        }
         for (id, destroyed) in dying {
             let Some(owner) = self.obj(id).map(|o| o.owner) else {
                 continue;

@@ -3,6 +3,7 @@
 //! An append-only log; each event names the rule behind it. Proposed events
 //! and replacement effects arrive in M4.
 
+use mtg_cards::ir::CounterKind;
 use mtg_core::{CrRef, ObjectId, PlayerId};
 use serde::{Deserialize, Serialize};
 
@@ -141,6 +142,23 @@ pub enum Event {
         player: PlayerId,
         choice: String,
     },
+    /// Counters were put on an object (CR 122.6).
+    CountersPut {
+        object: ObjectId,
+        counter: CounterKind,
+        amount: u32,
+    },
+    CountersRemoved {
+        object: ObjectId,
+        counter: CounterKind,
+        amount: u32,
+    },
+    /// A token was created (CR 111.2).
+    TokenCreated {
+        player: PlayerId,
+        object: ObjectId,
+        def: DefId,
+    },
     /// An effect says this player wins the game (CR 104.2b).
     WonByEffect {
         player: PlayerId,
@@ -188,6 +206,8 @@ impl Event {
             Event::Countered { .. } => "701.6a",
             Event::Chose { .. } => "608.2d",
             Event::WonByEffect { .. } => "104.2b",
+            Event::CountersPut { .. } | Event::CountersRemoved { .. } => "122.1",
+            Event::TokenCreated { .. } => "111.2",
             Event::PlayerLost { .. } => "104.3",
             Event::PlayerLeft { .. } => "800.4a",
             Event::GameOver => "104.1",

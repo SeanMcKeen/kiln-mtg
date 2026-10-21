@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: Removing counters is a cost that needs the counters to be there
+cr: ["122.1", "118.3", "602.2b"]
+players:
+  - battlefield: [Test Battery]
+  - {}
+script:
+  - check:
+      decision: { player: P1, kind: priority, options_include: [Activate Test Battery ability 1], options_exclude: [Activate Test Battery ability 2] }
+  - choose: Activate Test Battery ability 1
+  - pass_all
+  - check:
+      counters:
+        Test Battery: { charge: 1 }
+  - choose: Activate Test Battery ability 2
+  - pass_all
+expect:
+  life: { P1: 22 }
+  counters:
+    Test Battery: { charge: 0 }

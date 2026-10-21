@@ -417,3 +417,56 @@
   abilities:
     - activated: { cost: [{ mana: "{2}" }], timing: sorcery, effect: { draw: { who: you, amount: 1 } } }
     - activated: { cost: [{ mana: "{1}" }], once_per_turn: true, effect: { gain_life: { who: you, amount: 1 } } }
+
+# ---- counters and tokens (M3 B6) ---------------------------------------------
+
+- name: Test Treasure Maker
+  cost: "{1}{R}"
+  types: Sorcery
+  abilities:
+    - spell:
+        effect: { create_token: { token: { predefined: Treasure }, count: 2, controller: you } }
+
+- name: Test Clue Maker
+  cost: "{U}"
+  types: Instant
+  abilities:
+    - spell:
+        effect: { create_token: { token: { predefined: Clue }, count: 1, controller: you } }
+
+- name: Test Beast Gift
+  cost: "{G}"
+  types: Instant
+  abilities:
+    - spell:
+        targets: [{ what: { object: { types: [artifact] } } }]
+        effect:
+          seq:
+            - destroy: { one: { target: 0 } }
+            - create_token:
+                token: { creature: { power: 3, toughness: 3, colors: G, subtypes: [Beast] } }
+                count: 1
+                controller: { controller_of: { target: 0 } }
+
+- name: Test Growth Counter
+  cost: "{G}"
+  types: Sorcery
+  abilities:
+    - spell:
+        targets: [{ what: { object: { types: [creature] } } }]
+        effect: { put_counters: { what: { one: { target: 0 } }, counter: "+1/+1", amount: 2 } }
+
+- name: Test Wither
+  cost: "{B}"
+  types: Instant
+  abilities:
+    - spell:
+        targets: [{ what: { object: { types: [creature] } } }]
+        effect: { put_counters: { what: { one: { target: 0 } }, counter: "-1/-1", amount: 2 } }
+
+- name: Test Battery
+  cost: "{1}"
+  types: Artifact
+  abilities:
+    - activated: { cost: [tap], effect: { put_counters: { what: { one: this }, counter: charge, amount: 1 } } }
+    - activated: { cost: [{ remove_counters: { counter: charge, amount: 1 } }], effect: { gain_life: { who: you, amount: 2 } } }

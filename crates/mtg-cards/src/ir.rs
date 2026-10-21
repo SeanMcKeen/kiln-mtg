@@ -452,6 +452,18 @@ pub enum Effect {
         count: Quantity,
         controller: PlayerRef,
     },
+    /// "Put N [kind] counters on [objects]" (CR 122.1, 122.6).
+    PutCounters {
+        what: ObjectSet,
+        counter: CounterKind,
+        amount: Quantity,
+    },
+    /// "Remove N [kind] counters from [objects]" (as many as there are, CR 609.3).
+    RemoveCounters {
+        what: ObjectSet,
+        counter: CounterKind,
+        amount: Quantity,
+    },
     /// CR 701.47
     Amass {
         subtype: String,
@@ -545,6 +557,34 @@ pub enum Destination {
 pub enum TokenSpec {
     /// A predefined token (CR 111.10): Treasure, Clue, Food…
     Predefined(String),
+    /// A creature token with stated characteristics (CR 111.4: its name is
+    /// its subtypes plus "Token" unless `name` says otherwise).
+    Creature {
+        power: i32,
+        toughness: i32,
+        /// WUBRG letters; empty = colorless.
+        #[serde(default)]
+        colors: String,
+        subtypes: Vec<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        keywords: Vec<Keyword>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        name: Option<String>,
+    },
+}
+
+/// Kinds of counters (CR 122) the IR names.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub enum CounterKind {
+    #[serde(rename = "+1/+1")]
+    PlusOne,
+    #[serde(rename = "-1/-1")]
+    MinusOne,
+    #[serde(rename = "charge")]
+    Charge,
+    #[serde(rename = "loyalty")]
+    Loyalty,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -726,6 +766,11 @@ pub enum QuantityExpr {
     /// A remembered value.
     Var(String),
     Plus(Box<Quantity>, i64),
+    /// The number of counters of a kind on an object.
+    CountersOn {
+        what: ObjectRef,
+        counter: CounterKind,
+    },
 }
 
 /// Conditions (intervening ifs, "if you control …").
@@ -768,6 +813,21 @@ pub enum CostPart {
         what: ObjectFilter,
         remember: String,
     },
+    /// Remove N counters of a kind from this object (CR 122).
+    RemoveCounters {
+        counter: CounterKind,
+        amount: u32,
+    },
+}
+
+impl Effect {
+    /// Calls `f` on this effect and every nested effect, depth first.
+    pub fn walk(&self, f: &mut impl FnMut(&Effect)) {
+        f(self);
+        for c in children(self) {
+            c.walk(f);
+        }
+    }
 }
 
 impl CardIr {

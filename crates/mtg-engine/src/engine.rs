@@ -173,6 +173,8 @@ pub struct Game {
     pub(crate) pt_effects: Vec<(ObjectId, i32, i32)>,
     /// "Activate only once each turn" abilities activated this turn (CR 602.5b).
     pub(crate) activated_this_turn: Vec<(ObjectId, u8)>,
+    /// Counters on objects (CR 122), sorted by object and kind.
+    pub(crate) counters: Vec<(ObjectId, ir::CounterKind, u32)>,
 }
 
 impl Game {
@@ -224,6 +226,7 @@ impl Game {
             event_count: 0,
             pt_effects: Vec::new(),
             activated_this_turn: Vec::new(),
+            counters: Vec::new(),
         };
         for (seat, deck) in setup.decks.iter().enumerate() {
             let id = PlayerId(u8::try_from(seat).unwrap_or(0));
@@ -413,6 +416,9 @@ impl Game {
         if !self.activated_this_turn.is_empty() {
             self.activated_this_turn.hash(&mut h);
         }
+        if !self.counters.is_empty() {
+            self.counters.hash(&mut h);
+        }
         h.finish()
     }
 
@@ -465,25 +471,28 @@ impl Game {
     }
 
     /// Effective power and toughness: printed values plus until-end-of-turn
-    /// changes (layer 7c; M3 has no other layers yet).
+    /// changes and +1/+1 and -1/-1 counters (all layer 7c, CR 613.4c, which
+    /// commute; M3 has no other layers yet).
     pub(crate) fn power(&self, id: ObjectId) -> i32 {
         let base = self.obj_def(id).and_then(|d| d.power).unwrap_or(0);
-        base + self
-            .pt_effects
-            .iter()
-            .filter(|(o, _, _)| *o == id)
-            .map(|(_, p, _)| p)
-            .sum::<i32>()
+        base + self.counter_pt(id)
+            + self
+                .pt_effects
+                .iter()
+                .filter(|(o, _, _)| *o == id)
+                .map(|(_, p, _)| p)
+                .sum::<i32>()
     }
 
     pub(crate) fn toughness(&self, id: ObjectId) -> i32 {
         let base = self.obj_def(id).and_then(|d| d.toughness).unwrap_or(0);
-        base + self
-            .pt_effects
-            .iter()
-            .filter(|(o, _, _)| *o == id)
-            .map(|(_, _, t)| t)
-            .sum::<i32>()
+        base + self.counter_pt(id)
+            + self
+                .pt_effects
+                .iter()
+                .filter(|(o, _, _)| *o == id)
+                .map(|(_, _, t)| t)
+                .sum::<i32>()
     }
 
     pub(crate) fn keywords(&self, id: ObjectId) -> Keywords {
@@ -537,9 +546,13 @@ impl Game {
     }
 
     /// Removes `id` from its zone list (not from the arena).
+    pub(crate) fn detach_object(&mut self, id: ObjectId, zone: ZoneId) {
+        self.detach(id, zone);
+    }
+
     fn detach(&mut self, id: ObjectId, zone: ZoneId) {
         if zone == ZoneId::Stack {
-            self.stack.retain(|s| s.object != id);
+            self.stack.retain(|s| !(s.is_spell() && s.object == id));
         } else if zone != ZoneId::Command {
             self.zone_vec_mut(zone).retain(|x| *x != id);
         }
@@ -557,6 +570,7 @@ impl Game {
         let old = *self.objects.get(id)?;
         self.detach(id, old.zone);
         self.objects.free(id);
+        self.drop_counters(id);
         let controller = match to {
             ZoneId::Library(p) | ZoneId::Hand(p) | ZoneId::Graveyard(p) => p,
             _ => old.controller,
@@ -658,6 +672,7 @@ impl Game {
         for (id, zone) in owned {
             self.detach(id, zone);
             self.objects.free(id);
+            self.drop_counters(id);
         }
         let pl = self.player_mut(p);
         pl.library.clear();

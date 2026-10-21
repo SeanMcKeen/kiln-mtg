@@ -831,6 +831,7 @@ dependencies = [
  "mtg-engine",
  "regex",
  "serde",
+ "serde_json",
  "thiserror",
  "yaml_serde",
 ]

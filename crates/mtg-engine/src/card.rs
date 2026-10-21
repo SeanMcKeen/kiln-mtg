@@ -299,6 +299,8 @@ pub struct CardDef {
     /// Derived: for a modal spell, a bitmask per mode of the target slots it
     /// refers to (CR 601.2c: only the chosen modes' targets are required).
     pub mode_slots: SmallVec<[u32; 4]>,
+    /// A token's definition (CR 111): never in a deck, never a nameable card (CR 201.4).
+    pub token: bool,
 }
 
 /// Bitmask of the target slots an effect refers to.
@@ -385,6 +387,7 @@ impl CardDef {
             keywords,
             mana_abilities,
             mode_slots,
+            token: false,
         };
         crate::support::check(&def).map_err(|reason| Unsupported {
             name: def.name.clone(),
@@ -666,6 +669,116 @@ impl CardDef {
 pub struct CardPool {
     defs: Vec<CardDef>,
     by_name: BTreeMap<String, DefId>,
+    /// Token definitions by [`token_key`] (CR 111): added for every token a
+    /// card in the pool can create.
+    #[serde(default)]
+    tokens: BTreeMap<String, DefId>,
+}
+
+/// The pool key of a token spec.
+pub fn token_key(spec: &ir::TokenSpec) -> String {
+    serde_json::to_string(spec).unwrap_or_default()
+}
+
+/// Every token spec an ability list can create.
+fn token_specs(abilities: &[Ability]) -> Vec<ir::TokenSpec> {
+    let mut out = Vec::new();
+    for a in abilities {
+        let e = match a {
+            Ability::Spell(s) => &s.effect,
+            Ability::Activated(x) => &x.effect,
+            Ability::Triggered(t) => &t.effect,
+            _ => continue,
+        };
+        e.walk(&mut |e| {
+            if let ir::Effect::CreateToken { token, .. } = e {
+                out.push(token.clone());
+            }
+        });
+    }
+    out
+}
+
+/// A token's definition (CR 111.4, 111.10).
+pub fn token_def(spec: &ir::TokenSpec) -> Result<CardDef, Unsupported> {
+    let sacrifice_this = || CostPart::Sacrifice(ir::ObjectSet::One(ir::ObjectRef::This));
+    let activated = |cost: Vec<CostPart>, effect: ir::Effect| {
+        Ability::Activated(ActivatedAbility {
+            cost,
+            targets: Vec::new(),
+            effect,
+            timing: ir::Timing::Any,
+            once_per_turn: false,
+        })
+    };
+    let (ch, abilities) = match spec {
+        ir::TokenSpec::Predefined(name) => {
+            let ability = match name.as_str() {
+                // CR 111.10a
+                "Treasure" => activated(
+                    vec![CostPart::Tap, sacrifice_this()],
+                    ir::Effect::AddMana {
+                        mana: ManaSpec::AnyColor(Quantity::Fixed(1)),
+                        spend_only_on: None,
+                    },
+                ),
+                // CR 111.10b
+                "Food" => activated(
+                    vec![
+                        CostPart::Mana("{2}".into()),
+                        CostPart::Tap,
+                        sacrifice_this(),
+                    ],
+                    ir::Effect::GainLife {
+                        who: ir::PlayerRef::You,
+                        amount: Quantity::Fixed(3),
+                    },
+                ),
+                // CR 111.10f
+                "Clue" => activated(
+                    vec![CostPart::Mana("{2}".into()), sacrifice_this()],
+                    ir::Effect::Draw {
+                        who: ir::PlayerRef::You,
+                        amount: Quantity::Fixed(1),
+                    },
+                ),
+                other => {
+                    return Err(Unsupported {
+                        name: other.to_owned(),
+                        reason: "predefined token the engine doesn't define yet".into(),
+                    });
+                }
+            };
+            (
+                synthetic(name, None, &format!("Artifact — {name}"), None),
+                vec![ability],
+            )
+        }
+        ir::TokenSpec::Creature {
+            power,
+            toughness,
+            colors,
+            subtypes,
+            keywords,
+            name,
+        } => {
+            let subtypes_text = subtypes.join(" ");
+            let name = name
+                .clone()
+                .unwrap_or_else(|| format!("{subtypes_text} Token"));
+            let mut ch = synthetic(
+                &name,
+                None,
+                &format!("Creature — {subtypes_text}"),
+                Some((*power, *toughness)),
+            );
+            ch.colors = colors.parse().unwrap_or(Colors::COLORLESS);
+            (ch, keywords.iter().cloned().map(Ability::Keyword).collect())
+        }
+    };
+    let mut def = CardDef::new(ch, abilities)?;
+    def.token = true;
+    Ok(def)
 }
 
 impl CardPool {
@@ -674,14 +787,43 @@ impl CardPool {
     }
 
     /// Adds a definition (or returns the existing id for that name).
+    /// Also adds definitions for the tokens the card can create. A token the
+    /// engine can't define makes the card unsupported, so callers building
+    /// pools from real cards should use [`CardPool::try_add`].
     pub fn add(&mut self, def: CardDef) -> DefId {
+        self.try_add(def).unwrap_or_else(|e| panic!("{e}"))
+    }
+
+    /// Adds a definition and the tokens it can create (or returns the
+    /// existing id for that name).
+    pub fn try_add(&mut self, def: CardDef) -> Result<DefId, Unsupported> {
         if let Some(id) = self.by_name.get(&def.name) {
-            return *id;
+            return Ok(*id);
         }
+        let tokens: Vec<(String, CardDef)> = token_specs(&def.abilities)
+            .iter()
+            .filter(|s| !self.tokens.contains_key(&token_key(s)))
+            .map(|s| Ok((token_key(s), token_def(s)?)))
+            .collect::<Result<_, Unsupported>>()?;
+        let id = self.push(def);
+        self.by_name
+            .insert(self.defs[id.0 as usize].name.clone(), id);
+        for (key, t) in tokens {
+            let tid = self.push(t);
+            self.tokens.insert(key, tid);
+        }
+        Ok(id)
+    }
+
+    fn push(&mut self, def: CardDef) -> DefId {
         let id = DefId(u32::try_from(self.defs.len()).unwrap_or(u32::MAX));
-        self.by_name.insert(def.name.clone(), id);
         self.defs.push(def);
         id
+    }
+
+    /// The definition of a token spec, added when a card that creates it was added.
+    pub fn token(&self, spec: &ir::TokenSpec) -> Option<DefId> {
+        self.tokens.get(&token_key(spec)).copied()
     }
 
     pub fn get(&self, id: DefId) -> &CardDef {

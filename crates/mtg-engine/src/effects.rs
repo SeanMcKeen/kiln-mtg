@@ -530,7 +530,12 @@ impl Game {
 
     /// CR 201.4: names of cards (never tokens) in this game's pool, then "a name not in this game".
     fn nameable(&self) -> Vec<Option<DefId>> {
-        let mut v: Vec<Option<DefId>> = self.pool.iter().map(|(id, _)| Some(id)).collect();
+        let mut v: Vec<Option<DefId>> = self
+            .pool
+            .iter()
+            .filter(|(_, d)| !d.token)
+            .map(|(id, _)| Some(id))
+            .collect();
         v.push(None);
         v
     }
@@ -895,9 +900,40 @@ impl Game {
                     self.win_by_effect(p);
                 }
             }
+            Effect::PutCounters {
+                what,
+                counter,
+                amount,
+            } => {
+                let n = self.amount(&t.ctx, amount);
+                for id in self.set_now(&t.ctx, what) {
+                    self.add_counters(id, *counter, n);
+                }
+            }
+            Effect::RemoveCounters {
+                what,
+                counter,
+                amount,
+            } => {
+                let n = self.amount(&t.ctx, amount);
+                for id in self.set_now(&t.ctx, what) {
+                    self.remove_counters(id, *counter, n);
+                }
+            }
+            Effect::CreateToken {
+                token,
+                count,
+                controller,
+            } => {
+                let n = self.amount(&t.ctx, count);
+                if let (Some(def), Some(p)) =
+                    (self.pool.token(token), self.player_ref(&t.ctx, controller))
+                {
+                    self.create_tokens(def, p, n);
+                }
+            }
             // `support::check` rejects these until their phase lands.
             Effect::EntersTapped
-            | Effect::CreateToken { .. }
             | Effect::Amass { .. }
             | Effect::Delayed { .. }
             | Effect::Escape(_) => {
@@ -1041,6 +1077,9 @@ impl Game {
                     .find(|(k, _)| k == name)
                     .map_or(0, |(_, v)| *v),
                 QuantityExpr::Plus(q, n) => self.quantity(ctx, q) + n,
+                QuantityExpr::CountersOn { what, counter } => self
+                    .object_ref(ctx, what)
+                    .map_or(0, |id| i64::from(self.counters_on(id, *counter))),
                 // Rejected by `support::check` until combat history is tracked (M4).
                 QuantityExpr::OpponentsDealtCombatDamageThisTurn => 0,
             },
@@ -1689,6 +1728,9 @@ impl Game {
                     >= *count as usize
             }
             CostPart::Exile { what, .. } => !self.own_permanents(ctx, who, what).is_empty(),
+            CostPart::RemoveCounters { counter, amount } => {
+                self.counters_on(ctx.source, *counter) >= *amount
+            }
         })
     }
 
@@ -1789,6 +1831,10 @@ impl Game {
                     count,
                     AfterPick::Exile { remember: None },
                 )));
+                Flow::Continue
+            }
+            CostPart::RemoveCounters { counter, amount } => {
+                self.remove_counters(t.ctx.source, counter, amount);
                 Flow::Continue
             }
             CostPart::Exile { what, remember } => {

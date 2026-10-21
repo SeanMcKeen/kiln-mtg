@@ -5,6 +5,7 @@
 //! counts of hidden zones. Hidden objects' ids are never exposed, because
 //! ids could otherwise correlate with card identities (Design Principle 5).
 
+use mtg_cards::ir::CounterKind;
 use mtg_core::{ObjectId, PlayerId};
 use serde::Serialize;
 
@@ -34,10 +35,15 @@ pub struct VisibleObject {
     pub zone: ZoneId,
     pub tapped: bool,
     pub damage: u32,
+    /// Effective on the battlefield; printed elsewhere.
     pub power: Option<i32>,
     pub toughness: Option<i32>,
     pub attacking: Option<PlayerId>,
     pub blocking: Option<ObjectId>,
+    /// CR 122.
+    pub counters: Vec<(CounterKind, u32)>,
+    /// CR 111.
+    pub token: bool,
 }
 
 /// A spell or ability on the stack (public, CR 400.2).
@@ -109,7 +115,13 @@ impl Game {
             .chain(&snap.exile)
             .map(|o| o.id)
             .collect();
-        exposed.extend(snap.stack.iter().map(|e| e.object));
+        // An ability's source may have left play (CR 113.7a); only spells are stack objects.
+        exposed.extend(
+            snap.stack
+                .iter()
+                .filter(|e| e.ability.is_none())
+                .map(|e| e.object),
+        );
         exposed.extend(snap.graveyards.iter().flatten().map(|o| o.id));
         for id in exposed {
             let Some(o) = self.obj(id) else {
@@ -356,10 +368,24 @@ impl<'g> PlayerView<'g> {
             zone: o.zone,
             tapped: o.tapped,
             damage: o.damage,
-            power: def.power,
-            toughness: def.toughness,
+            power: def.power.map(|p| {
+                if o.zone == ZoneId::Battlefield {
+                    self.game.power(id)
+                } else {
+                    p
+                }
+            }),
+            toughness: def.toughness.map(|t| {
+                if o.zone == ZoneId::Battlefield {
+                    self.game.toughness(id)
+                } else {
+                    t
+                }
+            }),
             attacking: combat.and_then(|c| c.attacker(id)).map(|a| a.defending),
             blocking: combat.and_then(|c| c.blocks.iter().find(|(b, _)| *b == id).map(|(_, a)| *a)),
+            counters: self.game.counters_of(id),
+            token: def.token,
         })
     }
 

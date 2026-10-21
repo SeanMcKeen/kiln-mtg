@@ -143,6 +143,10 @@ pub struct Expect {
     /// `P1` → the top cards of that player's library, top first, in order.
     #[serde(default)]
     pub library_top: BTreeMap<String, Vec<String>>,
+    /// Card name → counter kind (`+1/+1`, `-1/-1`, `charge`, `loyalty`) →
+    /// count, for the first permanent with that name. Unlisted kinds aren't checked.
+    #[serde(default)]
+    pub counters: BTreeMap<String, BTreeMap<String, u32>>,
     /// Card name → expected tapped state, for the first permanent with that name.
     #[serde(default)]
     pub tapped: BTreeMap<String, bool>,
@@ -497,6 +501,33 @@ fn check_expect(game: &Game, e: &Expect, at: &str) -> Result<(), ScenarioError> 
             return Err(fail(format!(
                 "{p}'s library top is {actual:?}, expected {want:?}"
             )));
+        }
+    }
+    for (name, want) in &e.counters {
+        let found = game
+            .objects_in(ZoneId::Battlefield)
+            .into_iter()
+            .find(|id| game.object_def(*id).is_some_and(|d| &d.name == name));
+        let Some(id) = found else {
+            return Err(fail(format!("no permanent named {name:?}")));
+        };
+        let have = game.counters_of(id);
+        for (kind, n) in want {
+            let actual = have
+                .iter()
+                .find(|(k, _)| {
+                    serde_json::to_value(k)
+                        .ok()
+                        .and_then(|v| v.as_str().map(str::to_owned))
+                        .as_deref()
+                        == Some(kind.as_str())
+                })
+                .map_or(0, |(_, c)| *c);
+            if actual != *n {
+                return Err(fail(format!(
+                    "{name} has {actual} {kind} counters, expected {n}"
+                )));
+            }
         }
     }
     for (name, tapped) in &e.tapped {

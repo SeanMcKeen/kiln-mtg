@@ -1,0 +1,21 @@
+scenario: mtg-scenario/1
+name: +1/+1 and -1/-1 counters on one permanent are removed in pairs
+cr: ["704.5q", "122.3"]
+players:
+  - battlefield: [Test Forest, Test Swamp, Test Bear]
+    hand: [Test Growth Counter, Test Wither]
+  - {}
+script:
+  - choose: Cast Test Growth Counter
+  - choose: Target Test Bear (P1)
+  - choose: Pay with Test Forest
+  - pass_all
+  - choose: Cast Test Wither
+  - choose: Target Test Bear (P1)
+  - choose: Pay with Test Swamp
+  - pass_all
+expect:
+  counters:
+    Test Bear: { "+1/+1": 0, "-1/-1": 0 }
+  zones:
+    P1.battlefield: [Test Forest, Test Swamp, Test Bear]
