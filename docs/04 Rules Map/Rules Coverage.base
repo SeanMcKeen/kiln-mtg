@@ -1,0 +1,37 @@
+# Rules coverage tracker: every subsystem spec, grouped by milestone.
+# Subsystem notes carry `cr`, `impl_status` (not-started | in-progress | implemented | verified), `milestone`.
+filters:
+  and:
+    - 'type == "subsystem"'
+    - not:
+        - file.inFolder("_templates")
+
+properties:
+  impl_status:
+    displayName: "Implementation"
+  cr:
+    displayName: "CR sections"
+  milestone:
+    displayName: "Milestone"
+
+views:
+  - type: table
+    name: "By milestone"
+    order:
+      - file.name
+      - milestone
+      - impl_status
+      - cr
+      - status
+    groupBy:
+      property: milestone
+      direction: ASC
+  - type: table
+    name: "By implementation status"
+    order:
+      - file.name
+      - impl_status
+      - milestone
+    groupBy:
+      property: impl_status
+      direction: ASC

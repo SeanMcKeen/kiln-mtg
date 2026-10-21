@@ -1,0 +1,17 @@
+# Wizards of the Coast / Scryfall / MTGJSON content is fetched locally, never committed.
+docs/_external/
+data/cache/
+
+# Obsidian per-user state
+docs/.obsidian/workspace*
+docs/.obsidian/cache
+.trash/
+
+# Rust (future)
+target/
+**/*.rs.bk
+
+# Simulation outputs (future)
+runs/
+
+.DS_Store

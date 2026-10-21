@@ -1,0 +1,17 @@
+# All ADRs with their status.
+filters:
+  and:
+    - 'type == "adr"'
+    - not:
+        - file.inFolder("_templates")
+views:
+  - type: table
+    name: "ADRs"
+    order:
+      - file.name
+      - status
+      - decided
+      - updated
+    groupBy:
+      property: status
+      direction: ASC
