@@ -50,21 +50,25 @@ pub(crate) fn check(def: &CardDef) -> Check {
                 spell(s)?;
             }
             Ability::Activated(x) if is_mana_ability(x) => {
-                if x.cost != [CostPart::Tap] || x.timing != Timing::Any || x.once_per_turn {
-                    return Err("mana abilities with costs other than {T} (M3 B4)".into());
+                // CR 605: mana abilities resolve immediately and can't be restricted
+                // to sorcery timing in the IR's sense; their output was checked
+                // when the definition was built.
+                if x.timing != Timing::Any || x.once_per_turn {
+                    return Err("mana abilities with timing restrictions".into());
                 }
-                let simple = matches!(
-                    &x.effect,
-                    Effect::AddMana {
-                        spend_only_on: None,
-                        ..
-                    }
-                );
-                if !simple || !def.mana_abilities.iter().all(|m| m.single_type().is_some()) {
-                    return Err("mana abilities that make more than one fixed mana (M3 B4)".into());
-                }
+                cast_cost(&x.cost)?;
+                effect(&x.effect)?;
             }
-            Ability::Activated(_) => return Err("non-mana activated abilities (M3 B4)".into()),
+            Ability::Activated(x) => {
+                if matches!(x.effect, Effect::Modal { .. }) {
+                    return Err("modal activated abilities".into());
+                }
+                if x.targets.iter().any(|t| t.up_to == Some(0)) {
+                    return Err("a target slot that allows zero targets".into());
+                }
+                cast_cost(&x.cost)?;
+                effect(&x.effect)?;
+            }
             Ability::Triggered(_) => return Err("triggered abilities (M4)".into()),
             Ability::Static(StaticAbility {
                 effect: StaticEffect::Rule(RuleMod::CantBeCountered),

@@ -205,15 +205,18 @@ impl Keywords {
     }
 }
 
+/// Mana by [`ManaType`] index (W U B R G C).
+pub type ManaBag = [u8; 6];
+
 /// A mana ability (CR 605.1a) of a definition, with its output precomputed.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ManaAbility {
     /// Index into [`CardDef::abilities`].
     pub ability: u8,
-    /// Ways the ability's mana can come out: one alternative is chosen per
-    /// activation, and each unit of it may be any type in its mask.
-    pub alternatives: SmallVec<[SmallVec<[ManaUnit; 2]>; 1]>,
-    /// The cost is exactly {T}, so automatic payment plans may use it (B-D8).
+    /// Every distinct outcome of one activation, in WUBRG order.
+    pub bags: SmallVec<[ManaBag; 1]>,
+    /// The cost is exactly {T} and the effect needs no choices besides the
+    /// mana, so automatic payment plans and payability checks may use it (B-D8).
     pub tap_only: bool,
 }
 
@@ -221,16 +224,46 @@ impl ManaAbility {
     /// The single mana type this ability makes, if it always makes exactly
     /// one mana of one type.
     pub fn single_type(&self) -> Option<ManaType> {
-        match self.alternatives.as_slice() {
-            [alt] => match alt.as_slice() {
-                [unit] if unit.count_ones() == 1 => {
-                    ManaType::ALL.into_iter().find(|t| t.bit() == *unit)
-                }
-                _ => None,
-            },
+        match self.bags.as_slice() {
+            [bag] if bag.iter().sum::<u8>() == 1 => {
+                ManaType::ALL.into_iter().find(|t| bag[t.index()] == 1)
+            }
             _ => None,
         }
     }
+
+    /// Whether every outcome is exactly one mana.
+    pub fn single_unit(&self) -> bool {
+        self.bags.iter().all(|b| b.iter().sum::<u8>() == 1)
+    }
+}
+
+/// Distinct outcome bags of mana alternatives, in WUBRG order.
+pub(crate) fn expand_bags(alternatives: &ManaAlternatives) -> SmallVec<[ManaBag; 1]> {
+    let mut out: Vec<ManaBag> = Vec::new();
+    for alt in alternatives {
+        let mut bags: Vec<ManaBag> = vec![[0; 6]];
+        for unit in alt {
+            let mut next = Vec::new();
+            for bag in &bags {
+                for t in ManaType::ALL {
+                    if unit & t.bit() != 0 {
+                        let mut b = *bag;
+                        b[t.index()] += 1;
+                        next.push(b);
+                    }
+                }
+            }
+            next.sort_unstable();
+            next.dedup();
+            bags = next;
+        }
+        out.extend(bags);
+    }
+    // Descending, so single-color outcomes come out in WUBRG order.
+    out.sort_unstable_by(|a, b| b.cmp(a));
+    out.dedup();
+    out.into_iter().collect()
 }
 
 /// Printed characteristics (CR 109.3) other than abilities.
@@ -321,12 +354,12 @@ impl CardDef {
                     }
                 }
                 Ability::Activated(x) if is_mana_ability(x) => {
-                    let alternatives = ability_mana_output(&x.effect).map_err(unsupported)?;
+                    let bags = expand_bags(&ability_mana_output(&x.effect).map_err(unsupported)?);
                     mana_abilities.push(ManaAbility {
                         ability: u8::try_from(i)
                             .map_err(|_| unsupported("more than 255 abilities".into()))?,
-                        alternatives,
-                        tap_only: x.cost == [CostPart::Tap],
+                        bags,
+                        tap_only: x.cost == [CostPart::Tap] && choice_free(&x.effect),
                     });
                 }
                 _ => {}
@@ -420,6 +453,24 @@ fn could_add_mana(e: &ir::Effect) -> bool {
         E::AddMana { .. } => true,
         E::Seq(v) => v.iter().any(could_add_mana),
         E::May(x) => could_add_mana(x),
+        _ => false,
+    }
+}
+
+/// Whether a mana ability's effect needs no choices once its mana is fixed:
+/// the mana plus, at most, life or damage to its controller (Ancient Tomb,
+/// Talismans).
+fn choice_free(e: &ir::Effect) -> bool {
+    use ir::{Effect as E, PlayerRef as P, Recipient as R};
+    match e {
+        E::AddMana { .. } => true,
+        E::Seq(v) => v.iter().all(choice_free),
+        E::DealDamage {
+            to: R::Player(P::You),
+            ..
+        }
+        | E::LoseLife { who: P::You, .. }
+        | E::GainLife { who: P::You, .. } => true,
         _ => false,
     }
 }

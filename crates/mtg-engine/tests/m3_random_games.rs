@@ -93,7 +93,8 @@ fn m3_games_keep_invariants_and_reach_every_decision_kind() {
         "choose_name",
         "choose_target",
         "choose_mode",
-        "choose_cost",
+        // `choose_cost` needs both costs payable at once, which random decks
+        // rarely produce; tests/scenarios/cast-choose-cost.yaml covers it.
         "choose_symbol_pay",
         "choose_number",
     ] {

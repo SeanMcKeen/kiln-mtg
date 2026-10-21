@@ -1,0 +1,26 @@
+scenario: mtg-scenario/1
+name: A mana ability with a sacrifice cost is activated while holding priority, then its mana pays
+cr: ["605.3a", "605.3b", "106.4", "117.3c"]
+players:
+  - battlefield: [Test Petal]
+    hand: [Test Bolt]
+  - {}
+script:
+  - check:
+      decision:
+        player: P1
+        kind: priority
+        options_include: [Activate Test Petal for mana]
+        options_exclude: [Cast Test Bolt]
+  - choose: Activate Test Petal for mana
+  - check:
+      decision: { player: P1, kind: choose_mana, options: ["Add {W}", "Add {U}", "Add {B}", "Add {R}", "Add {G}"] }
+  - choose: "Add {R}"
+  - choose: Cast Test Bolt
+  - choose: Target P2
+  - choose: Pay with 1 from pool
+  - pass_all
+expect:
+  life: { P2: 17 }
+  zones:
+    P1.graveyard: [Test Petal, Test Bolt]

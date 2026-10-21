@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: "\"Activate only as a sorcery\" and \"Activate only once each turn\""
+cr: ["602.5b", "602.5d"]
+players:
+  - battlefield: [Test Totem, Test Wastes, Test Wastes, Test Wastes]
+  - {}
+script:
+  - check:
+      decision: { player: P1, kind: priority, options_include: [Activate Test Totem ability 1, Activate Test Totem ability 2] }
+  - choose: Activate Test Totem ability 2
+  - choose: Pay with Test Wastes
+  # With an ability on the stack, the sorcery-speed ability isn't available.
+  - check:
+      decision: { player: P1, kind: priority, options_exclude: [Activate Test Totem ability 1, Activate Test Totem ability 2] }
+  - pass_all
+  - check:
+      life: { P1: 21 }
+      decision: { player: P1, kind: priority, options_include: [Activate Test Totem ability 1], options_exclude: [Activate Test Totem ability 2] }
+expect:
+  decision: { player: P1, kind: priority }

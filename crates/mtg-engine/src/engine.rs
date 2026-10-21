@@ -137,6 +137,16 @@ pub(crate) enum Task {
     FinishSpell {
         object: ObjectId,
     },
+    /// The last step of a payment plan: spend mana from the pool (CR 601.2h).
+    SpendMana {
+        player: PlayerId,
+        spend: [u32; 6],
+    },
+    /// CR 608.2n: the last step of an ability's resolution.
+    FinishAbility {
+        source: ObjectId,
+        ability: u8,
+    },
 }
 
 /// A game in progress (or finished).
@@ -161,6 +171,8 @@ pub struct Game {
     pub(crate) event_count: u64,
     /// Until-end-of-turn power/toughness changes (layer 7c, CR 613.4c), ended in cleanup (CR 514.2).
     pub(crate) pt_effects: Vec<(ObjectId, i32, i32)>,
+    /// "Activate only once each turn" abilities activated this turn (CR 602.5b).
+    pub(crate) activated_this_turn: Vec<(ObjectId, u8)>,
 }
 
 impl Game {
@@ -211,6 +223,7 @@ impl Game {
             events: Vec::new(),
             event_count: 0,
             pt_effects: Vec::new(),
+            activated_this_turn: Vec::new(),
         };
         for (seat, deck) in setup.decks.iter().enumerate() {
             let id = PlayerId(u8::try_from(seat).unwrap_or(0));
@@ -320,7 +333,12 @@ impl Game {
             ZoneId::Graveyard(p) => self.player(p).graveyard.clone(),
             ZoneId::Battlefield => self.battlefield.clone(),
             ZoneId::Exile => self.exile.clone(),
-            ZoneId::Stack => self.stack.iter().map(|s| s.object).collect(),
+            ZoneId::Stack => self
+                .stack
+                .iter()
+                .filter(|s| s.is_spell())
+                .map(|s| s.object)
+                .collect(),
             ZoneId::Command => Vec::new(),
         }
     }
@@ -391,6 +409,9 @@ impl Game {
         // don't use it keep their M2 hashes (golden replays stay comparable).
         if !self.pt_effects.is_empty() {
             self.pt_effects.hash(&mut h);
+        }
+        if !self.activated_this_turn.is_empty() {
+            self.activated_this_turn.hash(&mut h);
         }
         h.finish()
     }
@@ -746,6 +767,8 @@ impl Game {
             Task::Cleanup { discarded } => self.cleanup(discarded),
             Task::Sba(t) => self.sba_step(t),
             Task::Effect(t) => self.effect_step(t),
+            Task::SpendMana { player, spend } => self.spend_mana(player, spend),
+            Task::FinishAbility { source, ability } => self.finish_ability(source, ability),
             Task::FinishSpell { object } => {
                 if let Some(o) = self.obj(object).copied()
                     && o.zone == ZoneId::Stack
@@ -924,6 +947,7 @@ impl Game {
         for p in &mut self.players {
             p.lands_played = 0;
         }
+        self.activated_this_turn.clear();
         self.log(Event::TurnBegan {
             number,
             active: next,
@@ -1142,20 +1166,30 @@ impl Game {
         }
         for &id in &self.battlefield {
             let Some(o) = self.obj(id) else { continue };
-            if o.controller != p || o.tapped {
+            if o.controller != p {
                 continue;
             }
             let def = self.def(o.def);
-            if def.mana_abilities.is_empty()
-                || (def.is(CardType::Creature) && self.is_summoning_sick(id))
-            {
-                continue;
-            }
             for i in 0..def.mana_abilities.len() {
-                actions.push(Action::ActivateMana {
-                    source: id,
-                    ability: u8::try_from(i).unwrap_or(0),
-                });
+                let ability = u8::try_from(i).unwrap_or(0);
+                if self.can_activate_mana(p, id, ability) {
+                    actions.push(Action::ActivateMana {
+                        source: id,
+                        ability,
+                    });
+                }
+            }
+            for (i, a) in def.abilities.iter().enumerate() {
+                let ability = u8::try_from(i).unwrap_or(0);
+                if let ir::Ability::Activated(x) = a
+                    && !crate::card::is_mana_ability(x)
+                    && self.can_activate(p, id, ability, sorcery_timing)
+                {
+                    actions.push(Action::Activate {
+                        source: id,
+                        ability,
+                    });
+                }
             }
         }
         actions
@@ -1197,9 +1231,15 @@ impl Game {
                 self.begin_cast(p, id);
             }
             Action::ActivateMana { source, ability } => {
-                self.activate_mana(source, ability);
+                // CR 605.3b: no stack; the player keeps priority (CR 117.3c).
                 self.turn.passes = 0;
                 self.tasks.push(Task::Priority { checked: false });
+                self.activate_mana(source, ability, None);
+            }
+            Action::Activate { source, ability } => {
+                self.turn.passes = 0;
+                self.tasks.push(Task::Priority { checked: false });
+                self.begin_activate(p, source, ability);
             }
         }
     }
@@ -1212,18 +1252,27 @@ impl Game {
         let Some(item) = self.stack.last().cloned() else {
             return;
         };
-        let Some(obj) = self.obj(item.object).copied() else {
+        let spell_obj = self.obj(item.object).copied();
+        if item.is_spell() && spell_obj.is_none() {
             self.stack.pop();
             return;
+        }
+        let def_id = item.source_def;
+        let pool = Arc::clone(&self.pool);
+        let def = pool.get(def_id);
+        let slots: &[ir::TargetSpec] = match item.ability {
+            Some(i) => match def.abilities.get(usize::from(i)) {
+                Some(ir::Ability::Activated(x)) => &x.targets,
+                _ => &[],
+            },
+            None => def.spell().map_or(&[], |s| s.targets.as_slice()),
         };
-        let def = self.def(obj.def).clone();
-        let spell = def.spell();
         let slot_legal = |g: &Game, i: usize, t: Target| {
-            spell
-                .and_then(|s| s.targets.get(i))
+            slots
+                .get(i)
                 .is_some_and(|slot| g.target_still_legal(&slot.what, t, item.controller))
         };
-        // CR 608.2b: targets are rechecked; if all are illegal, the spell doesn't resolve.
+        // CR 608.2b: targets are rechecked; if all are illegal, it doesn't resolve.
         if !item.targets.is_empty()
             && item
                 .targets
@@ -1233,36 +1282,54 @@ impl Game {
         {
             self.log(Event::DidNotResolve {
                 object: item.object,
-                def: obj.def,
+                def: def_id,
             });
-            self.move_object(item.object, ZoneId::Graveyard(obj.owner), true);
+            match (item.ability, spell_obj) {
+                (None, Some(o)) => {
+                    self.move_object(item.object, ZoneId::Graveyard(o.owner), true);
+                }
+                (Some(ability), _) => self.finish_ability(item.object, ability),
+                (None, None) => {}
+            }
             return;
         }
         self.log(Event::Resolved {
             object: item.object,
-            def: obj.def,
+            def: def_id,
         });
-        if def.is_permanent_card() {
-            // CR 608.3a: a permanent spell becomes a permanent under its controller's control.
-            if let Some(new) = self.move_object(item.object, ZoneId::Battlefield, true)
-                && let Some(o) = self.objects.get_mut(new)
-            {
-                o.controller = item.controller;
+        let ability = match item.ability {
+            Some(i) => {
+                // CR 608.2n: the ability is removed from the stack last.
+                self.tasks.push(Task::FinishAbility {
+                    source: item.object,
+                    ability: i,
+                });
+                Some(i)
             }
-            return;
-        }
-        // CR 608.2n: an instant or sorcery goes to its owner's graveyard last.
-        self.tasks.push(Task::FinishSpell {
-            object: item.object,
-        });
-        let ability = def
-            .abilities
-            .iter()
-            .position(|a| matches!(a, ir::Ability::Spell(_)));
-        if let Some(ability) = ability.and_then(|i| u8::try_from(i).ok()) {
+            None => {
+                if def.is_permanent_card() {
+                    // CR 608.3a: a permanent spell becomes a permanent under its controller's control.
+                    if let Some(new) = self.move_object(item.object, ZoneId::Battlefield, true)
+                        && let Some(o) = self.objects.get_mut(new)
+                    {
+                        o.controller = item.controller;
+                    }
+                    return;
+                }
+                // CR 608.2n: an instant or sorcery goes to its owner's graveyard last.
+                self.tasks.push(Task::FinishSpell {
+                    object: item.object,
+                });
+                def.abilities
+                    .iter()
+                    .position(|a| matches!(a, ir::Ability::Spell(_)))
+                    .and_then(|i| u8::try_from(i).ok())
+            }
+        };
+        if let Some(ability) = ability {
             let mut ctx = EffectCtx::new(
                 AbilityRef {
-                    def: obj.def,
+                    def: def_id,
                     ability,
                 },
                 item.object,
@@ -1282,6 +1349,17 @@ impl Game {
             ctx.x = item.x;
             self.tasks
                 .push(Task::Effect(Box::new(EffectTask::new(ctx))));
+        }
+    }
+
+    /// CR 608.2n: an ability leaves the stack and ceases to exist.
+    pub(crate) fn finish_ability(&mut self, source: ObjectId, ability: u8) {
+        if let Some(pos) = self
+            .stack
+            .iter()
+            .rposition(|s| s.object == source && s.ability == Some(ability))
+        {
+            self.stack.remove(pos);
         }
     }
 

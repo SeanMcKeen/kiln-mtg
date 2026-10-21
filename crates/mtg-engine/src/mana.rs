@@ -1,8 +1,13 @@
 //! Mana: cost requirements, available resources, exact payability, and
-//! payment-plan enumeration (`docs/03 Architecture/Subsystems/Costs & Mana.md`, M2 plan D6).
+//! payment-plan enumeration (`docs/03 Architecture/Subsystems/Costs & Mana.md`,
+//! M2 plan D6, M3 plan B-D8).
 //!
-//! M2 mana sources produce one mana of one type per activation, and M2 costs
-//! are generic, colored and `{C}` symbols only.
+//! Sources are untapped permanents whose mana abilities cost only {T} and
+//! need no choices besides their mana. An activation makes one of the
+//! ability's outcome bags (Sol Ring: {C}{C}; Birds of Paradise: one mana of
+//! any color). Other mana abilities (sacrifice, life, mana costs) are
+//! activated while holding priority, floating their mana first; that has the
+//! same outcome as activating them during payment (CR 605.3a).
 
 use std::collections::BTreeSet;
 
@@ -10,10 +15,10 @@ use mtg_core::{CardType, ManaCost, ManaSymbol, ObjectId, PlayerId};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
-use crate::card::ManaType;
+use crate::card::{ManaBag, ManaType};
 use crate::decision::PaymentPlan;
-use crate::engine::Game;
-use crate::events::Event;
+use crate::effects::{AbilityRef, EffectCtx, EffectTask};
+use crate::engine::{Game, Task};
 use crate::state::ManaPool;
 
 /// What remains to be paid of a mana cost (CR 202.1a).
@@ -35,7 +40,7 @@ impl CostReq {
                 ManaSymbol::Generic(n) => r.generic += n,
                 ManaSymbol::Colored(c) => r.colored[ManaType::of_color(*c).index()] += 1,
                 ManaSymbol::Colorless => r.colorless += 1,
-                // Rejected when the definition is built (card::CardDef::from_record).
+                // Hybrid, Phyrexian and X are resolved by the cast procedure (CR 601.2b).
                 _ => {}
             }
         }
@@ -83,51 +88,124 @@ impl CostReq {
     }
 }
 
-/// An untapped mana source a player may activate: one permanent, the types
-/// its abilities produce (one ability per type).
+/// Outcome bags of one mana ability.
+pub type Bags = SmallVec<[ManaBag; 1]>;
+
+/// An untapped mana source a player may activate during payment.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Source {
     pub object: ObjectId,
-    /// `(ability index, mana type)`.
-    pub abilities: SmallVec<[(u8, ManaType); 2]>,
+    /// `(index into the definition's mana abilities, outcome bags)`.
+    pub abilities: SmallVec<[(u8, Bags); 2]>,
     /// Interchangeability key: sources with equal keys leave identical outcomes.
     pub key: (u32, u32),
 }
 
+fn bag_total(b: &ManaBag) -> u32 {
+    b.iter().map(|n| u32::from(*n)).sum()
+}
+
 impl Source {
-    fn mask(&self) -> u8 {
-        self.abilities
+    /// If every outcome is one mana: the mask of types it can be.
+    fn single_mask(&self) -> Option<u8> {
+        let mut mask = 0u8;
+        for (_, bags) in &self.abilities {
+            for b in bags {
+                if bag_total(b) != 1 {
+                    return None;
+                }
+                for t in ManaType::ALL {
+                    if b[t.index()] > 0 {
+                        mask |= t.bit();
+                    }
+                }
+            }
+        }
+        Some(mask)
+    }
+
+    /// Every distinct outcome of activating this source once.
+    fn outcomes(&self) -> Vec<ManaBag> {
+        let mut v: Vec<ManaBag> = self
+            .abilities
             .iter()
-            .fold(0, |m, (_, t)| m | (1 << t.index()))
+            .flat_map(|(_, b)| b.iter().copied())
+            .collect();
+        v.sort_unstable();
+        v.dedup();
+        v
     }
 }
 
-/// Bitmask-matching feasibility: can `pool` + `sources` pay `req`?
+/// Most outcome combinations of multi-mana sources tried by [`payable`].
+const MAX_COMBINATIONS: usize = 4096;
+
+/// Exact feasibility: can `pool` plus `sources` pay `req`?
 pub fn payable(req: &CostReq, pool: &ManaPool, sources: &[Source]) -> bool {
-    let specific = req.specific_units();
-    let need = specific.len();
-    // Supply units: pool mana (capped, since more than the total demand never helps) and sources.
     let cap = req.total();
-    let mut supply: SmallVec<[u8; 32]> = SmallVec::new();
+    // Single-mana supply: pool mana (capped: more than the demand never helps) and sources.
+    let mut base: SmallVec<[u8; 32]> = SmallVec::new();
     for t in ManaType::ALL {
         for _ in 0..pool.get(t).min(cap) {
-            supply.push(1 << t.index());
+            base.push(t.bit());
         }
     }
-    supply.extend(sources.iter().map(Source::mask));
+    let mut multi: Vec<Vec<ManaBag>> = Vec::new();
+    for s in sources {
+        match s.single_mask() {
+            Some(mask) => base.push(mask),
+            None => multi.push(s.outcomes()),
+        }
+    }
+    if multi.is_empty() {
+        return matches(req, &base);
+    }
+    // Try each combination of outcomes of the multi-mana sources.
+    let mut idx = vec![0usize; multi.len()];
+    for _ in 0..MAX_COMBINATIONS {
+        let mut supply = base.clone();
+        for (o, i) in multi.iter().zip(&idx) {
+            let bag = o[*i];
+            for t in ManaType::ALL {
+                for _ in 0..bag[t.index()] {
+                    supply.push(t.bit());
+                }
+            }
+        }
+        if matches(req, &supply) {
+            return true;
+        }
+        let mut k = 0;
+        loop {
+            if k == idx.len() {
+                return false;
+            }
+            idx[k] += 1;
+            if idx[k] < multi[k].len() {
+                break;
+            }
+            idx[k] = 0;
+            k += 1;
+        }
+    }
+    false
+}
+
+/// Kuhn's algorithm: every specific symbol gets a distinct supply unit, and
+/// enough units remain for the generic part.
+fn matches(req: &CostReq, supply: &[u8]) -> bool {
     if supply.len() < req.total() as usize {
         return false;
     }
-    // Kuhn's algorithm: match every specific symbol to a distinct supply unit.
+    let specific = req.specific_units();
     let mut owner: SmallVec<[usize; 32]> = SmallVec::from_elem(usize::MAX, supply.len());
-    for d in 0..need {
+    for d in 0..specific.len() {
         let mut seen: SmallVec<[bool; 32]> = SmallVec::from_elem(false, supply.len());
-        if !augment(d, &specific, &supply, &mut owner, &mut seen) {
+        if !augment(d, &specific, supply, &mut owner, &mut seen) {
             return false;
         }
     }
-    // Generic accepts anything; the remaining units just need to be enough.
-    supply.len() - need >= req.generic as usize
+    supply.len() - specific.len() >= req.generic as usize
 }
 
 fn augment(
@@ -137,7 +215,7 @@ fn augment(
     owner: &mut [usize],
     seen: &mut [bool],
 ) -> bool {
-    let bit = 1u8 << demand[d].index();
+    let bit = demand[d].bit();
     for s in 0..supply.len() {
         if supply[s] & bit == 0 || seen[s] {
             continue;
@@ -155,26 +233,20 @@ fn augment(
 pub const MAX_PLANS: usize = 32;
 const MAX_NODES: usize = 20_000;
 
-/// A resource class: a pool type, or one ability of a group of interchangeable sources.
+/// One way to activate a group of interchangeable sources: an ability and its outcome.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Class {
-    Pool(ManaType),
-    Group {
-        group: usize,
-        ability: u8,
-        mana: ManaType,
-    },
-}
-
-impl Class {
-    fn mana(self) -> ManaType {
-        match self {
-            Class::Pool(t) | Class::Group { mana: t, .. } => t,
-        }
-    }
+struct ActClass {
+    group: usize,
+    ability: u8,
+    bag: ManaBag,
 }
 
 /// Enumerates outcome-distinct payment plans, up to [`MAX_PLANS`].
+///
+/// Class indices 0..6 are pool mana by type; activations follow. Consecutive
+/// demand units of the same kind take non-decreasing classes, which skips
+/// permutations; mana floated by an earlier activation may always be spent.
+/// With one-mana sources this is exactly the M2 search and order.
 pub fn enumerate_plans(req: &CostReq, pool: &ManaPool, sources: &[Source]) -> Vec<PaymentPlan> {
     // Group interchangeable sources.
     let mut groups: Vec<Vec<&Source>> = Vec::new();
@@ -187,18 +259,16 @@ pub fn enumerate_plans(req: &CostReq, pool: &ManaPool, sources: &[Source]) -> Ve
             None => groups.push(vec![s]),
         }
     }
-    let mut classes: Vec<Class> = ManaType::ALL
-        .iter()
-        .filter(|t| pool.get(**t) > 0)
-        .map(|t| Class::Pool(*t))
-        .collect();
+    let mut classes: Vec<ActClass> = Vec::new();
     for (gi, g) in groups.iter().enumerate() {
-        for (ability, mana) in &g[0].abilities {
-            classes.push(Class::Group {
-                group: gi,
-                ability: *ability,
-                mana: *mana,
-            });
+        for (ability, bags) in &g[0].abilities {
+            for bag in bags {
+                classes.push(ActClass {
+                    group: gi,
+                    ability: *ability,
+                    bag: *bag,
+                });
+            }
         }
     }
     // Demand units: specific symbols (grouped by type) then generic.
@@ -208,6 +278,7 @@ pub fn enumerate_plans(req: &CostReq, pool: &ManaPool, sources: &[Source]) -> Ve
     let mut st = Search {
         classes: &classes,
         demand: &demand,
+        initial: pool.0,
         pool_left: pool.0,
         group_left: groups.iter().map(Vec::len).collect(),
         usage: vec![0; classes.len()],
@@ -218,48 +289,69 @@ pub fn enumerate_plans(req: &CostReq, pool: &ManaPool, sources: &[Source]) -> Ve
     st.found
         .into_iter()
         .take(MAX_PLANS)
-        .map(|usage| {
+        .map(|(_, usage, final_pool)| {
             let mut plan = PaymentPlan {
                 activations: SmallVec::new(),
                 spend: [0; 6],
             };
+            let mut produced = [0u32; 6];
             let mut next_member = vec![0usize; groups.len()];
             for (ci, n) in usage.iter().enumerate() {
-                let class = classes[ci];
-                plan.spend[class.mana().index()] += n;
-                if let Class::Group { group, ability, .. } = class {
-                    for _ in 0..*n {
-                        plan.activations
-                            .push((groups[group][next_member[group]].object, ability));
-                        next_member[group] += 1;
+                let c = classes[ci];
+                for _ in 0..*n {
+                    plan.activations.push((
+                        groups[c.group][next_member[c.group]].object,
+                        c.ability,
+                        c.bag,
+                    ));
+                    next_member[c.group] += 1;
+                    for t in ManaType::ALL {
+                        produced[t.index()] += u32::from(c.bag[t.index()]);
                     }
                 }
+            }
+            for t in ManaType::ALL {
+                let i = t.index();
+                plan.spend[i] = (pool.0[i] + produced[i]).saturating_sub(final_pool[i]);
             }
             plan
         })
         .collect()
 }
 
+/// (sort key, activation usage per class, final pool)
+type Found = (Vec<i64>, Vec<u32>, [u32; 6]);
+
 struct Search<'a> {
-    classes: &'a [Class],
+    classes: &'a [ActClass],
     demand: &'a [Option<ManaType>],
+    initial: [u32; 6],
     pool_left: [u32; 6],
     group_left: Vec<usize>,
     usage: Vec<u32>,
-    found: BTreeSet<Vec<u32>>,
+    found: BTreeSet<Found>,
     nodes: usize,
 }
 
 impl Search<'_> {
-    /// Assigns demand unit `d` to a class with index ≥ `min_class` when the
-    /// previous unit had the same demand kind (avoids permutations).
+    fn record(&mut self) {
+        // M2's order: pool usage for the types the pool started with, then activations.
+        let mut key: Vec<i64> = ManaType::ALL
+            .iter()
+            .filter(|t| self.initial[t.index()] > 0)
+            .map(|t| i64::from(self.initial[t.index()]) - i64::from(self.pool_left[t.index()]))
+            .collect();
+        key.extend(self.usage.iter().map(|u| i64::from(*u)));
+        self.found.insert((key, self.usage.clone(), self.pool_left));
+    }
+
     fn dfs(&mut self, d: usize, min_class: usize) {
         self.nodes += 1;
         if self.found.len() >= MAX_PLANS || self.nodes > MAX_NODES {
             return;
         }
         if d == self.demand.len() {
-            self.found.insert(self.usage.clone());
+            self.record();
             return;
         }
         let kind = self.demand[d];
@@ -268,37 +360,53 @@ impl Search<'_> {
         } else {
             0
         };
-        for ci in start..self.classes.len() {
-            let class = self.classes[ci];
-            if let Some(t) = kind
-                && class.mana() != t
-            {
+        // Pool mana (classes 0..6).
+        for t in ManaType::ALL {
+            let i = t.index();
+            if kind.is_some_and(|k| k != t) || self.pool_left[i] == 0 {
                 continue;
             }
-            let ok = match class {
-                Class::Pool(t) => self.pool_left[t.index()] > 0,
-                Class::Group { group, .. } => self.group_left[group] > 0,
-            };
-            if !ok {
+            // Floated mana from an activation may be spent regardless of order.
+            let floated = self.pool_left[i] > self.initial[i];
+            if i < start && !floated {
                 continue;
             }
-            match class {
-                Class::Pool(t) => self.pool_left[t.index()] -= 1,
-                Class::Group { group, .. } => self.group_left[group] -= 1,
+            self.pool_left[i] -= 1;
+            self.dfs(d + 1, i.max(start));
+            self.pool_left[i] += 1;
+        }
+        // Activations (classes 6..).
+        for ci in start.saturating_sub(6)..self.classes.len() {
+            let c = self.classes[ci];
+            if self.group_left[c.group] == 0 {
+                continue;
             }
+            self.group_left[c.group] -= 1;
             self.usage[ci] += 1;
-            self.dfs(d + 1, ci);
-            self.usage[ci] -= 1;
-            match class {
-                Class::Pool(t) => self.pool_left[t.index()] += 1,
-                Class::Group { group, .. } => self.group_left[group] += 1,
+            for t in ManaType::ALL {
+                self.pool_left[t.index()] += u32::from(c.bag[t.index()]);
             }
+            for t in ManaType::ALL {
+                let i = t.index();
+                if c.bag[i] == 0 || kind.is_some_and(|k| k != t) {
+                    continue;
+                }
+                self.pool_left[i] -= 1;
+                self.dfs(d + 1, 6 + ci);
+                self.pool_left[i] += 1;
+            }
+            for t in ManaType::ALL {
+                self.pool_left[t.index()] -= u32::from(c.bag[t.index()]);
+            }
+            self.usage[ci] -= 1;
+            self.group_left[c.group] += 1;
         }
     }
 }
 
 impl Game {
-    /// Untapped mana sources `p` can activate (CR 605.3a), excluding `except`.
+    /// Untapped mana sources `p` can activate during payment (CR 605.3a),
+    /// excluding `except` (a permanent whose {T} is part of the cost being paid).
     pub(crate) fn mana_sources(&self, p: PlayerId, except: Option<ObjectId>) -> Vec<Source> {
         let mut out = Vec::new();
         for &id in &self.battlefield {
@@ -310,9 +418,20 @@ impl Game {
                 continue;
             }
             let def = self.def(o.def);
+            // CR 302.6: a creature's {T} abilities need it under control since the turn began.
             if def.mana_abilities.is_empty()
                 || (def.is(CardType::Creature) && self.is_summoning_sick(id))
             {
+                continue;
+            }
+            let abilities: SmallVec<[(u8, Bags); 2]> = def
+                .mana_abilities
+                .iter()
+                .enumerate()
+                .filter(|(_, m)| m.tap_only)
+                .filter_map(|(i, m)| Some((u8::try_from(i).ok()?, m.bags.clone())))
+                .collect();
+            if abilities.is_empty() {
                 continue;
             }
             let in_combat = self
@@ -321,49 +440,99 @@ impl Game {
                 .is_some_and(|c| c.attacker(id).is_some() || c.is_blocking(id));
             out.push(Source {
                 object: id,
-                // M3 B1: every supported mana ability makes one mana of one type.
-                abilities: def
-                    .mana_abilities
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(i, m)| Some((u8::try_from(i).ok()?, m.single_type()?)))
-                    .collect(),
+                abilities,
                 key: (o.def.0, o.damage | (u32::from(in_combat) << 31)),
             });
         }
         out
     }
 
-    /// Activates a mana ability: tap the source, add the mana (CR 605.3b, no stack).
-    pub(crate) fn activate_mana(&mut self, source: ObjectId, ability: u8) {
+    /// Whether `p` may activate mana ability `ability` (an index into the
+    /// definition's mana abilities) of `source` right now (CR 605.3a, 302.6).
+    pub(crate) fn can_activate_mana(&self, p: PlayerId, source: ObjectId, ability: u8) -> bool {
+        let Some(o) = self.obj(source) else {
+            return false;
+        };
+        if o.controller != p || o.zone != crate::state::ZoneId::Battlefield {
+            return false;
+        }
+        let def = self.def(o.def);
+        let Some(m) = def.mana_abilities.get(usize::from(ability)) else {
+            return false;
+        };
+        let Some(mtg_cards::ir::Ability::Activated(x)) = def.abilities.get(usize::from(m.ability))
+        else {
+            return false;
+        };
+        let taps = x.cost.iter().any(|c| {
+            matches!(
+                c,
+                mtg_cards::ir::CostPart::Tap | mtg_cards::ir::CostPart::Untap
+            )
+        });
+        if taps && def.is(CardType::Creature) && self.is_summoning_sick(source) {
+            return false;
+        }
+        let ctx = EffectCtx::new(
+            AbilityRef {
+                def: o.def,
+                ability: m.ability,
+            },
+            source,
+            p,
+        );
+        self.can_pay(&ctx, p, &x.cost)
+    }
+
+    /// Activates a mana ability (CR 605.3b: it doesn't use the stack): pays its
+    /// costs, then runs its effect. `forced` fixes which mana it makes
+    /// (payment plans and manual steps); otherwise the player chooses.
+    /// Pushes a task, so callers push their continuation first.
+    pub(crate) fn activate_mana(&mut self, source: ObjectId, ability: u8, forced: Option<ManaBag>) {
         let Some(o) = self.obj(source).copied() else {
             return;
         };
-        let Some(mana) = self
-            .def(o.def)
-            .mana_abilities
-            .get(ability as usize)
-            .and_then(crate::card::ManaAbility::single_type)
+        let def = self.def(o.def);
+        let Some(m) = def.mana_abilities.get(usize::from(ability)) else {
+            return;
+        };
+        let Some(mtg_cards::ir::Ability::Activated(x)) = def.abilities.get(usize::from(m.ability))
         else {
             return;
         };
-        self.tap(source);
-        self.player_mut(o.controller).pool.add(mana, 1);
-        self.log(Event::ManaAdded {
-            player: o.controller,
-            mana,
+        let mut ctx = EffectCtx::new(
+            AbilityRef {
+                def: o.def,
+                ability: m.ability,
+            },
             source,
-        });
+            o.controller,
+        );
+        ctx.forced_mana = forced;
+        let mut task = EffectTask::new(ctx);
+        // Costs first (they go on top of the effect).
+        let cost = x.cost.clone();
+        task.push_costs(o.controller, &cost);
+        self.tasks.push(Task::Effect(Box::new(task)));
     }
 
     /// Executes a payment plan: activate its sources, then spend from the pool.
+    /// Pushes tasks, so callers push their continuation first.
     pub(crate) fn execute_plan(&mut self, p: PlayerId, plan: &PaymentPlan) {
-        for (source, ability) in &plan.activations {
-            self.activate_mana(*source, *ability);
+        self.tasks.push(Task::SpendMana {
+            player: p,
+            spend: plan.spend,
+        });
+        for (source, ability, bag) in plan.activations.iter().rev() {
+            self.activate_mana(*source, *ability, Some(*bag));
         }
+    }
+
+    /// Spends mana from a player's pool (the last step of a payment plan).
+    pub(crate) fn spend_mana(&mut self, p: PlayerId, spend: [u32; 6]) {
         let pool = &mut self.player_mut(p).pool;
         for t in ManaType::ALL {
-            let n = plan.spend[t.index()];
+            let n = spend[t.index()];
             debug_assert!(pool.get(t) >= n, "plan spends more {t} than the pool holds");
             pool.0[t.index()] = pool.get(t).saturating_sub(n);
         }
@@ -374,19 +543,25 @@ impl Game {
 mod tests {
     use super::*;
 
-    fn src(i: u32, def: u32, types: &[ManaType]) -> Source {
+    fn bag(t: ManaType, n: u8) -> ManaBag {
+        let mut b = [0; 6];
+        b[t.index()] = n;
+        b
+    }
+
+    fn src(i: u32, def: u32, outcomes: &[ManaBag]) -> Source {
         Source {
             object: ObjectId {
                 index: i,
                 generation: 0,
             },
-            abilities: types
-                .iter()
-                .enumerate()
-                .map(|(k, t)| (u8::try_from(k).unwrap_or(0), *t))
-                .collect(),
+            abilities: SmallVec::from_elem((0, outcomes.iter().copied().collect()), 1),
             key: (def, 0),
         }
+    }
+
+    fn land(i: u32, def: u32, t: ManaType) -> Source {
+        src(i, def, &[bag(t, 1)])
     }
 
     fn req(s: &str) -> CostReq {
@@ -395,14 +570,14 @@ mod tests {
 
     #[test]
     fn feasibility() {
-        let forest = |i| src(i, 1, &[ManaType::Green]);
-        let island = |i| src(i, 2, &[ManaType::Blue]);
+        let forest = |i| land(i, 1, ManaType::Green);
+        let island = |i| land(i, 2, ManaType::Blue);
         let pool = ManaPool::default();
         assert!(payable(&req("{1}{G}"), &pool, &[forest(0), island(1)]));
         assert!(!payable(&req("{G}{G}"), &pool, &[forest(0), island(1)]));
         assert!(!payable(&req("{2}{G}"), &pool, &[forest(0), island(1)]));
         // A dual source covers either color but only once.
-        let dual = src(3, 3, &[ManaType::Green, ManaType::Blue]);
+        let dual = src(3, 3, &[bag(ManaType::Green, 1), bag(ManaType::Blue, 1)]);
         assert!(payable(&req("{G}{U}"), &pool, &[forest(0), dual.clone()]));
         assert!(!payable(&req("{G}{U}{U}"), &pool, &[forest(0), dual]));
         let mut floating = ManaPool::default();
@@ -412,14 +587,48 @@ mod tests {
     }
 
     #[test]
+    fn multi_mana_sources() {
+        let pool = ManaPool::default();
+        let sol = src(0, 9, &[bag(ManaType::Colorless, 2)]);
+        assert!(payable(&req("{2}"), &pool, std::slice::from_ref(&sol)));
+        assert!(payable(&req("{C}{C}"), &pool, std::slice::from_ref(&sol)));
+        assert!(!payable(&req("{1}{G}"), &pool, std::slice::from_ref(&sol)));
+        assert!(payable(
+            &req("{2}{G}"),
+            &pool,
+            &[sol.clone(), land(1, 1, ManaType::Green)]
+        ));
+        // One activation of "three mana of any one color".
+        let lotus: Vec<ManaBag> = ManaType::ALL[..5].iter().map(|t| bag(*t, 3)).collect();
+        let lotus = src(2, 8, &lotus);
+        assert!(payable(
+            &req("{U}{U}{U}"),
+            &pool,
+            std::slice::from_ref(&lotus)
+        ));
+        assert!(!payable(
+            &req("{U}{G}"),
+            &pool,
+            std::slice::from_ref(&lotus)
+        ));
+        // Plans: Sol Ring alone pays {2} (one plan); {1} leaves {C} floating.
+        let plans = enumerate_plans(&req("{2}"), &pool, std::slice::from_ref(&sol));
+        assert_eq!(plans.len(), 1, "{plans:?}");
+        assert_eq!(plans[0].spend, bag(ManaType::Colorless, 2).map(u32::from));
+        let plans = enumerate_plans(&req("{1}"), &pool, &[sol]);
+        assert_eq!(plans.len(), 1);
+        assert_eq!(plans[0].spend.iter().sum::<u32>(), 1);
+    }
+
+    #[test]
     fn plans_are_outcome_distinct() {
         let pool = ManaPool::default();
         // Three identical Forests and an Island: {1}{G} can be paid as G+G or G+U.
         let sources = vec![
-            src(0, 1, &[ManaType::Green]),
-            src(1, 1, &[ManaType::Green]),
-            src(2, 1, &[ManaType::Green]),
-            src(3, 2, &[ManaType::Blue]),
+            land(0, 1, ManaType::Green),
+            land(1, 1, ManaType::Green),
+            land(2, 1, ManaType::Green),
+            land(3, 2, ManaType::Blue),
         ];
         let plans = enumerate_plans(&req("{1}{G}"), &pool, &sources);
         assert_eq!(plans.len(), 2, "{plans:?}");
@@ -433,7 +642,7 @@ mod tests {
     fn plans_use_pool_mana() {
         let mut pool = ManaPool::default();
         pool.add(ManaType::Red, 1);
-        let plans = enumerate_plans(&req("{R}"), &pool, &[src(0, 4, &[ManaType::Red])]);
+        let plans = enumerate_plans(&req("{R}"), &pool, &[land(0, 4, ManaType::Red)]);
         // Spend the floating R, or tap the Mountain.
         assert_eq!(plans.len(), 2);
         assert!(

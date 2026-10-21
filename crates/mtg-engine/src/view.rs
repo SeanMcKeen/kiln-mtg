@@ -8,7 +8,7 @@
 use mtg_core::{ObjectId, PlayerId};
 use serde::Serialize;
 
-use crate::card::{CardDef, DefId, ManaType};
+use crate::card::{CardDef, DefId, ManaBag, ManaType};
 use crate::decision::{
     Action, CardPurpose, CastCost, DamageRecipient, DecisionKind, ManaStep, OptionalKind,
     PendingDecision, SymbolPay,
@@ -40,6 +40,19 @@ pub struct VisibleObject {
     pub blocking: Option<ObjectId>,
 }
 
+/// A spell or ability on the stack (public, CR 400.2).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct StackEntry {
+    /// The spell, or the ability's source.
+    pub object: ObjectId,
+    pub def: DefId,
+    pub name: String,
+    pub controller: PlayerId,
+    /// `Some(i)`: activated ability `i` of the source.
+    pub ability: Option<u8>,
+    pub targets: Vec<Target>,
+}
+
 /// Public facts about a player.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct PublicPlayer {
@@ -62,9 +75,21 @@ pub struct ViewSnapshot {
     pub players: Vec<PublicPlayer>,
     pub hand: Vec<VisibleObject>,
     pub battlefield: Vec<VisibleObject>,
-    pub stack: Vec<(VisibleObject, Vec<Target>)>,
+    /// Bottom first.
+    pub stack: Vec<StackEntry>,
     pub graveyards: Vec<Vec<VisibleObject>>,
     pub exile: Vec<VisibleObject>,
+}
+
+/// Mana as symbols, e.g. `{C}{C}`.
+fn bag_text(bag: &ManaBag) -> String {
+    let mut s = String::new();
+    for t in ManaType::ALL {
+        for _ in 0..bag[t.index()] {
+            s.push_str(t.symbol());
+        }
+    }
+    s
 }
 
 impl Game {
@@ -84,7 +109,7 @@ impl Game {
             .chain(&snap.exile)
             .map(|o| o.id)
             .collect();
-        exposed.extend(snap.stack.iter().map(|(o, _)| o.id));
+        exposed.extend(snap.stack.iter().map(|e| e.object));
         exposed.extend(snap.graveyards.iter().flatten().map(|o| o.id));
         for id in exposed {
             let Some(o) = self.obj(id) else {
@@ -133,14 +158,23 @@ impl Game {
                 Action::PlayLand(id) => format!("Play {}", name(id)),
                 Action::Cast(id) => format!("Cast {}", name(id)),
                 Action::ActivateMana { source, ability } => {
-                    let mana = self
+                    let m = self
                         .obj_def(source)
-                        .and_then(|def| def.mana_abilities.get(ability as usize)?.single_type());
-                    format!(
-                        "Tap {} for {}",
-                        name(source),
-                        mana.map_or_else(String::new, |m| m.to_string())
-                    )
+                        .and_then(|def| def.mana_abilities.get(ability as usize));
+                    let verb = if m.is_some_and(|m| m.tap_only) {
+                        "Tap"
+                    } else {
+                        "Activate"
+                    };
+                    let what = match m.map(|m| m.bags.as_slice()) {
+                        Some([bag]) => bag_text(bag),
+                        _ => "mana".to_owned(),
+                    };
+                    format!("{verb} {} for {what}", name(source))
+                }
+                // Abilities are numbered from 1 in printed order (labels avoid YAML-hostile brackets).
+                Action::Activate { source, ability } => {
+                    format!("Activate {} ability {}", name(source), ability + 1)
                 }
             },
             DecisionKind::ChooseTarget { targets, .. } => match targets[i] {
@@ -151,9 +185,16 @@ impl Game {
             DecisionKind::PayMana { plans, .. } => match plans.get(i) {
                 None => "Pay manually".into(),
                 Some(plan) => {
-                    let mut parts: Vec<String> =
-                        plan.activations.iter().map(|(id, _)| name(*id)).collect();
-                    let produced: u32 = plan.activations.len().try_into().unwrap_or(0);
+                    let mut parts: Vec<String> = plan
+                        .activations
+                        .iter()
+                        .map(|(id, _, _)| name(*id))
+                        .collect();
+                    let produced: u32 = plan
+                        .activations
+                        .iter()
+                        .map(|(_, _, bag)| bag.iter().map(|n| u32::from(*n)).sum::<u32>())
+                        .sum();
                     let pool_used = plan.spend.iter().sum::<u32>().saturating_sub(produced);
                     if pool_used > 0 {
                         parts.push(format!("{pool_used} from pool"));
@@ -162,15 +203,8 @@ impl Game {
                 }
             },
             DecisionKind::ManaStep { steps, .. } => match steps[i] {
-                ManaStep::Activate { source, ability } => {
-                    let mana = self
-                        .obj_def(source)
-                        .and_then(|def| def.mana_abilities.get(ability as usize)?.single_type());
-                    format!(
-                        "Tap {} for {}",
-                        name(source),
-                        mana.map_or_else(String::new, |m| m.to_string())
-                    )
+                ManaStep::Activate { source, bag, .. } => {
+                    format!("Tap {} for {}", name(source), bag_text(&bag))
                 }
                 ManaStep::Spend(m) => format!("Spend {m}"),
             },
@@ -360,7 +394,14 @@ impl<'g> PlayerView<'g> {
                 .game
                 .stack
                 .iter()
-                .filter_map(|s| self.object(s.object).map(|o| (o, s.targets.to_vec())))
+                .map(|s| StackEntry {
+                    object: s.object,
+                    def: s.source_def,
+                    name: self.game.def(s.source_def).name.clone(),
+                    controller: s.controller,
+                    ability: s.ability,
+                    targets: s.targets.to_vec(),
+                })
                 .collect(),
             graveyards: self
                 .game

@@ -74,6 +74,9 @@ pub(crate) struct EffectCtx {
     pub lki: Vec<Lki>,
     /// Cards each player discarded during this effect (Windfall).
     pub discarded: SmallVec<[(PlayerId, u32); 8]>,
+    /// The mana a mana ability makes, fixed in advance by a payment plan or
+    /// a manual payment step.
+    pub forced_mana: Option<ManaBag>,
 }
 
 impl EffectCtx {
@@ -91,6 +94,7 @@ impl EffectCtx {
             names: Vec::new(),
             lki: Vec::new(),
             discarded: SmallVec::new(),
+            forced_mana: None,
         }
     }
 }
@@ -116,6 +120,13 @@ impl EffectTask {
         Self {
             ctx,
             frames: vec![pay_frame(who, cost)],
+        }
+    }
+
+    /// Pays `cost` before the frames already queued.
+    pub(crate) fn push_costs(&mut self, who: PlayerId, cost: &[CostPart]) {
+        if !cost.is_empty() {
+            self.frames.push(pay_frame(who, cost));
         }
     }
 }
@@ -276,30 +287,7 @@ pub(crate) fn mana_bags(spec: &ManaSpec) -> Vec<ManaBag> {
     let Ok(alternatives) = crate::card::mana_output(spec) else {
         return Vec::new();
     };
-    let mut out: Vec<ManaBag> = Vec::new();
-    for alt in &alternatives {
-        let mut bags: Vec<ManaBag> = vec![[0; 6]];
-        for unit in alt {
-            let mut next = Vec::new();
-            for bag in &bags {
-                for t in ManaType::ALL {
-                    if unit & t.bit() != 0 {
-                        let mut b = *bag;
-                        b[t.index()] += 1;
-                        next.push(b);
-                    }
-                }
-            }
-            next.sort_unstable();
-            next.dedup();
-            bags = next;
-        }
-        out.extend(bags);
-    }
-    // Descending, so single-color options come out in WUBRG order.
-    out.sort_unstable_by(|a, b| b.cmp(a));
-    out.dedup();
-    out
+    crate::card::expand_bags(&alternatives).into_vec()
 }
 
 /// A mana-only cost from its symbols (generic, colored and {C}; see `support`).
@@ -383,23 +371,28 @@ impl Game {
             }
             (Frame::Pay { who, parts, next }, DecisionKind::PayMana { plans, .. }) => {
                 if let Some(plan) = plans.get(option) {
+                    // The plan's activations and spending run before the effect resumes.
+                    t.frames.push(Frame::Pay { who, parts, next });
+                    self.tasks.push(Task::Effect(t));
                     self.execute_plan(who, plan);
+                    return;
                 } else {
                     let remaining = match parts.get(usize::from(next) - 1) {
                         Some(CostPart::Mana(s)) => mana_req(s),
                         _ => CostReq::default(),
                     };
                     let spell = t.ctx.source;
+                    let except = taps_source(&parts).then_some(spell);
                     t.frames.push(Frame::Pay { who, parts, next });
                     self.tasks.push(Task::Effect(t));
                     self.tasks.push(Task::ManualPay(ManualPayTask {
                         spell,
                         payer: who,
                         remaining,
+                        except,
                     }));
                     return;
                 }
-                t.frames.push(Frame::Pay { who, parts, next });
             }
             (Frame::Pick(mut p), DecisionKind::ChooseCard { cards, .. }) => match cards[option] {
                 None => self.finish_pick(&mut t, p),
@@ -738,7 +731,10 @@ impl Game {
             }
             Effect::AddMana { mana, .. } => {
                 let who = t.ctx.each.unwrap_or(t.ctx.controller);
-                let options = mana_bags(mana);
+                let options = match t.ctx.forced_mana {
+                    Some(bag) => vec![bag],
+                    None => mana_bags(mana),
+                };
                 match options.as_slice() {
                     [] => {}
                     [only] => {
@@ -1126,7 +1122,12 @@ impl Game {
         match z {
             ZoneName::Battlefield => self.battlefield.clone(),
             ZoneName::Exile => self.exile.clone(),
-            ZoneName::Stack => self.stack.iter().map(|s| s.object).collect(),
+            ZoneName::Stack => self
+                .stack
+                .iter()
+                .filter(|s| s.is_spell())
+                .map(|s| s.object)
+                .collect(),
             ZoneName::Command => Vec::new(),
             ZoneName::Hand | ZoneName::Library | ZoneName::Graveyard => self
                 .players
@@ -1640,11 +1641,12 @@ impl Game {
     /// Whether `who` can pay every part of a cost (mana is checked against
     /// pool and untapped sources; mana is paid first, CR 601.2g–h).
     pub(crate) fn can_pay(&self, ctx: &EffectCtx, who: PlayerId, cost: &[CostPart]) -> bool {
+        let except = taps_source(cost).then_some(ctx.source);
         cost.iter().all(|part| match part {
             CostPart::Mana(s) => payable(
                 &mana_req(s),
                 &self.player(who).pool,
-                &self.mana_sources(who, None),
+                &self.mana_sources(who, except),
             ),
             // CR 119.4: life can be paid only if the life total is at least the amount.
             CostPart::PayLife(q) => self.player(who).life >= self.quantity(ctx, q),
@@ -1700,6 +1702,7 @@ impl Game {
         let Some(part) = parts.get(usize::from(next)).cloned() else {
             return Flow::Continue;
         };
+        let except = taps_source(&parts).then_some(t.ctx.source);
         t.frames.push(Frame::Pay {
             who,
             parts,
@@ -1711,8 +1714,11 @@ impl Game {
                 if req.is_paid() {
                     return Flow::Continue;
                 }
-                let plans =
-                    enumerate_plans(&req, &self.player(who).pool, &self.mana_sources(who, None));
+                let plans = enumerate_plans(
+                    &req,
+                    &self.player(who).pool,
+                    &self.mana_sources(who, except),
+                );
                 let spell = t.ctx.source;
                 Flow::Decide(who, DecisionKind::PayMana { spell, plans }, "601.2h")
             }
@@ -1813,6 +1819,13 @@ fn set_var(ctx: &mut EffectCtx, store: String, v: i64) {
 
 /// A cost-payment frame, mana parts first (CR 601.2g: mana abilities are
 /// activated before costs are paid; paying mana first keeps every other part payable).
+/// Whether a cost includes {T} or {Q} of its source (CR 107.5–6), which keeps
+/// the source out of the mana that pays the rest.
+fn taps_source(cost: &[CostPart]) -> bool {
+    cost.iter()
+        .any(|c| matches!(c, CostPart::Tap | CostPart::Untap))
+}
+
 fn pay_frame(who: PlayerId, cost: &[CostPart]) -> Frame {
     let mut parts: Vec<CostPart> = cost
         .iter()

@@ -350,3 +350,70 @@
   types: Artifact Creature — Golem
   pt: [1, 1]
   abilities: [{ keyword: indestructible }]
+
+# ---- activated and mana abilities (M3 B4) ------------------------------------
+
+- name: Test Rock
+  cost: "{1}"
+  types: Artifact
+  abilities:
+    - activated: { cost: [tap], effect: { add_mana: { mana: { fixed: "{C}{C}" } } } }
+
+- name: Test Prism Bird
+  cost: "{G}"
+  types: Creature — Bird
+  pt: [0, 1]
+  abilities:
+    - keyword: flying
+    - activated: { cost: [tap], effect: { add_mana: { mana: { any_color: 1 } } } }
+
+- name: Test Petal
+  cost: "{0}"
+  types: Artifact
+  abilities:
+    - activated: { cost: [tap, { sacrifice: { one: this } }], effect: { add_mana: { mana: { any_color: 1 } } } }
+
+- name: Test Tomb
+  types: Land
+  abilities:
+    - activated:
+        cost: [tap]
+        effect:
+          seq:
+            - add_mana: { mana: { fixed: "{C}{C}" } }
+            - deal_damage: { to: { player: you }, amount: 2 }
+
+- name: Test Confluence
+  types: Land
+  abilities:
+    - activated: { cost: [tap, { pay_life: 1 }], effect: { add_mana: { mana: { any_color: 1 } } } }
+
+- name: Test Signet
+  cost: "{2}"
+  types: Artifact
+  abilities:
+    - activated: { cost: [{ mana: "{1}" }, tap], effect: { add_mana: { mana: { fixed: "{W}{U}" } } } }
+
+- name: Test Fetch
+  types: Land
+  abilities:
+    - activated:
+        cost: [tap, { pay_life: 1 }, { sacrifice: { one: this } }]
+        effect:
+          seq:
+            - search: { who: you, filter: { types: [land], subtypes: [Forest, Island] }, count: 1, to: battlefield, reveal: false }
+            - shuffle: you
+
+- name: Test Pinger
+  cost: "{1}{R}"
+  types: Creature — Goblin
+  pt: [1, 1]
+  abilities:
+    - activated: { cost: [tap], targets: [{ what: any }], effect: { deal_damage: { to: { target: 0 }, amount: 1 } } }
+
+- name: Test Totem
+  cost: "{1}"
+  types: Artifact
+  abilities:
+    - activated: { cost: [{ mana: "{2}" }], timing: sorcery, effect: { draw: { who: you, amount: 1 } } }
+    - activated: { cost: [{ mana: "{1}" }], once_per_turn: true, effect: { gain_life: { who: you, amount: 1 } } }

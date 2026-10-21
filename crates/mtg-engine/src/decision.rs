@@ -34,13 +34,17 @@ pub enum Action {
     Cast(ObjectId),
     /// Activate a mana ability (CR 117.1d, 605.3a). `ability` indexes the definition's mana abilities.
     ActivateMana { source: ObjectId, ability: u8 },
+    /// Activate a non-mana activated ability (CR 117.1b, 602). `ability`
+    /// indexes the definition's abilities.
+    Activate { source: ObjectId, ability: u8 },
 }
 
 /// Mana sources to activate and the pool mana to spend for one way of paying
 /// a cost (CR 601.2g–h). Plans are de-duplicated by outcome (M2 plan, D6).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct PaymentPlan {
-    pub activations: SmallVec<[(ObjectId, u8); 8]>,
+    /// `(source, mana ability index, the mana it makes)`.
+    pub activations: SmallVec<[(ObjectId, u8, ManaBag); 8]>,
     /// Mana spent from the pool after the activations, by [`ManaType`] index.
     pub spend: [u32; 6],
 }
@@ -48,8 +52,12 @@ pub struct PaymentPlan {
 /// One step of manual payment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ManaStep {
-    /// Activate a mana ability (CR 605.3a); the mana goes to the pool.
-    Activate { source: ObjectId, ability: u8 },
+    /// Activate a mana ability (CR 605.3a) making `bag`; the mana goes to the pool.
+    Activate {
+        source: ObjectId,
+        ability: u8,
+        bag: ManaBag,
+    },
     /// Spend one mana of this type from the pool toward the cost.
     Spend(ManaType),
 }
@@ -224,8 +232,7 @@ pub enum CardPurpose {
     PutIntoGraveyard,
 }
 
-/// Mana by [`ManaType`] index (W U B R G C).
-pub type ManaBag = [u8; 6];
+pub use crate::card::ManaBag;
 
 /// A decision awaiting a [`Choice`].
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

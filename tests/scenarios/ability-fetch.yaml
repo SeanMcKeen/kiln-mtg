@@ -1,0 +1,22 @@
+scenario: mtg-scenario/1
+name: An activated ability with tap, life and sacrifice costs uses the stack and searches on resolution
+cr: ["602.2", "602.2b", "701.21a", "701.23b", "608.2n"]
+players:
+  - battlefield: [Test Fetch]
+    library: [Test Bear, Test Island, Test Forest]
+  - {}
+script:
+  - choose: Activate Test Fetch ability 1
+  - check:
+      life: { P1: 19 }
+      zones:
+        P1.graveyard: [Test Fetch]
+  - pass_all
+  - check:
+      decision: { player: P1, kind: choose_card, options: [Stop, Find Test Island, Find Test Forest] }
+  - choose: Find Test Forest
+expect:
+  zones:
+    P1.battlefield: [Test Forest]
+    P1.library: [Test Bear, Test Island]
+    stack: []

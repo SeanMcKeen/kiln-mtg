@@ -57,6 +57,13 @@ pub enum Event {
         mana: ManaType,
         source: ObjectId,
     },
+    /// An activated ability became activated (CR 602.2b, applying 601.2i).
+    AbilityActivated {
+        player: PlayerId,
+        source: ObjectId,
+        def: DefId,
+        ability: u8,
+    },
     Resolved {
         object: ObjectId,
         def: DefId,
@@ -162,6 +169,7 @@ impl Event {
             Event::LandPlayed { .. } => "305.1",
             Event::SpellCast { .. } => "601.2i",
             Event::ManaAdded { .. } => "605.1a",
+            Event::AbilityActivated { .. } => "602.2b",
             Event::Resolved { .. } => "608.2",
             Event::DidNotResolve { .. } => "608.2b",
             Event::Damage { combat: true, .. } => "510.2",

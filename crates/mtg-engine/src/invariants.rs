@@ -47,7 +47,8 @@ impl Game {
         for &id in &self.exile {
             note(id, ZoneId::Exile)?;
         }
-        for s in &self.stack {
+        // Abilities on the stack aren't objects in a zone; their `object` is the source.
+        for s in self.stack.iter().filter(|s| s.is_spell()) {
             note(s.object, ZoneId::Stack)?;
         }
         let mut owned = [0usize; 8];
@@ -135,7 +136,7 @@ impl Game {
         }
 
         // Stack items refer to live objects on the stack, and so on.
-        for s in &self.stack {
+        for s in self.stack.iter().filter(|s| s.is_spell()) {
             if self.obj(s.object).is_none_or(|o| o.zone != ZoneId::Stack) {
                 return Err(format!("stack item {} isn't a live stack object", s.object));
             }

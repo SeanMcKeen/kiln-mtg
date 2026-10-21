@@ -1,0 +1,13 @@
+scenario: mtg-scenario/1
+name: A creature's {T} ability can't be activated until its controller has controlled it since their turn began
+cr: ["302.6"]
+players:
+  - battlefield:
+      - { card: Test Pinger, sick: true }
+      - { card: Test Prism Bird, sick: true }
+  - {}
+expect:
+  decision:
+    player: P1
+    kind: priority
+    options_exclude: [Activate Test Pinger ability 1, Activate Test Prism Bird for mana]

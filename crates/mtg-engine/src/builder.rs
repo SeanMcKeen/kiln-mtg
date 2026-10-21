@@ -209,6 +209,7 @@ impl GameBuilder {
             events: Vec::new(),
             event_count: 0,
             pt_effects: Vec::new(),
+            activated_this_turn: Vec::new(),
         };
         if matches!(
             self.step,

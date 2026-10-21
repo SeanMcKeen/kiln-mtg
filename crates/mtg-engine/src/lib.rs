@@ -37,4 +37,4 @@ pub use events::Event;
 pub use mtg_cards::ir;
 pub use replay::{Divergence, Recorder, Replay};
 pub use state::{GameObject, LossReason, Player, PlayerStatus, StackItem, Step, Target, ZoneId};
-pub use view::{PlayerView, PublicPlayer, ViewSnapshot, VisibleObject};
+pub use view::{PlayerView, PublicPlayer, StackEntry, ViewSnapshot, VisibleObject};

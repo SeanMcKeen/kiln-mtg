@@ -1,0 +1,17 @@
+scenario: mtg-scenario/1
+name: A mana ability's other effects happen when it's activated during payment
+cr: ["605.3b", "120.3"]
+players:
+  - battlefield: [Test Tomb]
+    hand: [Test Prism]
+  - {}
+script:
+  - choose: Cast Test Prism
+  - choose: Pay with Test Tomb
+  # The extra {C} floats; the 2 damage happens immediately.
+  - check:
+      life: { P1: 18 }
+  - pass_all
+  - choose: "Add {G}"
+expect:
+  life: { P1: 18 }

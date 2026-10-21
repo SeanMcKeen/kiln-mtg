@@ -1,0 +1,17 @@
+scenario: mtg-scenario/1
+name: A source that makes two mana pays two generic in one activation
+cr: ["605.3a", "601.2g", "106.4"]
+players:
+  - battlefield: [Test Rock, Test Wastes]
+    hand: [Test Golem]
+  - {}
+script:
+  - choose: Cast Test Golem
+  - check:
+      decision: { player: P1, kind: pay_mana, options: ["Pay with Test Rock, Test Wastes", Pay manually] }
+  - choose: Pay with Test Rock, Test Wastes
+  - pass_all
+expect:
+  zones:
+    P1.battlefield: [Test Rock, Test Wastes, Test Golem]
+  tapped: { Test Rock: true, Test Wastes: true }

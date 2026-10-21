@@ -7,7 +7,9 @@
 //! complete legal cast still exists, so the CR 601.2e legality check can't
 //! fail and no rewind (CR 733) is needed.
 
-use mtg_cards::ir::{CostPart, Effect, Quantity, SpellAbility, TargetSpec};
+use mtg_cards::ir::{
+    Ability, ActivatedAbility, CostPart, Effect, Quantity, SpellAbility, TargetSpec, Timing,
+};
 use mtg_core::{CardType, ManaCost, ManaSymbol, ObjectId, PlayerId};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -53,6 +55,8 @@ pub(crate) struct ManualPayTask {
     pub spell: ObjectId,
     pub payer: PlayerId,
     pub remaining: CostReq,
+    /// A source whose {T} is part of the cost being paid (not usable for mana).
+    pub except: Option<ObjectId>,
 }
 
 /// The parts of a total cost before X and symbol choices (CR 601.2f).
@@ -106,9 +110,51 @@ fn requirement(symbols: &[ManaSymbol], x: u32, pays: &[SymbolPay]) -> (CostReq, 
     (req, life)
 }
 
-/// The cost shape of a definition's chosen cost, or `None` if it can't be
-/// paid at all (no mana cost, CR 202.1b; or no such alternative cost).
-fn cost_shape(def: &CardDef, cost: CastCost) -> Option<CostShape> {
+/// The activated ability `i` of a definition.
+fn activated(def: &CardDef, i: u8) -> Option<&ActivatedAbility> {
+    match def.abilities.get(usize::from(i))? {
+        Ability::Activated(x) => Some(x),
+        _ => None,
+    }
+}
+
+/// The target slots of the spell or ability (CR 601.2c, 602.2b).
+fn targets_of(def: &CardDef, ability: Option<u8>) -> &[TargetSpec] {
+    match ability {
+        Some(i) => activated(def, i).map_or(&[], |x| x.targets.as_slice()),
+        None => def.spell().map_or(&[], |s| s.targets.as_slice()),
+    }
+}
+
+/// Whether the cost includes {T} or {Q} of the source (CR 107.5–6), which
+/// keeps the source out of the mana used to pay the rest.
+fn taps_source(def: &CardDef, ability: Option<u8>) -> bool {
+    ability.and_then(|i| activated(def, i)).is_some_and(|x| {
+        x.cost
+            .iter()
+            .any(|c| matches!(c, CostPart::Tap | CostPart::Untap))
+    })
+}
+
+/// The cost shape of the chosen cost: a spell's mana cost or alternative
+/// cost plus additional costs, or an ability's activation cost. `None` if it
+/// can't be paid at all (no mana cost, CR 202.1b; or no such alternative cost).
+fn cost_shape(def: &CardDef, ability: Option<u8>, cost: CastCost) -> Option<CostShape> {
+    if let Some(i) = ability {
+        let mut symbols: Vec<ManaSymbol> = Vec::new();
+        let mut other = Vec::new();
+        for p in &activated(def, i)?.cost {
+            match p {
+                CostPart::Mana(s) => {
+                    if let Ok(c) = s.parse::<ManaCost>() {
+                        symbols.extend(c.symbols().iter().cloned());
+                    }
+                }
+                other_part => other.push(other_part.clone()),
+            }
+        }
+        return Some(CostShape { symbols, other });
+    }
     let spell = def.spell();
     let mut symbols: Vec<ManaSymbol> = Vec::new();
     let mut other = Vec::new();
@@ -137,13 +183,20 @@ fn cost_shape(def: &CardDef, cost: CastCost) -> Option<CostShape> {
     Some(CostShape { symbols, other })
 }
 
-fn cast_ctx(def_id: DefId, def: &CardDef, source: ObjectId, p: PlayerId) -> EffectCtx {
-    let ability = def
-        .abilities
-        .iter()
-        .position(|a| matches!(a, mtg_cards::ir::Ability::Spell(_)))
-        .and_then(|i| u8::try_from(i).ok())
-        .unwrap_or(0);
+fn cast_ctx(
+    def_id: DefId,
+    def: &CardDef,
+    ability: Option<u8>,
+    source: ObjectId,
+    p: PlayerId,
+) -> EffectCtx {
+    let ability = ability.unwrap_or_else(|| {
+        def.abilities
+            .iter()
+            .position(|a| matches!(a, Ability::Spell(_)))
+            .and_then(|i| u8::try_from(i).ok())
+            .unwrap_or(0)
+    });
     EffectCtx::new(
         AbilityRef {
             def: def_id,
@@ -159,6 +212,7 @@ impl Game {
 
     /// Whether `p` can pay `shape` with this X and these symbol choices so far
     /// (the remaining open symbols chosen freely).
+    #[allow(clippy::too_many_arguments)]
     fn shape_payable(
         &self,
         p: PlayerId,
@@ -166,6 +220,7 @@ impl Game {
         shape: &CostShape,
         x: u32,
         pays: &[SymbolPay],
+        except: Option<ObjectId>,
     ) -> bool {
         if !self.can_pay(ctx, p, &shape.other) {
             return false;
@@ -186,7 +241,7 @@ impl Game {
             .map(symbol_options)
             .collect();
         let pool = self.player(p).pool;
-        let sources = self.mana_sources(p, None);
+        let sources = self.mana_sources(p, except);
         let life = self.player(p).life;
         // Try every completion of the open symbols (a spell has only a few).
         let mut choice = vec![0usize; open.len()];
@@ -215,12 +270,18 @@ impl Game {
     }
 
     /// The largest X `p` could pay (CR 107.3a); payability is monotonic in X.
-    fn max_x(&self, p: PlayerId, ctx: &EffectCtx, shape: &CostShape) -> u32 {
+    fn max_x(
+        &self,
+        p: PlayerId,
+        ctx: &EffectCtx,
+        shape: &CostShape,
+        except: Option<ObjectId>,
+    ) -> u32 {
         let pool = self.player(p).pool.total();
-        let sources = u32::try_from(self.mana_sources(p, None).len()).unwrap_or(u32::MAX);
+        let sources = u32::try_from(self.mana_sources(p, except).len()).unwrap_or(u32::MAX);
         let cap = pool.saturating_add(sources.saturating_mul(16)).min(1_000);
         let mut x = 0;
-        while x < cap && self.shape_payable(p, ctx, shape, x + 1, &[]) {
+        while x < cap && self.shape_payable(p, ctx, shape, x + 1, &[], except) {
             x += 1;
         }
         x
@@ -273,8 +334,8 @@ impl Game {
                     continue;
                 }
             }
-            if let Some(shape) = cost_shape(def, c)
-                && self.shape_payable(p, ctx, &shape, 0, &[])
+            if let Some(shape) = cost_shape(def, None, c)
+                && self.shape_payable(p, ctx, &shape, 0, &[], None)
             {
                 out.push(c);
             }
@@ -303,8 +364,69 @@ impl Game {
                 return false;
             }
         }
-        let ctx = cast_ctx(def_id, def, id, p);
+        let ctx = cast_ctx(def_id, def, None, id, p);
         !self.cost_options(def, &ctx, p).is_empty()
+    }
+
+    /// Whether `p` may activate non-mana ability `ability` of permanent
+    /// `source` right now, with a complete legal activation guaranteed (CR 602.2, 602.5).
+    pub(crate) fn can_activate(
+        &self,
+        p: PlayerId,
+        source: ObjectId,
+        ability: u8,
+        sorcery_timing: bool,
+    ) -> bool {
+        let Some(o) = self.obj(source) else {
+            return false;
+        };
+        // CR 602.2: only the controller of the source may activate it.
+        if o.controller != p || o.zone != ZoneId::Battlefield {
+            return false;
+        }
+        let def_id = o.def;
+        let def = self.def(def_id);
+        let Some(x) = activated(def, ability) else {
+            return false;
+        };
+        // CR 602.5d: "activate only as a sorcery".
+        if x.timing == Timing::Sorcery && !sorcery_timing {
+            return false;
+        }
+        // CR 602.5b: "activate only once each turn".
+        if x.once_per_turn && self.activated_this_turn.contains(&(source, ability)) {
+            return false;
+        }
+        // CR 302.6: a creature's {T}/{Q} abilities need it under control since the turn began.
+        if taps_source(def, Some(ability))
+            && def.is(CardType::Creature)
+            && self.is_summoning_sick(source)
+        {
+            return false;
+        }
+        if !x.targets.iter().all(|t| self.slot_ok(t, p, None)) {
+            return false;
+        }
+        let ctx = cast_ctx(def_id, def, Some(ability), source, p);
+        let except = taps_source(def, Some(ability)).then_some(source);
+        cost_shape(def, Some(ability), CastCost::Normal)
+            .is_some_and(|shape| self.shape_payable(p, &ctx, &shape, 0, &[], except))
+    }
+
+    /// CR 602.2a: put the ability on the stack and start the activation procedure.
+    pub(crate) fn begin_activate(&mut self, p: PlayerId, source: ObjectId, ability: u8) {
+        let Some(def) = self.obj(source).map(|o| o.def) else {
+            return;
+        };
+        self.turn.priority = Some(p);
+        self.stack
+            .push(StackItem::new(source, def, Some(ability), p));
+        self.tasks.push(Task::Cast(CastTask {
+            spell: source,
+            caster: p,
+            stage: CastStage::Modes,
+            index: 0,
+        }));
     }
 
     // ---- the procedure ------------------------------------------------------
@@ -312,10 +434,13 @@ impl Game {
     /// CR 601.2a: move the card to the stack and start the procedure.
     pub(crate) fn begin_cast(&mut self, p: PlayerId, card: ObjectId) {
         self.turn.priority = Some(p);
+        let Some(def) = self.obj(card).map(|o| o.def) else {
+            return;
+        };
         let Some(spell) = self.move_object(card, ZoneId::Stack, true) else {
             return;
         };
-        self.stack.push(StackItem::new(spell, p));
+        self.stack.push(StackItem::new(spell, def, None, p));
         self.tasks.push(Task::Cast(CastTask {
             spell,
             caster: p,
@@ -324,12 +449,15 @@ impl Game {
         }));
     }
 
+    /// The stack item being cast or activated: the topmost one for this
+    /// object (an ability's object is its source, which may have other
+    /// abilities lower on the stack).
     fn item(&self, spell: ObjectId) -> Option<&StackItem> {
-        self.stack.iter().find(|s| s.object == spell)
+        self.stack.iter().rev().find(|s| s.object == spell)
     }
 
     fn item_mut(&mut self, spell: ObjectId) -> Option<&mut StackItem> {
-        self.stack.iter_mut().find(|s| s.object == spell)
+        self.stack.iter_mut().rev().find(|s| s.object == spell)
     }
 
     fn advance(&mut self, t: CastTask, stage: CastStage) {
@@ -342,18 +470,18 @@ impl Game {
 
     #[allow(clippy::too_many_lines)]
     pub(crate) fn cast_step(&mut self, t: CastTask) {
-        let Some(def_id) = self.obj(t.spell).map(|o| o.def) else {
-            return;
-        };
-        let pool = std::sync::Arc::clone(&self.pool);
-        let def = pool.get(def_id);
         let Some(item) = self.item(t.spell).cloned() else {
             return;
         };
-        let ctx = cast_ctx(def_id, def, t.spell, t.caster);
+        let def_id = item.source_def;
+        let pool = std::sync::Arc::clone(&self.pool);
+        let def = pool.get(def_id);
+        let ctx = cast_ctx(def_id, def, item.ability, t.spell, t.caster);
+        // A {T}/{Q} cost keeps the source out of the mana that pays the rest.
+        let except = taps_source(def, item.ability).then_some(t.spell);
         match t.stage {
             CastStage::Modes => {
-                let Some(spell) = def.spell() else {
+                let Some(spell) = def.spell().filter(|_| item.is_spell()) else {
                     return self.advance(t, CastStage::Cost);
                 };
                 let Effect::Modal { min, max, .. } = &spell.effect else {
@@ -386,6 +514,10 @@ impl Game {
                 );
             }
             CastStage::Cost => {
+                // Abilities have only their activation cost.
+                if !item.is_spell() {
+                    return self.advance(t, CastStage::X);
+                }
                 let options = self.cost_options(def, &ctx, t.caster);
                 debug_assert!(!options.is_empty(), "castability guarantees a cost");
                 if let [only] = options.as_slice() {
@@ -406,7 +538,7 @@ impl Game {
                 );
             }
             CastStage::X => {
-                let Some(shape) = cost_shape(def, item.cost) else {
+                let Some(shape) = cost_shape(def, item.ability, item.cost) else {
                     return;
                 };
                 if !shape
@@ -416,7 +548,7 @@ impl Game {
                 {
                     return self.advance(t, CastStage::Symbols);
                 }
-                let max = self.max_x(t.caster, &ctx, &shape);
+                let max = self.max_x(t.caster, &ctx, &shape, except);
                 self.tasks.push(Task::Cast(t));
                 self.decide(
                     t.caster,
@@ -429,7 +561,7 @@ impl Game {
                 );
             }
             CastStage::Symbols => {
-                let Some(shape) = cost_shape(def, item.cost) else {
+                let Some(shape) = cost_shape(def, item.ability, item.cost) else {
                     return;
                 };
                 let Some(symbol) = shape
@@ -446,7 +578,7 @@ impl Game {
                     .filter(|o| {
                         let mut pays = item.pays.to_vec();
                         pays.push(*o);
-                        self.shape_payable(t.caster, &ctx, &shape, item.x, &pays)
+                        self.shape_payable(t.caster, &ctx, &shape, item.x, &pays, except)
                     })
                     .collect();
                 debug_assert!(!options.is_empty(), "a payable cost has a payable choice");
@@ -470,11 +602,8 @@ impl Game {
                 );
             }
             CastStage::Targets => {
-                let Some(spell) = def.spell() else {
-                    return self.advance(t, CastStage::Pay);
-                };
                 let slot = usize::from(t.index);
-                let Some(spec) = spell.targets.get(slot) else {
+                let Some(spec) = targets_of(def, item.ability).get(slot) else {
                     return self.advance(t, CastStage::Pay);
                 };
                 let next_slot = CastTask {
@@ -483,6 +612,7 @@ impl Game {
                 };
                 // CR 601.2c: a modal spell requires only its chosen modes' targets.
                 let required = def.mode_slots.is_empty()
+                    || !item.is_spell()
                     || item
                         .modes
                         .iter()
@@ -535,7 +665,7 @@ impl Game {
                 let plans = enumerate_plans(
                     &req,
                     &self.player(t.caster).pool,
-                    &self.mana_sources(t.caster, None),
+                    &self.mana_sources(t.caster, except),
                 );
                 self.tasks.push(Task::Cast(t));
                 self.decide(
@@ -549,7 +679,7 @@ impl Game {
             }
             CastStage::PayOther => {
                 self.advance(t, CastStage::Done);
-                let Some(shape) = cost_shape(def, item.cost) else {
+                let Some(shape) = cost_shape(def, item.ability, item.cost) else {
                     return;
                 };
                 let life = self.cast_requirement(def, &item).1;
@@ -563,20 +693,32 @@ impl Game {
                     ))));
                 }
             }
-            CastStage::Done => {
+            CastStage::Done => match item.ability {
                 // CR 601.2i: the spell becomes cast.
-                self.log(Event::SpellCast {
+                None => self.log(Event::SpellCast {
                     player: t.caster,
                     object: t.spell,
                     def: def_id,
-                });
-            }
+                }),
+                // CR 602.2b (applying 601.2i): the ability becomes activated.
+                Some(ability) => {
+                    if activated(def, ability).is_some_and(|x| x.once_per_turn) {
+                        self.activated_this_turn.push((t.spell, ability));
+                    }
+                    self.log(Event::AbilityActivated {
+                        player: t.caster,
+                        source: t.spell,
+                        def: def_id,
+                        ability,
+                    });
+                }
+            },
         }
     }
 
-    /// The mana requirement and Phyrexian life of a spell's chosen cost.
+    /// The mana requirement and Phyrexian life of the chosen cost.
     pub(crate) fn cast_requirement(&self, def: &CardDef, item: &StackItem) -> (CostReq, i64) {
-        cost_shape(def, item.cost)
+        cost_shape(def, item.ability, item.cost)
             .map(|s| requirement(&s.symbols, item.x, &item.pays))
             .unwrap_or_default()
     }
@@ -629,19 +771,15 @@ impl Game {
                 self.advance(t, CastStage::PayOther);
                 if let Some(plan) = plans.get(option) {
                     self.execute_plan(t.caster, plan);
-                } else {
-                    let remaining = self
-                        .obj(t.spell)
-                        .map(|o| o.def)
-                        .and_then(|d| {
-                            let item = self.item(t.spell)?;
-                            Some(self.cast_requirement(self.def(d), item).0)
-                        })
-                        .unwrap_or_default();
+                } else if let Some(item) = self.item(t.spell) {
+                    let def = self.def(item.source_def);
+                    let remaining = self.cast_requirement(def, item).0;
+                    let except = taps_source(def, item.ability).then_some(t.spell);
                     self.tasks.push(Task::ManualPay(ManualPayTask {
                         spell: t.spell,
                         payer: t.caster,
                         remaining,
+                        except,
                     }));
                 }
             }
@@ -652,7 +790,7 @@ impl Game {
     /// Manual payment steps that keep the payment completable.
     pub(crate) fn manual_steps(&self, t: &ManualPayTask) -> Vec<ManaStep> {
         let pool = self.player(t.payer).pool;
-        let sources = self.mana_sources(t.payer, None);
+        let sources = self.mana_sources(t.payer, t.except);
         let mut steps = Vec::new();
         for m in ManaType::ALL {
             if pool.get(m) == 0 {
@@ -669,20 +807,25 @@ impl Game {
             }
         }
         for (i, s) in sources.iter().enumerate() {
-            for (ability, m) in &s.abilities {
-                let mut p2 = pool;
-                p2.add(*m, 1);
-                let rest: Vec<_> = sources
-                    .iter()
-                    .enumerate()
-                    .filter(|(j, _)| *j != i)
-                    .map(|(_, x)| x.clone())
-                    .collect();
-                if payable(&t.remaining, &p2, &rest) {
-                    steps.push(ManaStep::Activate {
-                        source: s.object,
-                        ability: *ability,
-                    });
+            let rest: Vec<_> = sources
+                .iter()
+                .enumerate()
+                .filter(|(j, _)| *j != i)
+                .map(|(_, x)| x.clone())
+                .collect();
+            for (ability, bags) in &s.abilities {
+                for bag in bags {
+                    let mut p2 = pool;
+                    for m in ManaType::ALL {
+                        p2.add(m, u32::from(bag[m.index()]));
+                    }
+                    if payable(&t.remaining, &p2, &rest) {
+                        steps.push(ManaStep::Activate {
+                            source: s.object,
+                            ability: *ability,
+                            bag: *bag,
+                        });
+                    }
                 }
             }
         }
@@ -711,13 +854,20 @@ impl Game {
 
     pub(crate) fn manual_pay_answer(&mut self, mut t: ManualPayTask, step: ManaStep) {
         match step {
-            ManaStep::Activate { source, ability } => self.activate_mana(source, ability),
+            ManaStep::Activate {
+                source,
+                ability,
+                bag,
+            } => {
+                self.tasks.push(Task::ManualPay(t));
+                self.activate_mana(source, ability, Some(bag));
+            }
             ManaStep::Spend(m) => {
                 if t.remaining.pay_one(m) {
                     self.player_mut(t.payer).pool.0[m.index()] -= 1;
                 }
+                self.tasks.push(Task::ManualPay(t));
             }
         }
-        self.tasks.push(Task::ManualPay(t));
     }
 }

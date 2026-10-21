@@ -218,10 +218,16 @@ pub enum Target {
     Player(PlayerId),
 }
 
-/// A spell on the stack (CR 112, 405), with the choices made while casting it.
+/// A spell or activated ability on the stack (CR 112, 113.7, 405), with the
+/// choices made while casting or activating it.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct StackItem {
+    /// The spell, or the ability's source (which may since have left its zone).
     pub object: ObjectId,
+    /// The spell's or source's definition (kept for last known information).
+    pub source_def: DefId,
+    /// `Some(i)`: activated ability `i` of the source; `None`: a spell.
+    pub ability: Option<u8>,
     pub controller: PlayerId,
     pub targets: SmallVec<[Target; 1]>,
     /// The target slot of each entry in `targets` (CR 601.2c).
@@ -237,9 +243,16 @@ pub struct StackItem {
 }
 
 impl StackItem {
-    pub fn new(object: ObjectId, controller: PlayerId) -> Self {
+    pub fn new(
+        object: ObjectId,
+        source_def: DefId,
+        ability: Option<u8>,
+        controller: PlayerId,
+    ) -> Self {
         Self {
             object,
+            source_def,
+            ability,
             controller,
             targets: SmallVec::new(),
             slots: SmallVec::new(),
@@ -248,6 +261,10 @@ impl StackItem {
             x: 0,
             pays: SmallVec::new(),
         }
+    }
+
+    pub fn is_spell(&self) -> bool {
+        self.ability.is_none()
     }
 }
 
