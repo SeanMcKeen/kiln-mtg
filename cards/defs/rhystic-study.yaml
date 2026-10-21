@@ -1,0 +1,10 @@
+card: Rhystic Study
+faces:
+  - abilities:
+      - triggered:
+          trigger: { cast: { by: opponent, spell: {} } }
+          effect:
+            unless:
+              payer: triggering
+              cost: [{ mana: "{1}" }]
+              effect: { may: { draw: { who: you, amount: 1 } } }

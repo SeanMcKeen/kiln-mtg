@@ -1,0 +1,9 @@
+card: Grand Abolisher
+faces:
+  - abilities:
+      - static:
+          condition: your_turn
+          effect: { cant_cast: { who: opponent, spells: {} } }
+      - static:
+          condition: your_turn
+          effect: { cant_activate: { who: opponent, sources: { types: [artifact, creature, enchantment] } } }

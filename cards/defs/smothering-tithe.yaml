@@ -1,0 +1,11 @@
+card: Smothering Tithe
+faces:
+  - abilities:
+      - triggered:
+          trigger: { draws: { by: opponent } }
+          effect:
+            if_does:
+              who: triggering
+              action: { pay: { who: triggering, cost: [{ mana: "{2}" }] } }
+              then: { seq: [] }
+              otherwise: { create_token: { token: { predefined: Treasure }, count: 1, controller: you } }

@@ -1,0 +1,8 @@
+card: Night's Whisper
+faces:
+  - abilities:
+      - spell:
+          effect:
+            seq:
+              - draw: { who: you, amount: 2 }
+              - lose_life: { who: you, amount: 2 }

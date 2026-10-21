@@ -11,7 +11,7 @@ updated: 2026-10-20
 **Goal:** decide how cards are defined, and get the first 100 non-trivial cards verified.
 
 ## Checklist
-- [ ] Run the [[Card Definition Spike Plan]] → accept [[ADR-0007 Card Definition Approach]]
+- [x] Run the [[Card Definition Spike Plan]] → [[Card Definition Spike Results]]. **Accepting [[ADR-0007 Card Definition Approach]] is the user's call** (D recommended)
 - [ ] IR v1: effects, filters, costs, triggers, statics, replacements (the shape at least; behaviour arrives in M4/M5)
 - [ ] Chosen front-end(s) implemented (parser, DSL loader, escape registry)
 - [ ] IR → text renderer (lint against Oracle)

@@ -1,0 +1,14 @@
+card: Orcish Bowmasters
+faces:
+  - abilities:
+      - keyword: flash
+      - triggered:
+          trigger:
+            any_of:
+              - { enters: { this: true } }
+              - { draws: { by: opponent, except_first_in_draw_step: true } }
+          targets: [{ what: any }]
+          effect:
+            seq:
+              - deal_damage: { to: { target: 0 }, amount: 1 }
+              - amass: { subtype: Orc, amount: 1 }

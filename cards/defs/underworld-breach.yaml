@@ -1,0 +1,11 @@
+card: Underworld Breach
+faces:
+  - abilities:
+      - static:
+          effect:
+            grant_escape:
+              affected: { zone: graveyard, controller: you, not_types: [land] }
+              extra_cost: [{ exile_from_graveyard: { count: 3, other: true } }]
+      - triggered:
+          trigger: { beginning_of: { step: end, whose: any } }
+          effect: { sacrifice: { who: you, what: { one: this } } }

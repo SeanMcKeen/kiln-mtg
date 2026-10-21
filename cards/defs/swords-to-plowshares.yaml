@@ -1,0 +1,10 @@
+card: Swords to Plowshares
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { object: { types: [creature] } } }]
+          effect:
+            seq:
+              - exile: { what: { one: { target: 0 } } }
+              # Uses last-known information about the exiled creature (CR 608.2h).
+              - gain_life: { who: { controller_of: { target: 0 } }, amount: { power_of: { target: 0 } } }

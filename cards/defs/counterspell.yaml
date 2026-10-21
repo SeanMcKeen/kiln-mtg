@@ -1,0 +1,6 @@
+card: Counterspell
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { spell: {} } }]
+          effect: { counter: { one: { target: 0 } } }

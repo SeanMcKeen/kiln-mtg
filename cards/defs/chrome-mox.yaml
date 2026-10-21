@@ -1,0 +1,19 @@
+card: Chrome Mox
+faces:
+  - abilities:
+      # "Imprint" is an ability word (CR 207.2c); the two abilities are linked (CR 607).
+      - triggered:
+          trigger: { enters: { this: true } }
+          effect:
+            may:
+              exile:
+                what:
+                  chosen_from:
+                    who: you
+                    zone: hand
+                    filter: { not_types: [artifact, land] }
+                    count: 1
+                remember: imprinted
+      - activated:
+          cost: [tap]
+          effect: { add_mana: { mana: { color_of: { remembered: imprinted } } } }

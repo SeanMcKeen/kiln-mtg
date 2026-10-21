@@ -1,0 +1,16 @@
+card: Thassa's Oracle
+faces:
+  - abilities:
+      - triggered:
+          trigger: { enters: { this: true } }
+          effect:
+            seq:
+              - look_at_top:
+                  who: you
+                  count: { devotion: U }
+                  take: { filter: {}, up_to: 1, to: top_of_library }
+                  rest: bottom_random
+              # X is determined once (CR 608.2h) and compared with the library at that point.
+              - if:
+                  condition: { at_least: [{ devotion: U }, { cards_in_library: you }] }
+                  then: { win_game: you }

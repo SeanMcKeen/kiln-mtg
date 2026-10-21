@@ -1,0 +1,10 @@
+card: Fierce Guardianship
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { spell: { not_types: [creature] } } }]
+          effect: { counter: { one: { target: 0 } } }
+          alternative_costs:
+            # "without paying its mana cost" = an empty alternative cost.
+            - cost: []
+              condition: control_commander

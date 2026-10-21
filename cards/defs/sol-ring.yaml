@@ -1,0 +1,6 @@
+card: Sol Ring
+faces:
+  - abilities:
+      - activated:
+          cost: [tap]
+          effect: { add_mana: { mana: { fixed: "{C}{C}" } } }

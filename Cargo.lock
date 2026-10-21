@@ -707,6 +707,8 @@ dependencies = [
  "mtg-core",
  "serde",
  "serde_json",
+ "thiserror",
+ "yaml_serde",
 ]
 
 [[package]]

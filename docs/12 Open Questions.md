@@ -31,10 +31,10 @@ Each question has an owner note and a target milestone. Move a question to **Res
 ## Cards
 | # | Question | Owner note | Target |
 |---|---|---|---|
-| Q20 | **Card definition approach** | [[ADR-0007 Card Definition Approach]] | M3 |
+| Q20 | **Card definition approach.** Spike done ([[Card Definition Spike Results]]); D (hybrid) recommended. **Awaiting the user's decision.** | [[ADR-0007 Card Definition Approach]] | M3 |
 | Q23 | "Spell commander" (5 cards) isn't in the 2026-06-19 CR. M1 treats it as CR 903.3a "can be your commander" text. Revisit when the CR adds it. | [[Commander]], [[CR Update Process]] | next CR |
-| Q24 | Should phase.rs's published per-card coverage data be used as a differential-testing oracle for our card definitions? | [[phase.rs Evaluation]] | M3 |
-| Q22 | DSL syntax (YAML/RON/custom) if overrides exist | [[Option - Hybrid IR]] | M3 |
+| Q24 | Use phase.rs's per-card coverage as a differential oracle? The spike wires it into `mtg dev card-spike --phase-coverage`; the recommendation is yes, for flagging disagreements only. | [[phase.rs Evaluation]] | M3 |
+| Q22 | DSL syntax for overrides. Spike evidence: the IR's own YAML form (single-key maps, strict schema) worked for 40 cards. Decided with ADR-0007. | [[Option - Hybrid IR]] | M3 |
 
 ## Simulation & policies
 | # | Question | Owner note | Target |

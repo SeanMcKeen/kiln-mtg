@@ -146,6 +146,24 @@ enum DevCmd {
     },
     /// Fuzz the engine with random-policy games (M2 exit criterion).
     Fuzz(FuzzArgs),
+    /// Measure the M3 card-definition spike: parser coverage, renderer lint, phase.rs comparison.
+    CardSpike {
+        #[arg(long, default_value_t = 1000)]
+        sample: usize,
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+        #[arg(long, default_value = "cards/defs")]
+        defs: PathBuf,
+        #[arg(long, default_value = "tests/fixtures/spike/curated-pool.txt")]
+        pool: PathBuf,
+        /// phase.rs `coverage-data.json`, for comparison (not committed).
+        #[arg(long)]
+        phase_coverage: Option<PathBuf>,
+        #[command(flatten)]
+        db: DbArgs,
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Debug, Args)]
@@ -238,8 +256,69 @@ fn run(cli: Cli) -> Result<ExitCode> {
             json,
         }) => cr_check(&cr, &paths, require, json),
         Command::Dev(DevCmd::Fuzz(args)) => fuzz(&args),
+        Command::Dev(DevCmd::CardSpike {
+            sample,
+            seed,
+            defs,
+            pool,
+            phase_coverage,
+            db,
+            json,
+        }) => {
+            let (db, _) = db.load()?;
+            let r = spike::run(&db, sample, seed, &defs, &pool, phase_coverage.as_deref())?;
+            if json {
+                print_json(&r)?;
+            } else {
+                let pct = |a: usize, b: usize| {
+                    if b == 0 {
+                        0.0
+                    } else {
+                        100.0 * a as f64 / b as f64
+                    }
+                };
+                for (label, s) in [
+                    ("curated cEDH pool", &r.curated_pool),
+                    ("1,000-card sample", &r.sample),
+                    ("all Commander-legal", &r.all_commander_legal),
+                ] {
+                    println!(
+                        "{label}: {}/{} cards fully parsed ({:.1}%), {}/{} lines ({:.1}%), {:.1}% of parsed lines round-trip",
+                        s.cards_fully_parsed,
+                        s.cards,
+                        pct(s.cards_fully_parsed, s.cards),
+                        s.lines_parsed,
+                        s.lines,
+                        pct(s.lines_parsed, s.lines),
+                        pct(s.lines_round_trip, s.lines_parsed)
+                    );
+                }
+                println!(
+                    "lint: caught {}/{} injected mis-parses ({:.1}%) {:?}",
+                    r.lint.caught,
+                    r.lint.mutants,
+                    pct(r.lint.caught, r.lint.mutants),
+                    r.lint.by_kind
+                );
+                let ok = r.hand_authored.iter().filter(|d| d.matches_oracle).count();
+                println!(
+                    "hand-authored YAML: {ok}/{} render to their Oracle text",
+                    r.hand_authored.len()
+                );
+                if let Some(p) = &r.phase_rs {
+                    println!("phase.rs supported on the same sets: {p:?}");
+                }
+                println!("top unparsed line shapes:");
+                for (s, n) in r.top_unparsed.iter().take(15) {
+                    println!("  {n:>5}  {s}");
+                }
+            }
+            Ok(ExitCode::SUCCESS)
+        }
     }
 }
+
+mod spike;
 
 fn fuzz(a: &FuzzArgs) -> Result<ExitCode> {
     use std::sync::Arc;

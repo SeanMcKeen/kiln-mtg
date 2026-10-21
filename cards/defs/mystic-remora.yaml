@@ -1,0 +1,11 @@
+card: Mystic Remora
+faces:
+  - abilities:
+      - keyword: { cumulative_upkeep: [{ mana: "{1}" }] }
+      - triggered:
+          trigger: { cast: { by: opponent, spell: { not_types: [creature] } } }
+          effect:
+            unless:
+              payer: triggering
+              cost: [{ mana: "{4}" }]
+              effect: { may: { draw: { who: you, amount: 1 } } }

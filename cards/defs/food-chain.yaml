@@ -1,0 +1,9 @@
+card: Food Chain
+faces:
+  - abilities:
+      - activated:
+          cost: [{ exile: { what: { types: [creature], controller: you }, remember: exiled } }]
+          effect:
+            add_mana:
+              mana: { any_one_color: { plus: [{ mana_value_of: { remembered: exiled } }, 1] } }
+              spend_only_on: { types: [creature] }
