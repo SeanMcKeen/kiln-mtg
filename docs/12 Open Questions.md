@@ -34,6 +34,7 @@ Each question has an owner note and a target milestone. Move a question to **Res
 | Q20 | **Card definition approach.** Spike done ([[Card Definition Spike Results]]); D (hybrid) recommended. **Awaiting the user's decision.** | [[ADR-0007 Card Definition Approach]] | M3 |
 | Q23 | "Spell commander" (5 cards) isn't in the 2026-06-19 CR. M1 treats it as CR 903.3a "can be your commander" text. Revisit when the CR adds it. | [[Commander]], [[CR Update Process]] | next CR |
 | Q24 | Use phase.rs's per-card coverage as a differential oracle? The spike wires it into `mtg dev card-spike --phase-coverage`; the recommendation is yes, for flagging disagreements only. | [[phase.rs Evaluation]] | M3 |
+| Q25 | **Where do real-card scenarios run?** Verified-card scenarios need characteristics (cost, type line, P/T) from the card DB, which isn't committed. M3 runs them only when `data/cache/current` or `MTG_CARD_DB` exists, so CI covers synthetic cards only. Option: a CI job that downloads Scryfall bulk data at CI time, like the CR check does (nothing committed, but it adds network use and Scryfall's terms apply). | [[M3 Card Definitions v1]], [[Card Data Sources]] | M3 |
 | Q22 | DSL syntax for overrides. Spike evidence: the IR's own YAML form (single-key maps, strict schema) worked for 40 cards. Decided with ADR-0007. | [[Option - Hybrid IR]] | M3 |
 
 ## Simulation & policies

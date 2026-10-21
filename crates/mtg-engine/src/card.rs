@@ -1,12 +1,18 @@
-//! Card definitions: the **temporary M2 IR** (M2 plan, D5).
+//! Card definitions: characteristics plus card IR v1 abilities (M3 plan, B-D1).
 //!
-//! Just enough to play lands, vanilla and French-vanilla creatures, and a few
-//! simple spells. ADR-0007 (M3) replaces it with the real card IR. The engine
-//! never looks at card names; behaviour comes only from these definitions.
+//! The engine never looks at card names; behaviour comes only from the
+//! abilities in [`CardDef::abilities`], which are `mtg_cards::ir` values
+//! produced by any front-end. A definition is built only if the engine can
+//! execute every ability on it ([`crate::support`], B-D2); anything else is
+//! a loud [`Unsupported`] error, never a blank card.
 
 use std::collections::BTreeMap;
 use std::fmt;
 
+use mtg_cards::ir::{
+    self, Ability, ActivatedAbility, CostPart, FaceIr, ManaSpec, Quantity, SpellAbility,
+    TargetKind, TargetSpec,
+};
 use mtg_core::{
     CardType, Color, Colors, ManaCost, ManaSymbol, OracleId, PrintedStat, Supertype, TypeLine,
 };
@@ -56,6 +62,11 @@ impl ManaType {
     pub fn symbol(self) -> &'static str {
         ["{W}", "{U}", "{B}", "{R}", "{G}", "{C}"][self.index()]
     }
+
+    /// This type as a one-bit [`ManaUnit`] mask.
+    pub fn bit(self) -> ManaUnit {
+        1 << self.index()
+    }
 }
 
 impl fmt::Display for ManaType {
@@ -64,7 +75,14 @@ impl fmt::Display for ManaType {
     }
 }
 
-/// Keyword abilities the M2 engine implements, as a bitset.
+/// One unit of mana an ability produces, as a mask of the [`ManaType`]s the
+/// player may choose for it (bit = `ManaType::index`).
+pub type ManaUnit = u8;
+
+/// Any of the five colors (CR 105.1).
+pub const ANY_COLOR: ManaUnit = 0b1_1111;
+
+/// Keyword abilities the engine implements, as a bitset derived from the IR.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct Keywords(u16);
 
@@ -91,8 +109,16 @@ impl Keywords {
     pub const VIGILANCE: Keywords = Keywords(1 << 9);
     /// CR 702.111
     pub const MENACE: Keywords = Keywords(1 << 10);
+    /// CR 702.8
+    pub const FLASH: Keywords = Keywords(1 << 11);
+    /// CR 702.11
+    pub const HEXPROOF: Keywords = Keywords(1 << 12);
+    /// CR 702.18
+    pub const SHROUD: Keywords = Keywords(1 << 13);
+    /// CR 702.12
+    pub const INDESTRUCTIBLE: Keywords = Keywords(1 << 14);
 
-    const NAMES: [(&'static str, Keywords); 11] = [
+    const NAMES: [(&'static str, Keywords); 15] = [
         ("deathtouch", Self::DEATHTOUCH),
         ("defender", Self::DEFENDER),
         ("double strike", Self::DOUBLE_STRIKE),
@@ -104,6 +130,10 @@ impl Keywords {
         ("trample", Self::TRAMPLE),
         ("vigilance", Self::VIGILANCE),
         ("menace", Self::MENACE),
+        ("flash", Self::FLASH),
+        ("hexproof", Self::HEXPROOF),
+        ("shroud", Self::SHROUD),
+        ("indestructible", Self::INDESTRUCTIBLE),
     ];
 
     pub fn has(self, k: Keywords) -> bool {
@@ -127,41 +157,96 @@ impl Keywords {
             .filter(move |(_, k)| self.has(*k))
             .map(|(n, _)| *n)
     }
+
+    /// The bit for an IR keyword, if it's one the bitset tracks.
+    pub fn of_ir(k: &ir::Keyword) -> Option<Keywords> {
+        use ir::Keyword as K;
+        Some(match k {
+            K::Deathtouch => Self::DEATHTOUCH,
+            K::Defender => Self::DEFENDER,
+            K::DoubleStrike => Self::DOUBLE_STRIKE,
+            K::FirstStrike => Self::FIRST_STRIKE,
+            K::Flying => Self::FLYING,
+            K::Haste => Self::HASTE,
+            K::Lifelink => Self::LIFELINK,
+            K::Reach => Self::REACH,
+            K::Trample => Self::TRAMPLE,
+            K::Vigilance => Self::VIGILANCE,
+            K::Menace => Self::MENACE,
+            K::Flash => Self::FLASH,
+            K::Hexproof => Self::HEXPROOF,
+            K::Shroud => Self::SHROUD,
+            K::Indestructible => Self::INDESTRUCTIBLE,
+            _ => return None,
+        })
+    }
+
+    /// The IR keyword for a single bit.
+    pub fn to_ir(self) -> Option<ir::Keyword> {
+        use ir::Keyword as K;
+        let all = [
+            (Self::DEATHTOUCH, K::Deathtouch),
+            (Self::DEFENDER, K::Defender),
+            (Self::DOUBLE_STRIKE, K::DoubleStrike),
+            (Self::FIRST_STRIKE, K::FirstStrike),
+            (Self::FLYING, K::Flying),
+            (Self::HASTE, K::Haste),
+            (Self::LIFELINK, K::Lifelink),
+            (Self::REACH, K::Reach),
+            (Self::TRAMPLE, K::Trample),
+            (Self::VIGILANCE, K::Vigilance),
+            (Self::MENACE, K::Menace),
+            (Self::FLASH, K::Flash),
+            (Self::HEXPROOF, K::Hexproof),
+            (Self::SHROUD, K::Shroud),
+            (Self::INDESTRUCTIBLE, K::Indestructible),
+        ];
+        all.into_iter().find(|(b, _)| *b == self).map(|(_, k)| k)
+    }
 }
 
-/// What a spell's target slot accepts (CR 115).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum TargetSpec {
-    /// "any target": a creature, player, planeswalker or battle (CR 115.4). M2 has creatures and players.
-    Any,
-    /// "target creature"
-    Creature,
+/// A mana ability (CR 605.1a) of a definition, with its output precomputed.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ManaAbility {
+    /// Index into [`CardDef::abilities`].
+    pub ability: u8,
+    /// Ways the ability's mana can come out: one alternative is chosen per
+    /// activation, and each unit of it may be any type in its mask.
+    pub alternatives: SmallVec<[SmallVec<[ManaUnit; 2]>; 1]>,
+    /// The cost is exactly {T}, so automatic payment plans may use it (B-D8).
+    pub tap_only: bool,
 }
 
-/// One-shot effects of instants and sorceries (M2 subset).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum Effect {
-    /// Deal N damage to the target (CR 120).
-    DealDamage(u32),
-    /// Destroy the target (CR 701.8).
-    Destroy,
-    /// The controller draws N cards (CR 121).
-    Draw(u32),
-    /// The controller gains N life (CR 119).
-    GainLife(u32),
-}
-
-impl Effect {
-    pub fn target(self) -> Option<TargetSpec> {
-        match self {
-            Effect::DealDamage(_) => Some(TargetSpec::Any),
-            Effect::Destroy => Some(TargetSpec::Creature),
-            Effect::Draw(_) | Effect::GainLife(_) => None,
+impl ManaAbility {
+    /// The single mana type this ability makes, if it always makes exactly
+    /// one mana of one type.
+    pub fn single_type(&self) -> Option<ManaType> {
+        match self.alternatives.as_slice() {
+            [alt] => match alt.as_slice() {
+                [unit] if unit.count_ones() == 1 => {
+                    ManaType::ALL.into_iter().find(|t| t.bit() == *unit)
+                }
+                _ => None,
+            },
+            _ => None,
         }
     }
 }
 
-/// A card definition in the M2 IR.
+/// Printed characteristics (CR 109.3) other than abilities.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Characteristics {
+    pub name: String,
+    pub oracle_id: Option<OracleId>,
+    /// `None` = no mana cost (CR 202.1b): can't be cast normally (lands aren't cast).
+    pub mana_cost: Option<ManaCost>,
+    pub type_line: TypeLine,
+    pub colors: Colors,
+    pub power: Option<i32>,
+    pub toughness: Option<i32>,
+}
+
+/// A card definition: characteristics plus IR abilities, with derived indexes.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CardDef {
     pub name: String,
@@ -172,15 +257,67 @@ pub struct CardDef {
     pub colors: Colors,
     pub power: Option<i32>,
     pub toughness: Option<i32>,
+    /// Abilities in printed order, then intrinsic ones (CR 305.6).
+    pub abilities: Vec<Ability>,
+    /// Derived: the keyword bitset, for fast combat checks.
     pub keywords: Keywords,
-    /// `{T}: Add <type>` abilities, one entry per ability (CR 605.1a).
-    /// Lands with basic land types have these intrinsically (CR 305.6).
-    pub mana_abilities: SmallVec<[ManaType; 2]>,
-    /// The effect of an instant or sorcery.
-    pub spell_effect: Option<Effect>,
+    /// Derived: the mana abilities (CR 605.1a), in ability order.
+    pub mana_abilities: SmallVec<[ManaAbility; 2]>,
 }
 
 impl CardDef {
+    /// Builds a definition and checks that the engine supports all of it (B-D2).
+    pub fn new(ch: Characteristics, mut abilities: Vec<Ability>) -> Result<CardDef, Unsupported> {
+        let unsupported = |reason: String| Unsupported {
+            name: ch.name.clone(),
+            reason,
+        };
+        // CR 305.6: lands with basic land types have the matching mana abilities.
+        if ch.type_line.has_type(CardType::Land) {
+            for (_, color) in ch.type_line.basic_land_types() {
+                abilities.push(tap_for(ManaType::of_color(color)));
+            }
+        }
+        let mut keywords = Keywords::default();
+        let mut mana_abilities = SmallVec::new();
+        for (i, a) in abilities.iter().enumerate() {
+            match a {
+                Ability::Keyword(k) => {
+                    if let Some(bit) = Keywords::of_ir(k) {
+                        keywords = keywords.with(bit);
+                    }
+                }
+                Ability::Activated(x) if is_mana_ability(x) => {
+                    let alternatives = mana_output(&x.effect).map_err(unsupported)?;
+                    mana_abilities.push(ManaAbility {
+                        ability: u8::try_from(i)
+                            .map_err(|_| unsupported("more than 255 abilities".into()))?,
+                        alternatives,
+                        tap_only: x.cost == [CostPart::Tap],
+                    });
+                }
+                _ => {}
+            }
+        }
+        let def = CardDef {
+            name: ch.name,
+            oracle_id: ch.oracle_id,
+            mana_cost: ch.mana_cost,
+            type_line: ch.type_line,
+            colors: ch.colors,
+            power: ch.power,
+            toughness: ch.toughness,
+            abilities,
+            keywords,
+            mana_abilities,
+        };
+        crate::support::check(&def).map_err(|reason| Unsupported {
+            name: def.name.clone(),
+            reason,
+        })?;
+        Ok(def)
+    }
+
     pub fn is(&self, t: CardType) -> bool {
         self.type_line.has_type(t)
     }
@@ -206,31 +343,131 @@ impl CardDef {
     pub fn mana_value(&self) -> u32 {
         self.mana_cost.as_ref().map_or(0, ManaCost::mana_value)
     }
+
+    /// The spell ability of an instant or sorcery (CR 113.3a).
+    pub fn spell(&self) -> Option<&SpellAbility> {
+        self.abilities.iter().find_map(|a| match a {
+            Ability::Spell(s) => Some(s),
+            _ => None,
+        })
+    }
 }
 
-/// Why a card can't be expressed in the M2 IR.
+/// CR 605.1a: an activated ability is a mana ability if it has no targets and
+/// could add mana (loyalty abilities aren't in the IR yet).
+pub fn is_mana_ability(a: &ActivatedAbility) -> bool {
+    a.targets.is_empty() && could_add_mana(&a.effect)
+}
+
+fn could_add_mana(e: &ir::Effect) -> bool {
+    use ir::Effect as E;
+    match e {
+        E::AddMana { .. } => true,
+        E::Seq(v) => v.iter().any(could_add_mana),
+        E::May(x) => could_add_mana(x),
+        _ => false,
+    }
+}
+
+/// The output of a mana ability's effect. Only a single unconditional
+/// `AddMana` with a fixed amount is supported so far.
+fn mana_output(e: &ir::Effect) -> Result<SmallVec<[SmallVec<[ManaUnit; 2]>; 1]>, String> {
+    use ir::Effect as E;
+    let adds: Vec<&ManaSpec> = match e {
+        E::AddMana { mana, .. } => vec![mana],
+        E::Seq(v) => v
+            .iter()
+            .filter_map(|x| match x {
+                E::AddMana { mana, .. } => Some(mana),
+                _ => None,
+            })
+            .collect(),
+        _ => Vec::new(),
+    };
+    let [spec] = adds.as_slice() else {
+        return Err("mana ability that doesn't add mana exactly once, unconditionally".into());
+    };
+    let fixed = |q: &Quantity| match q {
+        Quantity::Fixed(n) if (1..=16).contains(n) => usize::try_from(*n).ok(),
+        _ => None,
+    };
+    let mut out = SmallVec::new();
+    match spec {
+        ManaSpec::Fixed(s) => out.push(parse_mana_units(s)?),
+        ManaSpec::OneOf(v) => {
+            for s in v {
+                out.push(parse_mana_units(s)?);
+            }
+        }
+        ManaSpec::AnyColor(q) => {
+            let n = fixed(q).ok_or("variable amount of mana")?;
+            out.push(SmallVec::from_elem(ANY_COLOR, n));
+        }
+        ManaSpec::AnyOneColor(q) => {
+            let n = fixed(q).ok_or("variable amount of mana")?;
+            for c in Color::ALL {
+                out.push(SmallVec::from_elem(ManaType::of_color(c).bit(), n));
+            }
+        }
+        ManaSpec::CommanderIdentity => {
+            return Err(
+                "mana of the commander's color identity needs the command zone (M6)".into(),
+            );
+        }
+        ManaSpec::ColorOf(_) | ManaSpec::TypeProducedByTrigger => {
+            return Err("mana whose type depends on another object (M4)".into());
+        }
+    }
+    Ok(out)
+}
+
+/// Parses produced mana such as `{C}{C}` or `{B}{B}{B}` into units.
+fn parse_mana_units(s: &str) -> Result<SmallVec<[ManaUnit; 2]>, String> {
+    let cost: ManaCost = s.parse().map_err(|e| format!("mana {s:?}: {e}"))?;
+    cost.symbols()
+        .iter()
+        .map(|sym| match sym {
+            ManaSymbol::Colored(c) => Ok(ManaType::of_color(*c).bit()),
+            ManaSymbol::Colorless => Ok(ManaType::Colorless.bit()),
+            other => Err(format!("can't produce mana symbol {other:?}")),
+        })
+        .collect()
+}
+
+/// `{T}: Add <type>.`
+pub fn tap_for(t: ManaType) -> Ability {
+    Ability::Activated(ActivatedAbility {
+        cost: vec![CostPart::Tap],
+        targets: Vec::new(),
+        effect: ir::Effect::AddMana {
+            mana: ManaSpec::Fixed(t.symbol().to_owned()),
+            spend_only_on: None,
+        },
+        timing: ir::Timing::Any,
+        once_per_turn: false,
+    })
+}
+
+/// Why a card can't be used by the engine yet.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-#[error("{name}: not supported by the M2 card IR: {reason}")]
+#[error("{name}: not supported by the engine yet: {reason}")]
 pub struct Unsupported {
     pub name: String,
     pub reason: String,
 }
 
-impl CardDef {
-    /// Builds a definition from an ingested record when it is a basic-type
-    /// land, a vanilla creature, or a French-vanilla creature whose rules text
-    /// is only M2 keywords. Anything else is an error, never a blank card.
-    pub fn from_record(rec: &CardRecord) -> Result<CardDef, Unsupported> {
+impl Characteristics {
+    /// The front face's characteristics from an ingested record.
+    pub fn from_record(rec: &CardRecord) -> Result<Characteristics, Unsupported> {
         let unsupported = |reason: &str| Unsupported {
             name: rec.name.clone(),
             reason: reason.to_owned(),
         };
         if rec.faces.len() != 1 {
-            return Err(unsupported("multi-face layouts arrive in M3"));
+            return Err(unsupported("multi-face layouts"));
         }
         let f = rec.front();
-        let t = &f.type_line;
-        if !t.other.is_empty() {
+        if !f.type_line.other.is_empty() {
             return Err(unsupported("non-standard type line"));
         }
         let simple = |s: &ManaSymbol| {
@@ -244,35 +481,8 @@ impl CardDef {
             .is_some_and(|c| !c.symbols().iter().all(simple))
         {
             return Err(unsupported(
-                "mana cost needs hybrid/Phyrexian/X/snow payment (M3)",
+                "mana cost needs hybrid/Phyrexian/X/snow payment",
             ));
-        }
-        let mut keywords = Keywords::default();
-        let mut mana_abilities = SmallVec::new();
-        for line in f.reminder_stripped.lines() {
-            for part in line.split(',') {
-                let word = part.trim().trim_end_matches('.');
-                match Keywords::from_name(word) {
-                    Some(k) => keywords = keywords.with(k),
-                    None => return Err(unsupported(&format!("rules text {line:?}"))),
-                }
-            }
-        }
-        let is_land = t.has_type(CardType::Land);
-        let is_creature = t.has_type(CardType::Creature);
-        if is_land {
-            if t.card_types.len() > 1 {
-                return Err(unsupported("land with other card types"));
-            }
-            // CR 305.6: intrinsic mana abilities from basic land types.
-            for (_, color) in t.basic_land_types() {
-                mana_abilities.push(ManaType::of_color(color));
-            }
-            if mana_abilities.is_empty() && !f.reminder_stripped.is_empty() {
-                return Err(unsupported("land rules text"));
-            }
-        } else if !is_creature || t.card_types.len() > 1 {
-            return Err(unsupported("only lands and creatures convert in M2"));
         }
         let stat = |s: &Option<PrintedStat>| match s {
             Some(PrintedStat::Fixed(n)) => Ok(Some(*n)),
@@ -281,21 +491,60 @@ impl CardDef {
         };
         let power = stat(&f.power)?;
         let toughness = stat(&f.toughness)?;
-        if is_creature && (power.is_none() || toughness.is_none()) {
+        if f.type_line.has_type(CardType::Creature) && (power.is_none() || toughness.is_none()) {
             return Err(unsupported("creature without fixed power/toughness"));
         }
-        Ok(CardDef {
+        Ok(Characteristics {
             name: rec.name.clone(),
             oracle_id: Some(rec.oracle_id),
             mana_cost: f.mana_cost.clone(),
-            type_line: t.clone(),
+            type_line: f.type_line.clone(),
             colors: f.colors,
             power,
             toughness,
-            keywords,
-            mana_abilities,
-            spell_effect: None,
         })
+    }
+}
+
+impl CardDef {
+    /// Builds a definition from an ingested record whose rules text is only
+    /// keywords the engine knows: basic-type lands, vanilla and French-vanilla
+    /// creatures. Cards with other text need IR from a front-end
+    /// ([`CardDef::from_record_ir`]).
+    pub fn from_record(rec: &CardRecord) -> Result<CardDef, Unsupported> {
+        let unsupported = |reason: &str| Unsupported {
+            name: rec.name.clone(),
+            reason: reason.to_owned(),
+        };
+        let ch = Characteristics::from_record(rec)?;
+        let t = &ch.type_line;
+        let is_land = t.has_type(CardType::Land);
+        if is_land {
+            if t.card_types.len() > 1 {
+                return Err(unsupported("land with other card types"));
+            }
+            if t.basic_land_types().next().is_none() {
+                return Err(unsupported("land without a basic land type"));
+            }
+        } else if !t.has_type(CardType::Creature) || t.card_types.len() > 1 {
+            return Err(unsupported("only lands and creatures convert without IR"));
+        }
+        let mut abilities = Vec::new();
+        for line in rec.front().reminder_stripped.lines() {
+            for part in line.split(',') {
+                let word = part.trim().trim_end_matches('.');
+                match Keywords::from_name(word).and_then(Keywords::to_ir) {
+                    Some(k) if !is_land => abilities.push(Ability::Keyword(k)),
+                    _ => return Err(unsupported(&format!("rules text {line:?}"))),
+                }
+            }
+        }
+        CardDef::new(ch, abilities)
+    }
+
+    /// Builds a definition from an ingested record and IR for its front face.
+    pub fn from_record_ir(rec: &CardRecord, face: &FaceIr) -> Result<CardDef, Unsupported> {
+        CardDef::new(Characteristics::from_record(rec)?, face.abilities.clone())
     }
 }
 
@@ -345,41 +594,35 @@ impl CardPool {
             .map(|(i, d)| (DefId(u32::try_from(i).unwrap_or(u32::MAX)), d))
     }
 
-    /// The synthetic M2 test set: made-up cards covering every M2 rule.
+    /// Adds a synthetic definition, panicking if the engine can't support it
+    /// (test sets are code, so this is a programming error).
+    fn add_synthetic(&mut self, ch: Characteristics, abilities: Vec<Ability>) -> DefId {
+        match CardDef::new(ch, abilities) {
+            Ok(def) => self.add(def),
+            Err(e) => panic!("synthetic test card: {e}"),
+        }
+    }
+
+    /// The synthetic M2 test set: made-up cards covering every M2 rule. Its
+    /// contents and order are frozen because the M2 golden replays use it.
     pub fn test_set() -> CardPool {
         let mut pool = CardPool::new();
-        for (name, sub, color) in [
-            ("Test Plains", "Plains", Color::White),
-            ("Test Island", "Island", Color::Blue),
-            ("Test Swamp", "Swamp", Color::Black),
-            ("Test Mountain", "Mountain", Color::Red),
-            ("Test Forest", "Forest", Color::Green),
+        for (name, sub) in [
+            ("Test Plains", "Plains"),
+            ("Test Island", "Island"),
+            ("Test Swamp", "Swamp"),
+            ("Test Mountain", "Mountain"),
+            ("Test Forest", "Forest"),
         ] {
-            pool.add(CardDef {
-                name: name.into(),
-                oracle_id: None,
-                mana_cost: None,
-                type_line: tl(&format!("Basic Land — {sub}")),
-                colors: Colors::COLORLESS,
-                power: None,
-                toughness: None,
-                keywords: Keywords::default(),
-                mana_abilities: SmallVec::from_slice(&[ManaType::of_color(color)]),
-                spell_effect: None,
-            });
+            pool.add_synthetic(
+                synthetic(name, None, &format!("Basic Land — {sub}"), None),
+                Vec::new(),
+            );
         }
-        pool.add(CardDef {
-            name: "Test Wastes".into(),
-            oracle_id: None,
-            mana_cost: None,
-            type_line: tl("Land"),
-            colors: Colors::COLORLESS,
-            power: None,
-            toughness: None,
-            keywords: Keywords::default(),
-            mana_abilities: SmallVec::from_slice(&[ManaType::Colorless]),
-            spell_effect: None,
-        });
+        pool.add_synthetic(
+            synthetic("Test Wastes", None, "Land", None),
+            vec![tap_for(ManaType::Colorless)],
+        );
         let creatures: [TestCreature; 16] = [
             ("Test Bear", "{1}{G}", "Creature — Bear", 2, 2, &[]),
             ("Test Ogre", "{2}{R}", "Creature — Ogre", 3, 2, &[]),
@@ -490,65 +733,44 @@ impl CardPool {
             ("Test Golem", "{3}", "Artifact Creature — Golem", 2, 2, &[]),
         ];
         for (name, cost, types, p, t, kws) in creatures {
-            let cost: ManaCost = cost.parse().unwrap_or_default();
-            pool.add(CardDef {
-                name: name.into(),
-                oracle_id: None,
-                colors: cost.colors(),
-                mana_cost: Some(cost),
-                type_line: tl(types),
-                power: Some(p),
-                toughness: Some(t),
-                keywords: kws.iter().fold(Keywords::default(), |a, k| a.with(*k)),
-                mana_abilities: SmallVec::new(),
-                spell_effect: None,
-            });
+            pool.add_synthetic(
+                synthetic(name, Some(cost), types, Some((p, t))),
+                kws.iter()
+                    .filter_map(|k| k.to_ir())
+                    .map(Ability::Keyword)
+                    .collect(),
+            );
         }
-        pool.add(CardDef {
-            name: "Test Elf".into(),
-            oracle_id: None,
-            mana_cost: Some("{G}".parse().unwrap_or_default()),
-            type_line: tl("Creature — Elf Druid"),
-            colors: Colors::single(Color::Green),
-            power: Some(1),
-            toughness: Some(1),
-            keywords: Keywords::default(),
-            mana_abilities: SmallVec::from_slice(&[ManaType::Green]),
-            spell_effect: None,
-        });
-        pool.add(CardDef {
-            name: "Test Champion".into(),
-            oracle_id: None,
-            mana_cost: Some("{2}{W}".parse().unwrap_or_default()),
-            type_line: tl("Legendary Creature — Human Soldier"),
-            colors: Colors::single(Color::White),
-            power: Some(3),
-            toughness: Some(3),
-            keywords: Keywords::default(),
-            mana_abilities: SmallVec::new(),
-            spell_effect: None,
-        });
-        for (name, cost, types, effect) in [
-            ("Test Bolt", "{R}", "Instant", Effect::DealDamage(3)),
-            ("Test Blast", "{2}{R}", "Sorcery", Effect::DealDamage(5)),
-            ("Test Murder", "{1}{B}{B}", "Instant", Effect::Destroy),
-            ("Test Insight", "{1}{U}", "Instant", Effect::Draw(2)),
-            ("Test Study", "{2}{U}", "Sorcery", Effect::Draw(3)),
-            ("Test Renewal", "{W}", "Instant", Effect::GainLife(4)),
+        pool.add_synthetic(
+            synthetic(
+                "Test Elf",
+                Some("{G}"),
+                "Creature — Elf Druid",
+                Some((1, 1)),
+            ),
+            vec![tap_for(ManaType::Green)],
+        );
+        pool.add_synthetic(
+            synthetic(
+                "Test Champion",
+                Some("{2}{W}"),
+                "Legendary Creature — Human Soldier",
+                Some((3, 3)),
+            ),
+            Vec::new(),
+        );
+        for (name, cost, types, spell) in [
+            ("Test Bolt", "{R}", "Instant", damage_any(3)),
+            ("Test Blast", "{2}{R}", "Sorcery", damage_any(5)),
+            ("Test Murder", "{1}{B}{B}", "Instant", destroy_creature()),
+            ("Test Insight", "{1}{U}", "Instant", draw(2)),
+            ("Test Study", "{2}{U}", "Sorcery", draw(3)),
+            ("Test Renewal", "{W}", "Instant", gain_life(4)),
         ] {
-            let cost: ManaCost = cost.parse().unwrap_or_default();
-            pool.add(CardDef {
-                name: name.into(),
-                oracle_id: None,
-                colors: cost.colors(),
-                mana_cost: Some(cost),
-                type_line: tl(types),
-                power: None,
-                toughness: None,
-                keywords: Keywords::default(),
-                mana_abilities: SmallVec::new(),
-                spell_effect: Some(effect),
-            });
+            pool.add_synthetic(
+                synthetic(name, Some(cost), types, None),
+                vec![Ability::Spell(spell)],
+            );
         }
         pool
     }
@@ -563,6 +785,82 @@ type TestCreature = (
     i32,
     &'static [Keywords],
 );
+
+/// Characteristics of a made-up card. Colors come from the cost (CR 202.2).
+pub fn synthetic(
+    name: &str,
+    cost: Option<&str>,
+    types: &str,
+    pt: Option<(i32, i32)>,
+) -> Characteristics {
+    let cost: Option<ManaCost> = cost.map(|c| c.parse().unwrap_or_default());
+    Characteristics {
+        name: name.into(),
+        oracle_id: None,
+        colors: cost.as_ref().map_or(Colors::COLORLESS, ManaCost::colors),
+        mana_cost: cost,
+        type_line: tl(types),
+        power: pt.map(|(p, _)| p),
+        toughness: pt.map(|(_, t)| t),
+    }
+}
+
+fn spell(targets: Vec<TargetSpec>, effect: ir::Effect) -> SpellAbility {
+    SpellAbility {
+        targets,
+        effect,
+        alternative_costs: Vec::new(),
+        additional_costs: Vec::new(),
+    }
+}
+
+fn one_target(what: TargetKind) -> Vec<TargetSpec> {
+    vec![TargetSpec { what, up_to: None }]
+}
+
+/// "~ deals N damage to any target."
+fn damage_any(n: i64) -> SpellAbility {
+    spell(
+        one_target(TargetKind::Any),
+        ir::Effect::DealDamage {
+            to: ir::Recipient::Target(0),
+            amount: Quantity::Fixed(n),
+        },
+    )
+}
+
+/// "Destroy target creature."
+fn destroy_creature() -> SpellAbility {
+    spell(
+        one_target(TargetKind::Object(ir::ObjectFilter {
+            types: vec!["creature".into()],
+            ..Default::default()
+        })),
+        ir::Effect::Destroy(ir::ObjectSet::One(ir::ObjectRef::Target(0))),
+    )
+}
+
+/// "Draw N cards."
+fn draw(n: i64) -> SpellAbility {
+    spell(
+        Vec::new(),
+        ir::Effect::Draw {
+            who: ir::PlayerRef::You,
+            amount: Quantity::Fixed(n),
+        },
+    )
+}
+
+/// "You gain N life."
+fn gain_life(n: i64) -> SpellAbility {
+    spell(
+        Vec::new(),
+        ir::Effect::GainLife {
+            who: ir::PlayerRef::You,
+            amount: Quantity::Fixed(n),
+        },
+    )
+}
 
 fn tl(s: &str) -> TypeLine {
     match s.parse() {
@@ -587,6 +885,10 @@ mod tests {
             Keywords::from_name("Double Strike"),
             Some(Keywords::DOUBLE_STRIKE)
         );
+        for (_, bit) in Keywords::NAMES {
+            let k = bit.to_ir().unwrap_or(ir::Keyword::Partner);
+            assert_eq!(Keywords::of_ir(&k), Some(bit));
+        }
     }
 
     #[test]
@@ -594,15 +896,38 @@ mod tests {
         let pool = CardPool::test_set();
         assert!(pool.len() >= 30);
         let forest = pool.get(pool.by_name("Test Forest").unwrap_or(DefId(0)));
-        assert_eq!(forest.mana_abilities.as_slice(), &[ManaType::Green]);
+        assert_eq!(forest.mana_abilities.len(), 1);
+        assert_eq!(
+            forest.mana_abilities[0].single_type(),
+            Some(ManaType::Green)
+        );
+        assert!(forest.mana_abilities[0].tap_only);
         let bolt = pool.get(pool.by_name("Test Bolt").unwrap_or(DefId(0)));
         assert_eq!(
-            bolt.spell_effect.and_then(Effect::target),
-            Some(TargetSpec::Any)
+            bolt.spell().map(|s| s.targets[0].what.clone()),
+            Some(TargetKind::Any)
         );
         assert!(
             pool.iter()
                 .all(|(_, d)| d.is(CardType::Land) || d.mana_cost.is_some())
         );
+    }
+
+    #[test]
+    fn mana_outputs() {
+        let units = |spec: ManaSpec| {
+            mana_output(&ir::Effect::AddMana {
+                mana: spec,
+                spend_only_on: None,
+            })
+        };
+        let sol = units(ManaSpec::Fixed("{C}{C}".into())).unwrap_or_default();
+        assert_eq!(sol.len(), 1);
+        assert_eq!(sol[0].as_slice(), &[ManaType::Colorless.bit(); 2]);
+        let birds = units(ManaSpec::AnyColor(Quantity::Fixed(1))).unwrap_or_default();
+        assert_eq!(birds[0].as_slice(), &[ANY_COLOR]);
+        let lotus = units(ManaSpec::AnyOneColor(Quantity::Fixed(3))).unwrap_or_default();
+        assert_eq!(lotus.len(), 5);
+        assert!(units(ManaSpec::CommanderIdentity).is_err());
     }
 }

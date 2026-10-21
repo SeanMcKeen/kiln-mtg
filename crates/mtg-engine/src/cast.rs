@@ -8,12 +8,12 @@
 use mtg_core::{CardType, ObjectId, PlayerId};
 use serde::{Deserialize, Serialize};
 
-use crate::card::{CardDef, ManaType, TargetSpec};
+use crate::card::ManaType;
 use crate::decision::{DecisionKind, ManaStep};
 use crate::engine::{Game, Task};
 use crate::events::Event;
 use crate::mana::{CostReq, enumerate_plans, payable};
-use crate::state::{StackItem, Target, ZoneId};
+use crate::state::{StackItem, ZoneId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub(crate) enum CastStage {
@@ -54,8 +54,12 @@ impl Game {
         if !def.is(CardType::Instant) && !sorcery_timing {
             return false;
         }
-        if let Some(spec) = def.spell_effect.and_then(crate::card::Effect::target)
-            && self.legal_targets(spec).is_empty()
+        // CR 601.2c: every required target slot needs a legal target.
+        if let Some(spell) = def.spell()
+            && spell
+                .targets
+                .iter()
+                .any(|t| t.up_to.is_none() && self.legal_targets(&t.what, p).is_empty())
         {
             return false;
         }
@@ -64,37 +68,6 @@ impl Game {
             &self.player(p).pool,
             &self.mana_sources(p, None),
         )
-    }
-
-    /// Legal targets for a slot (CR 115). Players first in seat order, then creatures in battlefield order.
-    pub(crate) fn legal_targets(&self, spec: TargetSpec) -> Vec<Target> {
-        let mut out = Vec::new();
-        if spec == TargetSpec::Any {
-            out.extend(
-                self.players
-                    .iter()
-                    .filter(|p| p.in_game())
-                    .map(|p| Target::Player(p.id)),
-            );
-        }
-        out.extend(
-            self.battlefield
-                .iter()
-                .copied()
-                .filter(|id| self.is_creature(*id))
-                .map(Target::Object),
-        );
-        out
-    }
-
-    /// CR 608.2b: an object target must still be the same object in the same zone.
-    pub(crate) fn target_still_legal(&self, _def: &CardDef, t: Target) -> bool {
-        match t {
-            Target::Player(p) => self.in_game(p),
-            Target::Object(id) => {
-                self.obj(id).is_some_and(|o| o.zone == ZoneId::Battlefield) && self.is_creature(id)
-            }
-        }
     }
 
     /// CR 601.2a: move the card to the stack and start the procedure.
@@ -122,8 +95,8 @@ impl Game {
         match t.stage {
             CastStage::Targets => {
                 // CR 601.2c
-                if let Some(spec) = def.spell_effect.and_then(crate::card::Effect::target) {
-                    let targets = self.legal_targets(spec);
+                if let Some(slot) = def.spell().and_then(|s| s.targets.first()) {
+                    let targets = self.legal_targets(&slot.what, t.caster);
                     debug_assert!(
                         !targets.is_empty(),
                         "castability pre-check guarantees a target"

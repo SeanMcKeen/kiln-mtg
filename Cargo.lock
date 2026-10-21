@@ -765,6 +765,7 @@ name = "mtg-engine"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "mtg-cards",
  "mtg-core",
  "mtg-data",
  "proptest",

@@ -49,7 +49,7 @@ pub fn random_deck(pool: &CardPool, seed: u64, size: usize) -> Vec<DefId> {
             let produces: Colors = def
                 .mana_abilities
                 .iter()
-                .filter_map(|m| mtg_core::Color::ALL.get(m.index()).copied())
+                .filter_map(|m| mtg_core::Color::ALL.get(m.single_type()?.index()).copied())
                 .collect();
             if !def.mana_abilities.is_empty() && produces.is_subset_of(pair) {
                 lands.push(id);
@@ -73,5 +73,5 @@ pub fn random_deck(pool: &CardPool, seed: u64, size: usize) -> Vec<DefId> {
 
 /// Whether a definition is usable for random decks (sanity helper for tests).
 pub fn is_vanilla_creature(def: &CardDef) -> bool {
-    def.is(CardType::Creature) && def.spell_effect.is_none()
+    def.is(CardType::Creature) && def.spell().is_none()
 }

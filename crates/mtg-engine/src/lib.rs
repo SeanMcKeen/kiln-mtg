@@ -19,16 +19,21 @@ pub mod replay;
 pub mod rng;
 mod sba;
 pub mod state;
+mod support;
+mod targets;
 pub mod view;
 
 pub use builder::{GameBuilder, PermanentOpts};
-pub use card::{CardDef, CardPool, DefId, Effect, Keywords, ManaType, TargetSpec};
+pub use card::{
+    CardDef, CardPool, Characteristics, DefId, Keywords, ManaAbility, ManaType, Unsupported,
+};
 pub use decision::{
     Action, Choice, ChoiceError, DamageRecipient, DecisionId, DecisionKind, ManaStep, PaymentPlan,
     PendingDecision,
 };
 pub use engine::{AbortReason, Game, GameResult, GameRules, GameSetup, SetupError};
 pub use events::Event;
+pub use mtg_cards::ir;
 pub use replay::{Divergence, Recorder, Replay};
 pub use state::{GameObject, LossReason, Player, PlayerStatus, StackItem, Step, Target, ZoneId};
 pub use view::{PlayerView, PublicPlayer, ViewSnapshot, VisibleObject};

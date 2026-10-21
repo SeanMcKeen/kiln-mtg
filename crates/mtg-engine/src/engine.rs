@@ -9,11 +9,12 @@
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
+use mtg_cards::ir;
 use mtg_core::{CardType, CrRef, ObjectId, PlayerId};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
-use crate::card::{CardDef, CardPool, DefId, Effect, Keywords};
+use crate::card::{CardDef, CardPool, DefId, Keywords};
 use crate::decision::{Action, Choice, ChoiceError, DecisionId, DecisionKind, PendingDecision};
 use crate::events::Event;
 use crate::rng::GameRng;
@@ -1178,12 +1179,19 @@ impl Game {
             return;
         };
         let def = self.def(obj.def).clone();
+        let spell = def.spell();
+        let slot_legal = |g: &Game, i: usize, t: Target| {
+            spell
+                .and_then(|s| s.targets.get(i))
+                .is_some_and(|slot| g.target_still_legal(&slot.what, t, item.controller))
+        };
         // CR 608.2b: targets are rechecked; if all are illegal, the spell doesn't resolve.
         if !item.targets.is_empty()
             && item
                 .targets
                 .iter()
-                .all(|t| !self.target_still_legal(&def, *t))
+                .enumerate()
+                .all(|(i, t)| !slot_legal(self, i, *t))
         {
             self.log(Event::DidNotResolve {
                 object: item.object,
@@ -1205,31 +1213,36 @@ impl Game {
             }
             return;
         }
-        if let Some(effect) = def.spell_effect {
-            self.apply_effect(
-                item.object,
-                item.controller,
-                effect,
-                item.targets
-                    .first()
-                    .copied()
-                    .filter(|t| self.target_still_legal(&def, *t)),
-            );
+        if let Some(spell) = spell {
+            let target = item
+                .targets
+                .first()
+                .copied()
+                .filter(|t| slot_legal(self, 0, *t));
+            self.apply_effect(item.object, item.controller, &spell.effect, target);
         }
         // CR 608.2n: an instant or sorcery goes to its owner's graveyard last.
         self.move_object(item.object, ZoneId::Graveyard(obj.owner), true);
     }
 
+    /// The M2 effect subset, kept until the general interpreter (M3 B2)
+    /// replaces it; `support::check` admits nothing else.
     fn apply_effect(
         &mut self,
         source: ObjectId,
         controller: PlayerId,
-        effect: Effect,
+        effect: &ir::Effect,
         target: Option<Target>,
     ) {
+        let fixed = |q: &ir::Quantity| match q {
+            ir::Quantity::Fixed(n) => u32::try_from(*n).unwrap_or(0),
+            ir::Quantity::Expr(_) => 0,
+        };
         match (effect, target) {
-            (Effect::DealDamage(n), Some(t)) => self.deal_damage(source, t, n, false),
-            (Effect::Destroy, Some(Target::Object(id))) => {
+            (ir::Effect::DealDamage { amount, .. }, Some(t)) => {
+                self.deal_damage(source, t, fixed(amount), false);
+            }
+            (ir::Effect::Destroy(_), Some(Target::Object(id))) => {
                 // CR 701.8a
                 let owner = self.obj(id).map(|o| o.owner);
                 if let Some(owner) = owner {
@@ -1237,12 +1250,14 @@ impl Game {
                     self.move_object(id, ZoneId::Graveyard(owner), true);
                 }
             }
-            (Effect::Draw(n), _) => {
-                for _ in 0..n {
+            (ir::Effect::Draw { amount, .. }, _) => {
+                for _ in 0..fixed(amount) {
                     self.draw(controller);
                 }
             }
-            (Effect::GainLife(n), _) => self.gain_life(controller, n),
+            (ir::Effect::GainLife { amount, .. }, _) => {
+                self.gain_life(controller, fixed(amount));
+            }
             _ => {}
         }
     }

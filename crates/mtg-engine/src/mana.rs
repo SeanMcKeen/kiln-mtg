@@ -321,11 +321,12 @@ impl Game {
                 .is_some_and(|c| c.attacker(id).is_some() || c.is_blocking(id));
             out.push(Source {
                 object: id,
+                // M3 B1: every supported mana ability makes one mana of one type.
                 abilities: def
                     .mana_abilities
                     .iter()
                     .enumerate()
-                    .map(|(i, t)| (u8::try_from(i).unwrap_or(0), *t))
+                    .filter_map(|(i, m)| Some((u8::try_from(i).ok()?, m.single_type()?)))
                     .collect(),
                 key: (o.def.0, o.damage | (u32::from(in_combat) << 31)),
             });
@@ -338,7 +339,12 @@ impl Game {
         let Some(o) = self.obj(source).copied() else {
             return;
         };
-        let Some(&mana) = self.def(o.def).mana_abilities.get(ability as usize) else {
+        let Some(mana) = self
+            .def(o.def)
+            .mana_abilities
+            .get(ability as usize)
+            .and_then(crate::card::ManaAbility::single_type)
+        else {
             return;
         };
         self.tap(source);

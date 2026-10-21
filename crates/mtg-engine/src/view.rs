@@ -132,7 +132,7 @@ impl Game {
                 Action::ActivateMana { source, ability } => {
                     let mana = self
                         .obj_def(source)
-                        .and_then(|def| def.mana_abilities.get(ability as usize).copied());
+                        .and_then(|def| def.mana_abilities.get(ability as usize)?.single_type());
                     format!(
                         "Tap {} for {}",
                         name(source),
@@ -161,7 +161,7 @@ impl Game {
                 ManaStep::Activate { source, ability } => {
                     let mana = self
                         .obj_def(source)
-                        .and_then(|def| def.mana_abilities.get(ability as usize).copied());
+                        .and_then(|def| def.mana_abilities.get(ability as usize)?.single_type());
                     format!(
                         "Tap {} for {}",
                         name(source),
