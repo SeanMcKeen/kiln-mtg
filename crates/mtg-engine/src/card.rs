@@ -673,6 +673,10 @@ pub struct CardPool {
     /// card in the pool can create.
     #[serde(default)]
     tokens: BTreeMap<String, DefId>,
+    /// Some definition has a triggered ability (or ward), so the engine must
+    /// watch events for triggers; trigger-free games skip that work entirely.
+    #[serde(default)]
+    has_triggers: bool,
 }
 
 /// The pool key of a token spec.
@@ -816,9 +820,20 @@ impl CardPool {
     }
 
     fn push(&mut self, def: CardDef) -> DefId {
+        self.has_triggers |= def.abilities.iter().any(|a| {
+            matches!(
+                a,
+                Ability::Triggered(_) | Ability::Keyword(ir::Keyword::Ward(_))
+            )
+        });
         let id = DefId(u32::try_from(self.defs.len()).unwrap_or(u32::MAX));
         self.defs.push(def);
         id
+    }
+
+    /// Whether any definition can trigger (CR 603); see the field.
+    pub fn has_triggers(&self) -> bool {
+        self.has_triggers
     }
 
     /// The definition of a token spec, added when a card that creates it was added.

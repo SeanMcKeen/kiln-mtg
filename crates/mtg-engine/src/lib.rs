@@ -24,6 +24,7 @@ mod sba;
 pub mod state;
 mod support;
 mod targets;
+pub mod triggers;
 pub mod view;
 
 pub use builder::{GameBuilder, PermanentOpts};

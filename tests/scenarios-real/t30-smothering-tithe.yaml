@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: "T30: Smothering Tithe makes a Treasure for each draw the drawing opponent doesn't pay {2} for"
+cr: ["603.2", "608.2d", "111.10a"]
+verifies: [Smothering Tithe]
+players:
+  - battlefield: [Swamp, Swamp]
+    hand: [Night's Whisper]
+  - battlefield: [Smothering Tithe]
+script:
+  - choose: Cast Night's Whisper
+  - choose: Pay with Swamp, Swamp
+  - pass_all
+  - choose: Put Smothering Tithe ability 1 on the stack
+  # P1 has no untapped mana, so they can't pay: no choice is offered.
+  - pass_all
+  - pass_all
+expect:
+  zones:
+    P2.battlefield: [Smothering Tithe, Treasure, Treasure]
+    P1.hand: [Test Wastes, Test Wastes]

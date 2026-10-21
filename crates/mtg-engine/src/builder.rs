@@ -211,6 +211,9 @@ impl GameBuilder {
             pt_effects: Vec::new(),
             activated_this_turn: Vec::new(),
             counters: Vec::new(),
+            pending_triggers: Vec::new(),
+            leaving_batch: Vec::new(),
+            drew_in_draw_step: false,
         };
         if matches!(
             self.step,

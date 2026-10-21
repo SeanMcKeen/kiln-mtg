@@ -1,0 +1,16 @@
+scenario: mtg-scenario/1
+name: A trigger with no legal target is removed from the stack
+cr: ["603.3d"]
+players:
+  - battlefield: [Test Forest, Test Forest]
+    hand: [Test Breaker]
+  - battlefield: [Test Bear]
+script:
+  - choose: Cast Test Breaker
+  - choose: Pay with Test Forest, Test Forest
+  - pass_all
+expect:
+  decision: { player: P1, kind: priority }
+  zones:
+    P1.battlefield: [Test Forest, Test Forest, Test Breaker]
+    P2.battlefield: [Test Bear]

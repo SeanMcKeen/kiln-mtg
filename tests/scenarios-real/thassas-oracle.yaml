@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: Thassa's Oracle wins when devotion to blue is at least the library size
+cr: ["603.6a", "700.5", "104.2b"]
+verifies: ["Thassa's Oracle"]
+players:
+  - battlefield: [Island, Island]
+    hand: ["Thassa's Oracle"]
+    library: [Opt]
+  - {}
+script:
+  - choose: "Cast Thassa's Oracle"
+  - choose: Pay with Island, Island
+  - pass_all
+  - pass_all
+  - check:
+      decision: { player: P1, kind: choose_card, options: [Stop, Take Opt] }
+  - choose: Take Opt
+expect:
+  result: win P1

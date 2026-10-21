@@ -34,11 +34,17 @@ pub enum Event {
     Drew {
         player: PlayerId,
         object: ObjectId,
+        /// The first card the active player drew in their draw step this turn.
+        first_in_draw_step: bool,
     },
     /// A zone change (CR 400.7: `new` is a new object).
     ZoneChange {
         def: DefId,
         owner: PlayerId,
+        /// Its controller, power and toughness just before it left (CR 603.10 look-back).
+        controller: PlayerId,
+        power: i32,
+        toughness: i32,
         from: ZoneId,
         to: ZoneId,
         old: ObjectId,
@@ -57,6 +63,20 @@ pub enum Event {
         player: PlayerId,
         mana: ManaType,
         source: ObjectId,
+    },
+    /// A triggered ability triggered (CR 603.2); it goes on the stack the next
+    /// time a player would receive priority.
+    Triggered {
+        source: ObjectId,
+        def: DefId,
+        ability: u8,
+        controller: PlayerId,
+    },
+    /// A triggered ability was removed because it had no legal targets (CR 603.3d).
+    TriggerRemoved {
+        source: ObjectId,
+        def: DefId,
+        ability: u8,
     },
     /// An activated ability became activated (CR 602.2b, applying 601.2i).
     AbilityActivated {
@@ -208,6 +228,8 @@ impl Event {
             Event::WonByEffect { .. } => "104.2b",
             Event::CountersPut { .. } | Event::CountersRemoved { .. } => "122.1",
             Event::TokenCreated { .. } => "111.2",
+            Event::Triggered { .. } => "603.2",
+            Event::TriggerRemoved { .. } => "603.3d",
             Event::PlayerLost { .. } => "104.3",
             Event::PlayerLeft { .. } => "800.4a",
             Event::GameOver => "104.1",

@@ -138,6 +138,10 @@ impl Game {
             self.remove_counters(id, CounterKind::PlusOne, n);
             self.remove_counters(id, CounterKind::MinusOne, n);
         }
+        // Everything this check puts into graveyards leaves at once (CR 704.3, 603.10a).
+        let mut leaving: Vec<ObjectId> = dying.iter().map(|(id, _)| *id).collect();
+        leaving.extend(legend_out.iter().copied());
+        self.begin_leaving(&leaving);
         for (id, destroyed) in dying {
             let Some(owner) = self.obj(id).map(|o| o.owner) else {
                 continue;
@@ -157,6 +161,7 @@ impl Game {
                 o.deathtouch_damage = false;
             }
         }
+        self.end_leaving();
         if !losers.is_empty() {
             self.players_lose(&losers);
         }

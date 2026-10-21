@@ -147,6 +147,8 @@ pub(crate) enum Task {
         source: ObjectId,
         ability: u8,
     },
+    /// CR 603.3: put pending triggered abilities on the stack.
+    StackTriggers(crate::triggers::StackTriggersTask),
 }
 
 /// A game in progress (or finished).
@@ -175,6 +177,14 @@ pub struct Game {
     pub(crate) activated_this_turn: Vec<(ObjectId, u8)>,
     /// Counters on objects (CR 122), sorted by object and kind.
     pub(crate) counters: Vec<(ObjectId, ir::CounterKind, u32)>,
+    /// Triggered abilities waiting to be put on the stack (CR 603.3).
+    pub(crate) pending_triggers: Vec<crate::triggers::PendingTrigger>,
+    /// Permanents leaving the battlefield in the current simultaneous batch
+    /// (CR 603.10a look-back). Empty except while a batch moves.
+    pub(crate) leaving_batch: Vec<(ObjectId, DefId, PlayerId)>,
+    /// The active player has drawn in this turn's draw step (tracked only
+    /// when the pool has triggers; see `draw`).
+    pub(crate) drew_in_draw_step: bool,
 }
 
 impl Game {
@@ -227,6 +237,9 @@ impl Game {
             pt_effects: Vec::new(),
             activated_this_turn: Vec::new(),
             counters: Vec::new(),
+            pending_triggers: Vec::new(),
+            leaving_batch: Vec::new(),
+            drew_in_draw_step: false,
         };
         for (seat, deck) in setup.decks.iter().enumerate() {
             let id = PlayerId(u8::try_from(seat).unwrap_or(0));
@@ -419,6 +432,12 @@ impl Game {
         if !self.counters.is_empty() {
             self.counters.hash(&mut h);
         }
+        if !self.pending_triggers.is_empty() {
+            self.pending_triggers.hash(&mut h);
+        }
+        if self.drew_in_draw_step {
+            self.drew_in_draw_step.hash(&mut h);
+        }
         h.finish()
     }
 
@@ -513,6 +532,10 @@ impl Game {
 
     pub(crate) fn log(&mut self, e: Event) {
         self.event_count += 1;
+        // CR 603.2: events trigger abilities whether or not they're logged.
+        if self.pool.has_triggers() {
+            self.match_triggers(&e);
+        }
         if self.rules.log_events {
             self.events.push(e);
         }
@@ -568,6 +591,8 @@ impl Game {
     /// otherwise on the bottom. Returns the new id.
     pub(crate) fn move_object(&mut self, id: ObjectId, to: ZoneId, top: bool) -> Option<ObjectId> {
         let old = *self.objects.get(id)?;
+        // Last known information (CR 603.10, 608.2h) before the object leaves.
+        let (power, toughness) = (self.power(id), self.toughness(id));
         self.detach(id, old.zone);
         self.objects.free(id);
         self.drop_counters(id);
@@ -595,6 +620,9 @@ impl Game {
         self.log(Event::ZoneChange {
             def: old.def,
             owner: old.owner,
+            controller: old.controller,
+            power,
+            toughness,
             from: old.zone,
             to,
             old: id,
@@ -610,10 +638,20 @@ impl Game {
             self.player_mut(p).drew_from_empty = true;
             return;
         };
+        // Tracked only when something could care ("except the first one they
+        // draw in each of their draw steps"), so trigger-free games keep M2 state.
+        let first_in_draw_step = self.pool.has_triggers()
+            && p == self.turn.active
+            && self.turn.step == Step::Draw
+            && !self.drew_in_draw_step;
+        if first_in_draw_step {
+            self.drew_in_draw_step = true;
+        }
         if let Some(new) = self.move_object(top, ZoneId::Hand(p), true) {
             self.log(Event::Drew {
                 player: p,
                 object: new,
+                first_in_draw_step,
             });
         }
     }
@@ -679,6 +717,9 @@ impl Game {
         pl.hand.clear();
         pl.graveyard.clear();
         pl.pool.clear();
+        // CR 800.4a/d: their abilities on the stack and waiting to go on it cease to exist.
+        self.pending_triggers.retain(|t| t.controller != p);
+        self.stack.retain(|s| s.is_spell() || s.controller != p);
         self.log(Event::PlayerLeft { player: p });
         self.turn.passes = 0;
         // CR 800.4a: if they had priority, it passes to the next player in turn order.
@@ -784,6 +825,7 @@ impl Game {
             Task::Effect(t) => self.effect_step(t),
             Task::SpendMana { player, spend } => self.spend_mana(player, spend),
             Task::FinishAbility { source, ability } => self.finish_ability(source, ability),
+            Task::StackTriggers(t) => self.stack_triggers_step(t),
             Task::FinishSpell { object } => {
                 if let Some(o) = self.obj(object).copied()
                     && o.zone == ZoneId::Stack
@@ -856,6 +898,9 @@ impl Game {
                 self.sba_answer(t, candidates[option]);
             }
             (Task::Effect(t), kind) => self.effect_answer(t, kind, option),
+            (Task::StackTriggers(t), DecisionKind::OrderTriggers { .. }) => {
+                self.stack_triggers_answer(t, option);
+            }
             (task, kind) => unreachable!("decision {kind:?} answered for task {task:?}"),
         }
     }
@@ -963,6 +1008,7 @@ impl Game {
             p.lands_played = 0;
         }
         self.activated_this_turn.clear();
+        self.drew_in_draw_step = false;
         self.log(Event::TurnBegan {
             number,
             active: next,
@@ -1124,7 +1170,8 @@ impl Game {
         }
         self.pt_effects.clear();
         // CR 514.3a: if SBAs would be performed, they are, then players get priority and another cleanup follows.
-        if self.sba_pending() {
+        // CR 514.3a: also when abilities have triggered during cleanup.
+        if self.sba_pending() || !self.pending_triggers.is_empty() {
             self.turn.extra_cleanup = true;
             self.tasks.push(Task::EndStep);
             self.tasks.push(Task::Priority { checked: false });
@@ -1137,8 +1184,14 @@ impl Game {
 
     fn priority(&mut self, checked: bool) {
         if !checked {
-            // CR 117.5: SBAs (repeatedly) before anyone gets priority. M2 has no triggers.
+            // CR 117.5: SBAs (repeatedly), then triggered abilities go on the
+            // stack (CR 603.3), before anyone gets priority.
             self.tasks.push(Task::Priority { checked: true });
+            if self.pool.has_triggers() {
+                self.tasks.push(Task::StackTriggers(
+                    crate::triggers::StackTriggersTask::new(),
+                ));
+            }
             self.tasks.push(Task::Sba(crate::sba::SbaTask::default()));
             return;
         }
@@ -1278,6 +1331,7 @@ impl Game {
         let slots: &[ir::TargetSpec] = match item.ability {
             Some(i) => match def.abilities.get(usize::from(i)) {
                 Some(ir::Ability::Activated(x)) => &x.targets,
+                Some(ir::Ability::Triggered(t)) => &t.targets,
                 _ => &[],
             },
             None => def.spell().map_or(&[], |s| s.targets.as_slice()),
@@ -1362,6 +1416,18 @@ impl Game {
             }
             ctx.modes.clone_from(&item.modes);
             ctx.x = item.x;
+            if let Some(info) = item.trigger {
+                ctx.triggering_object = info.object;
+                ctx.triggering_player = info.player;
+                ctx.lki.extend(info.lki);
+                // CR 603.4: an intervening "if" is checked again on resolution.
+                if let Some(ir::Ability::Triggered(t)) = def.abilities.get(usize::from(ability))
+                    && let Some(c) = &t.condition
+                    && !self.condition(&ctx, c)
+                {
+                    return;
+                }
+            }
             self.tasks
                 .push(Task::Effect(Box::new(EffectTask::new(ctx))));
         }

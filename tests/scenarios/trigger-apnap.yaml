@@ -1,0 +1,27 @@
+scenario: mtg-scenario/1
+name: Triggers go on the stack in APNAP order, so the last player's resolves first
+cr: ["603.3b", "101.4", "405.5"]
+players:
+  - battlefield: [Test Mountain]
+    hand: [Test Bolt]
+  - battlefield: [Test Watcher]
+  - battlefield: [Test Watcher]
+script:
+  - choose: Cast Test Bolt
+  - choose: Target P2
+  - choose: Pay with Test Mountain
+  - pass_all
+  # P2's trigger went on the stack first (APNAP from active P1), so P3's resolves first.
+  - check:
+      decision: { player: P3, kind: optional }
+  - choose: "Yes"
+  - pass_all
+  - check:
+      decision: { player: P2, kind: optional }
+  - choose: "No"
+  - pass_all
+expect:
+  life: { P2: 17 }
+  zones:
+    P3.hand: [Test Wastes]
+    P2.hand: []

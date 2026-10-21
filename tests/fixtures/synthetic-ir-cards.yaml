@@ -480,3 +480,77 @@
 - name: Test Blade
   cost: "{1}"
   types: Artifact — Equipment
+
+# ---- triggered abilities (M4 4.1) --------------------------------------------
+
+- name: Test Watcher
+  cost: "{1}{U}"
+  types: Enchantment
+  abilities:
+    - triggered:
+        trigger: { cast: { by: opponent, spell: {} } }
+        effect: { may: { draw: { who: you, amount: 1 } } }
+
+- name: Test Leech
+  cost: "{1}{B}"
+  types: Enchantment
+  abilities:
+    - triggered:
+        trigger: { cast: { by: opponent, spell: {} } }
+        effect: { lose_life: { who: triggering, amount: 1 } }
+
+- name: Test Herald
+  cost: "{2}{W}"
+  types: Creature — Human Soldier
+  pt: [2, 2]
+  abilities:
+    - triggered:
+        trigger: { enters: { this: true } }
+        targets: [{ what: { player: opponent } }]
+        effect: { lose_life: { who: { target: 0 }, amount: 2 } }
+
+- name: Test Breaker
+  cost: "{1}{G}"
+  types: Creature — Elf
+  pt: [1, 1]
+  abilities:
+    - triggered:
+        trigger: { enters: { this: true } }
+        targets: [{ what: { object: { types: [artifact] } } }]
+        effect: { destroy: { one: { target: 0 } } }
+
+- name: Test Martyr
+  cost: "{1}{B}"
+  types: Creature — Human
+  pt: [1, 1]
+  abilities:
+    - triggered:
+        trigger: { dies: { this: true } }
+        effect: { draw: { who: you, amount: 1 } }
+
+- name: Test Mourner
+  cost: "{1}{B}"
+  types: Creature — Zombie
+  pt: [1, 1]
+  abilities:
+    - triggered:
+        trigger: { dies: { types: [creature], other: true } }
+        effect: { gain_life: { who: you, amount: 1 } }
+
+- name: Test Tactician
+  cost: "{2}{U}"
+  types: Enchantment
+  abilities:
+    - triggered:
+        trigger: { beginning_of: { step: upkeep, whose: you } }
+        condition: { at_least: [{ count: { types: [creature], controller: you } }, 2] }
+        effect: { draw: { who: you, amount: 1 } }
+
+- name: Test Archer Lord
+  cost: "{1}{B}"
+  types: Creature — Orc
+  pt: [1, 1]
+  abilities:
+    - triggered:
+        trigger: { draws: { by: opponent, except_first_in_draw_step: true } }
+        effect: { gain_life: { who: you, amount: 1 } }

@@ -240,6 +240,8 @@ pub struct StackItem {
     pub x: u32,
     /// How each hybrid or Phyrexian symbol of the cost is paid, in symbol order (CR 601.2b).
     pub pays: SmallVec<[SymbolPay; 1]>,
+    /// For a triggered ability: what it saw when it triggered (CR 603.2).
+    pub trigger: Option<crate::triggers::TriggerInfo>,
 }
 
 impl StackItem {
@@ -260,6 +262,7 @@ impl StackItem {
             cost: CastCost::Normal,
             x: 0,
             pays: SmallVec::new(),
+            trigger: None,
         }
     }
 

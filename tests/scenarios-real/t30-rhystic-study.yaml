@@ -1,0 +1,31 @@
+scenario: mtg-scenario/1
+name: "T30: two players' Rhystic Studies trigger on one spell; APNAP order; the caster decides each payment"
+cr: ["603.3b", "101.4", "118.12"]
+verifies: [Rhystic Study]
+players:
+  - battlefield: [Mountain, Island]
+    hand: [Lightning Bolt]
+  - battlefield: [Rhystic Study]
+  - battlefield: [Rhystic Study]
+script:
+  - choose: Cast Lightning Bolt
+  - choose: Target P2
+  - choose: Pay with Mountain
+  - pass_all
+  # P3's trigger went on the stack last, so it resolves first; the caster may pay {1}.
+  - check:
+      decision: { player: P1, kind: optional, options: [Don't pay, Pay] }
+  - choose: Don't pay
+  - check:
+      decision: { player: P3, kind: optional, options: ["No", "Yes"] }
+  - choose: "Yes"
+  - pass_all
+  - choose: Pay
+  - choose: Pay with Island
+  - pass_all
+expect:
+  life: { P2: 17 }
+  zones:
+    P3.hand: [Test Wastes]
+    P2.hand: []
+  tapped: { Island: true }

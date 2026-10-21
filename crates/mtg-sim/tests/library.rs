@@ -57,13 +57,13 @@ fn overrides_win_parser_fills_in_and_gaps_are_named() {
     );
     assert_eq!(giant.definition.coverage, Coverage::Parsed);
 
-    // A triggered ability keeps a card unsupported, and the reason says why.
-    let study = card("Rhystic Study");
+    // A static ability (M5) keeps a card unsupported, and the reason says why.
+    let study = card("Underworld Breach");
     let Coverage::Unsupported { reasons } = &study.definition.coverage else {
         panic!("{:?}", study.definition.coverage);
     };
     assert!(
-        reasons.iter().any(|r| r.reason.contains("M4")),
+        reasons.iter().any(|r| r.reason.contains("M5")),
         "{reasons:?}"
     );
     assert!(study.def.is_none());

@@ -121,7 +121,11 @@ fn activated(def: &CardDef, i: u8) -> Option<&ActivatedAbility> {
 /// The target slots of the spell or ability (CR 601.2c, 602.2b).
 fn targets_of(def: &CardDef, ability: Option<u8>) -> &[TargetSpec] {
     match ability {
-        Some(i) => activated(def, i).map_or(&[], |x| x.targets.as_slice()),
+        Some(i) => match def.abilities.get(usize::from(i)) {
+            Some(Ability::Activated(x)) => &x.targets,
+            Some(Ability::Triggered(t)) => &t.targets,
+            _ => &[],
+        },
         None => def.spell().map_or(&[], |s| s.targets.as_slice()),
     }
 }
@@ -141,6 +145,16 @@ fn taps_source(def: &CardDef, ability: Option<u8>) -> bool {
 /// can't be paid at all (no mana cost, CR 202.1b; or no such alternative cost).
 fn cost_shape(def: &CardDef, ability: Option<u8>, cost: CastCost) -> Option<CostShape> {
     if let Some(i) = ability {
+        // A triggered ability has no cost to pay as it goes on the stack.
+        if matches!(
+            def.abilities.get(usize::from(i)),
+            Some(Ability::Triggered(_))
+        ) {
+            return Some(CostShape {
+                symbols: Vec::new(),
+                other: Vec::new(),
+            });
+        }
         let mut symbols: Vec<ManaSymbol> = Vec::new();
         let mut other = Vec::new();
         for p in &activated(def, i)?.cost {
@@ -693,6 +707,8 @@ impl Game {
                     ))));
                 }
             }
+            // A triggered ability is simply on the stack now (CR 603.3d).
+            CastStage::Done if item.trigger.is_some() => {}
             CastStage::Done => match item.ability {
                 // CR 601.2i: the spell becomes cast.
                 None => self.log(Event::SpellCast {

@@ -162,6 +162,12 @@ pub enum DecisionKind {
         spell: ObjectId,
         modes: Vec<Option<u8>>,
     },
+    /// CR 603.3b: the next of this player's triggered abilities to put on the
+    /// stack (`(source, definition, ability index)`; the last one put on the
+    /// stack resolves first).
+    OrderTriggers {
+        triggers: Vec<(ObjectId, DefId, u8)>,
+    },
     /// CR 601.2b, 118.9: pay the mana cost or an alternative cost.
     ChooseCost {
         spell: ObjectId,
@@ -268,6 +274,7 @@ impl PendingDecision {
             }
             DecisionKind::ChooseColor { colors, .. } => colors.len(),
             DecisionKind::ChooseMode { modes, .. } => modes.len(),
+            DecisionKind::OrderTriggers { triggers } => triggers.len(),
             DecisionKind::ChooseCost { options, .. } => options.len(),
             DecisionKind::ChooseSymbolPay { options, .. } => options.len(),
         }

@@ -280,6 +280,14 @@ impl Game {
                 format!("Choose {}", min + i64::try_from(i).unwrap_or(0))
             }
             DecisionKind::ChooseColor { colors, .. } => format!("Choose {:?}", colors[i]),
+            DecisionKind::OrderTriggers { triggers } => {
+                let (_, def, ability) = triggers[i];
+                format!(
+                    "Put {} ability {} on the stack",
+                    self.def(def).name,
+                    ability + 1
+                )
+            }
             DecisionKind::ChooseMode { modes, .. } => match modes[i] {
                 None => "No more modes".into(),
                 Some(m) => format!("Mode {}", m + 1),

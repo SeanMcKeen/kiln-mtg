@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: A "when this dies" trigger looks back after the creature leaves the battlefield
+cr: ["603.10a", "700.4", "704.5g"]
+players:
+  - battlefield: [Test Mountain, Test Martyr]
+    hand: [Test Bolt]
+  - {}
+script:
+  - choose: Cast Test Bolt
+  - choose: Target Test Martyr (P1)
+  - choose: Pay with Test Mountain
+  - pass_all
+  - check:
+      zones:
+        P1.graveyard: [Test Martyr, Test Bolt]
+  - pass_all
+expect:
+  zones:
+    P1.hand: [Test Wastes]

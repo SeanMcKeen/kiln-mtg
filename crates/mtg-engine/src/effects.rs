@@ -77,6 +77,9 @@ pub(crate) struct EffectCtx {
     /// The mana a mana ability makes, fixed in advance by a payment plan or
     /// a manual payment step.
     pub forced_mana: Option<ManaBag>,
+    /// A triggered ability's triggering object and player ("that card", "that player").
+    pub triggering_object: Option<ObjectId>,
+    pub triggering_player: Option<PlayerId>,
 }
 
 impl EffectCtx {
@@ -95,6 +98,8 @@ impl EffectCtx {
             lki: Vec::new(),
             discarded: SmallVec::new(),
             forced_mana: None,
+            triggering_object: None,
+            triggering_player: None,
         }
     }
 }
@@ -625,9 +630,13 @@ impl Game {
                 }
             }
             Effect::Destroy(set) => {
-                for id in self.set_now(&t.ctx, set) {
+                // The destroyed permanents leave simultaneously (CR 603.10a).
+                let ids = self.set_now(&t.ctx, set);
+                self.begin_leaving(&ids);
+                for id in ids {
                     self.destroy(&mut t.ctx, id);
                 }
+                self.end_leaving();
             }
             Effect::Exile { what, remember, .. } => {
                 let remember = remember.clone();
@@ -970,7 +979,7 @@ impl Game {
                 .find(|(k, _)| k == name)
                 .map(|(_, v)| v.clone())
                 .unwrap_or_default(),
-            ObjectRef::Triggering => SmallVec::new(),
+            ObjectRef::Triggering => ctx.triggering_object.into_iter().collect(),
         }
     }
 
@@ -995,7 +1004,7 @@ impl Game {
                 .object_ref(ctx, o)
                 .and_then(|id| self.known(ctx, id).map(|k| k.owner)),
             PlayerRef::Each => ctx.each,
-            PlayerRef::Triggering => None,
+            PlayerRef::Triggering => ctx.triggering_player,
         };
         p.filter(|p| self.in_game(*p))
     }
@@ -1329,6 +1338,7 @@ impl Game {
     }
 
     fn sacrifice_all(&mut self, ctx: &mut EffectCtx, ids: &[ObjectId]) {
+        self.begin_leaving(ids);
         for &id in ids {
             let Some(o) = self.obj(id).copied() else {
                 continue;
@@ -1339,6 +1349,7 @@ impl Game {
             self.log(Event::Sacrificed { object: id });
             self.fx_move(ctx, id, ZoneId::Graveyard(o.owner), true);
         }
+        self.end_leaving();
     }
 
     /// CR 701.6a: a countered spell goes to its owner's graveyard.

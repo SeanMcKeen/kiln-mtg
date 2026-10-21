@@ -40,6 +40,12 @@ pub(crate) fn check(def: &CardDef) -> Check {
     let instant_or_sorcery = def.is(CardType::Instant) || def.is(CardType::Sorcery);
     let mut spells = 0;
     for a in &def.abilities {
+        // "That card" / "that player" mean something only in a triggered ability.
+        if !matches!(a, Ability::Triggered(_))
+            && serde_json::to_string(a).is_ok_and(|j| j.contains("\"triggering\""))
+        {
+            return Err("a reference to a trigger event outside a triggered ability".into());
+        }
         match a {
             // CR 702.124a: partner only modifies deck construction; it does nothing in play.
             Ability::Keyword(mtg_cards::ir::Keyword::Partner) => {}
@@ -71,7 +77,19 @@ pub(crate) fn check(def: &CardDef) -> Check {
                 cast_cost(&x.cost)?;
                 effect(&x.effect)?;
             }
-            Ability::Triggered(_) => return Err("triggered abilities (M4)".into()),
+            Ability::Triggered(t) => {
+                trigger(&t.trigger)?;
+                if let Some(c) = &t.condition {
+                    condition(c)?;
+                }
+                if matches!(t.effect, Effect::Modal { .. }) {
+                    return Err("modal triggered abilities (later in M4)".into());
+                }
+                if t.targets.iter().any(|s| s.up_to == Some(0)) {
+                    return Err("a target slot that allows zero targets".into());
+                }
+                effect(&t.effect)?;
+            }
             Ability::Static(StaticAbility {
                 effect: StaticEffect::Rule(RuleMod::CantBeCountered),
                 condition: None,
@@ -278,18 +296,38 @@ fn effect(e: &Effect) -> Check {
     }
 }
 
+/// Trigger events the engine detects (CR 603.2).
+fn trigger(t: &mtg_cards::ir::Trigger) -> Check {
+    use mtg_cards::ir::Trigger as T;
+    match t {
+        T::AnyOf(v) => v.iter().try_for_each(trigger),
+        T::TapsForMana { .. } => Err("mana-ability triggers (later in M4)".into()),
+        T::Enters(_)
+        | T::Dies(_)
+        | T::LeavesBattlefield(_)
+        | T::Cast { .. }
+        | T::Draws { .. }
+        | T::Discards { .. }
+        | T::BeginningOf { .. }
+        | T::Attacks(_)
+        | T::DealsCombatDamageToPlayer(_) => Ok(()),
+    }
+}
+
 fn object(o: &ObjectRef) -> Check {
     match o {
-        ObjectRef::Triggering => Err("references to a trigger's object (M4)".into()),
-        ObjectRef::This | ObjectRef::Target(_) | ObjectRef::Remembered(_) => Ok(()),
+        // Only triggered abilities may say "that card" (checked in `check`).
+        ObjectRef::Triggering
+        | ObjectRef::This
+        | ObjectRef::Target(_)
+        | ObjectRef::Remembered(_) => Ok(()),
     }
 }
 
 fn player(p: &PlayerRef) -> Check {
     match p {
-        PlayerRef::Triggering => Err("references to a trigger's player (M4)".into()),
         PlayerRef::ControllerOf(o) | PlayerRef::OwnerOf(o) => object(o),
-        PlayerRef::You | PlayerRef::Target(_) | PlayerRef::Each => Ok(()),
+        PlayerRef::Triggering | PlayerRef::You | PlayerRef::Target(_) | PlayerRef::Each => Ok(()),
     }
 }
 
