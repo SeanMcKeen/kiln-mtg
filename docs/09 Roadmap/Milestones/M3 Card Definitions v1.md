@@ -90,6 +90,8 @@ ADR-0007 is still open, but its fixed constraint is that **every option compiles
 
 | B6 | ✅ 2026-10-21 | Counters (CR 122) in a sorted side table, dropped on zone change (122.2), in P/T as layer 7c; IR `put_counters`/`remove_counters`, a remove-counters cost and a counters quantity. Tokens (CR 111): predefined Treasure, Food and Clue (111.10a/b/f) and creature tokens get pool definitions when a card that creates them is added; tokens are owned by their creator (111.2), excluded from deck conservation and from card names (201.4). SBAs 704.5d and 704.5q. Views show effective P/T, counters and tokens. 6 synthetic cards, 5 scenarios. |
 
+| B7 | ✅ 2026-10-21 | `GreedyPolicy` (`mtg-policy`, spec `greedy`): one-ply heuristics over the `PlayerView`; classifies effects as harmful or helpful from the IR. **Beats random 850–150 in 1,000 two-player games** on the synthetic M3 cards (seats alternated, invariants checked every decision, no draws or aborts); CI runs 200. |
+
 Semantics fixed while building B2 (documented in `ir.rs`):
 - A search for "a card" must find one if possible (701.23d); a filter states a quality, so finding nothing is allowed (701.23b).
 - `search … to: top_of_library` means search, shuffle, then put on top (701.24b).

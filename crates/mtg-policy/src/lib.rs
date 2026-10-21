@@ -7,6 +7,9 @@
 
 use std::collections::VecDeque;
 
+mod greedy;
+
+pub use greedy::GreedyPolicy;
 use mtg_core::PlayerId;
 use mtg_engine::rng::GameRng;
 use mtg_engine::{DecisionKind, PendingDecision, PlayerView};
@@ -120,7 +123,7 @@ impl Policy for ScriptedPolicy {
     }
 }
 
-/// Builds a policy from a short spec: `random`, `random:<pass‰>`, `passive`.
+/// Builds a policy from a short spec: `random`, `random:<pass‰>`, `passive`, `greedy`.
 pub fn from_spec(spec: &str) -> Result<Box<dyn Policy>, String> {
     let (kind, arg) = spec.split_once(':').unwrap_or((spec, ""));
     match kind {
@@ -130,8 +133,9 @@ pub fn from_spec(spec: &str) -> Result<Box<dyn Policy>, String> {
             .map(|p| Box::new(RandomPolicy::new(p)) as Box<dyn Policy>)
             .map_err(|_| format!("bad pass bias {arg:?}; use e.g. random:500")),
         "passive" => Ok(Box::new(PassivePolicy)),
+        "greedy" => Ok(Box::new(GreedyPolicy)),
         other => Err(format!(
-            "unknown policy {other:?}; known: random, random:<pass‰>, passive"
+            "unknown policy {other:?}; known: random, random:<pass‰>, passive, greedy"
         )),
     }
 }
@@ -145,7 +149,8 @@ mod tests {
         assert!(from_spec("random").is_ok());
         assert!(from_spec("random:900").is_ok());
         assert!(from_spec("passive").is_ok());
-        assert!(from_spec("greedy").is_err());
+        assert!(from_spec("greedy").is_ok());
+        assert!(from_spec("clever").is_err());
         assert!(from_spec("random:x").is_err());
     }
 }

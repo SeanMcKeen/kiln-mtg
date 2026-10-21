@@ -397,6 +397,43 @@ impl<'g> PlayerView<'g> {
         &self.game.battlefield
     }
 
+    /// The stack, bottom first (public, CR 400.2).
+    pub fn stack(&self) -> Vec<StackEntry> {
+        self.game
+            .stack
+            .iter()
+            .map(|s| StackEntry {
+                object: s.object,
+                def: s.source_def,
+                name: self.game.def(s.source_def).name.clone(),
+                controller: s.controller,
+                ability: s.ability,
+                targets: s.targets.to_vec(),
+            })
+            .collect()
+    }
+
+    /// Card definitions are public knowledge; this gives a definition by id
+    /// (for reasoning about stack entries whose source has left play).
+    pub fn definition(&self, def: DefId) -> &'g CardDef {
+        self.game.def(def)
+    }
+
+    /// The untapped creatures `p` controls (public: they could block).
+    pub fn untapped_creatures(&self, p: PlayerId) -> Vec<ObjectId> {
+        self.game
+            .battlefield
+            .iter()
+            .copied()
+            .filter(|id| {
+                self.game
+                    .obj(*id)
+                    .is_some_and(|o| o.controller == p && !o.tapped)
+                    && self.game.is_creature(*id)
+            })
+            .collect()
+    }
+
     pub fn snapshot(&self) -> ViewSnapshot {
         let objs = |ids: &[ObjectId]| {
             ids.iter()
@@ -416,19 +453,7 @@ impl<'g> PlayerView<'g> {
                 .collect(),
             hand: objs(self.hand()),
             battlefield: objs(&self.game.battlefield),
-            stack: self
-                .game
-                .stack
-                .iter()
-                .map(|s| StackEntry {
-                    object: s.object,
-                    def: s.source_def,
-                    name: self.game.def(s.source_def).name.clone(),
-                    controller: s.controller,
-                    ability: s.ability,
-                    targets: s.targets.to_vec(),
-                })
-                .collect(),
+            stack: self.stack(),
             graveyards: self
                 .game
                 .players
