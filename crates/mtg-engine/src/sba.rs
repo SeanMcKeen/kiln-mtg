@@ -1,0 +1,138 @@
+//! State-based actions (CR 704, `docs/03 Architecture/Subsystems/State-Based Actions.md`).
+//!
+//! Checked whenever a player would receive priority (CR 117.5, 704.3). All
+//! applicable actions are performed simultaneously as one event, then the
+//! check repeats. The legend rule's choice (CR 704.5j) is a decision made
+//! before the batch is performed.
+
+use std::collections::BTreeMap;
+
+use mtg_core::{ObjectId, PlayerId};
+use serde::{Deserialize, Serialize};
+
+use crate::decision::DecisionKind;
+use crate::engine::{Game, Task};
+use crate::events::Event;
+use crate::state::{LossReason, ZoneId};
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+pub(crate) struct SbaTask {
+    started: bool,
+    /// Legend-rule groups still to decide: (controller, same-name legendary permanents).
+    groups: Vec<(PlayerId, Vec<ObjectId>)>,
+    /// Legendary permanents chosen to stay.
+    kept: Vec<ObjectId>,
+}
+
+/// Non-choice SBAs found by one check.
+struct SbaChecks {
+    /// Players who lose (CR 704.5a–c).
+    losers: Vec<(PlayerId, LossReason)>,
+    /// Creatures to put into the graveyard; `true` = destroyed (CR 704.5g–h) rather than put (CR 704.5f).
+    dying: Vec<(ObjectId, bool)>,
+}
+
+impl Game {
+    /// CR 704.5j: groups of two or more legendary permanents with the same name and controller.
+    fn legend_groups(&self) -> Vec<(PlayerId, Vec<ObjectId>)> {
+        let mut by: BTreeMap<(PlayerId, &str), Vec<ObjectId>> = BTreeMap::new();
+        for &id in &self.battlefield {
+            let Some(o) = self.obj(id) else { continue };
+            let def = self.def(o.def);
+            if def.is_legendary() {
+                by.entry((o.controller, def.name.as_str()))
+                    .or_default()
+                    .push(id);
+            }
+        }
+        by.into_iter()
+            .filter(|(_, v)| v.len() > 1)
+            .map(|((p, _), v)| (p, v))
+            .collect()
+    }
+
+    /// Non-choice SBAs that apply now.
+    fn sba_checks(&self) -> SbaChecks {
+        let mut losers = Vec::new();
+        for p in self.players.iter().filter(|p| p.in_game()) {
+            if p.life <= 0 {
+                losers.push((p.id, LossReason::ZeroLife)); // CR 704.5a
+            } else if p.drew_from_empty {
+                losers.push((p.id, LossReason::DrewFromEmptyLibrary)); // CR 704.5b
+            } else if p.poison >= 10 {
+                losers.push((p.id, LossReason::Poison)); // CR 704.5c
+            }
+        }
+        let mut dying = Vec::new();
+        for &id in &self.battlefield {
+            if !self.is_creature(id) {
+                continue;
+            }
+            let Some(o) = self.obj(id) else { continue };
+            let t = self.toughness(id);
+            if t <= 0 {
+                dying.push((id, false)); // CR 704.5f: put into the graveyard, not destroyed
+            } else if i64::from(o.damage) >= i64::from(t) || o.deathtouch_damage {
+                dying.push((id, true)); // CR 704.5g, 704.5h: destroyed
+            }
+        }
+        SbaChecks { losers, dying }
+    }
+
+    /// Whether any SBA would be performed now (used by cleanup, CR 514.3a).
+    pub(crate) fn sba_pending(&self) -> bool {
+        let c = self.sba_checks();
+        !c.losers.is_empty() || !c.dying.is_empty() || !self.legend_groups().is_empty()
+    }
+
+    pub(crate) fn sba_step(&mut self, mut t: SbaTask) {
+        if !t.started {
+            t.started = true;
+            t.groups = self.legend_groups();
+        }
+        if let Some((p, candidates)) = t.groups.first().cloned() {
+            self.tasks.push(Task::Sba(t));
+            self.decide(p, DecisionKind::LegendRule { candidates }, "704.5j");
+            return;
+        }
+        // Perform everything simultaneously (CR 704.3).
+        let SbaChecks { losers, dying } = self.sba_checks();
+        let mut legend_out: Vec<ObjectId> = Vec::new();
+        for (_, group) in self.legend_groups() {
+            legend_out.extend(group.into_iter().filter(|id| !t.kept.contains(id)));
+        }
+        let performed = !losers.is_empty() || !dying.is_empty() || !legend_out.is_empty();
+        for (id, destroyed) in dying {
+            let Some(owner) = self.obj(id).map(|o| o.owner) else {
+                continue;
+            };
+            if destroyed {
+                self.log(Event::Destroyed { object: id });
+            }
+            self.move_object(id, ZoneId::Graveyard(owner), true);
+        }
+        for id in legend_out {
+            if let Some(owner) = self.obj(id).map(|o| o.owner) {
+                self.move_object(id, ZoneId::Graveyard(owner), true);
+            }
+        }
+        for &id in &self.battlefield.clone() {
+            if let Some(o) = self.objects.get_mut(id) {
+                o.deathtouch_damage = false;
+            }
+        }
+        if !losers.is_empty() {
+            self.players_lose(&losers);
+        }
+        if performed && self.result.is_none() {
+            // CR 704.3: check again.
+            self.tasks.push(Task::Sba(SbaTask::default()));
+        }
+    }
+
+    pub(crate) fn sba_answer(&mut self, mut t: SbaTask, keep: ObjectId) {
+        t.kept.push(keep);
+        t.groups.remove(0);
+        self.tasks.push(Task::Sba(t));
+    }
+}

@@ -144,6 +144,49 @@ enum DevCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Fuzz the engine with random-policy games (M2 exit criterion).
+    Fuzz(FuzzArgs),
+}
+
+#[derive(Debug, Args)]
+struct FuzzArgs {
+    #[arg(long, default_value_t = 1000)]
+    games: u64,
+    #[arg(long, default_value_t = 4)]
+    players: usize,
+    #[arg(long, default_value_t = 1)]
+    seed: u64,
+    /// Worker threads (default: all cores).
+    #[arg(long)]
+    threads: Option<usize>,
+    #[arg(long, default_value_t = 60)]
+    deck_size: usize,
+    /// Starting life (CR 103.4).
+    #[arg(long, default_value_t = 20)]
+    life: i64,
+    /// Random policy's chance to pass priority, per mille.
+    #[arg(long, default_value_t = 500)]
+    pass: u64,
+    /// Harness turn limit (not a rule); games beyond it are reported as aborted.
+    #[arg(long, default_value_t = 300)]
+    turn_limit: u32,
+    /// Check engine invariants after every decision.
+    #[arg(long)]
+    invariants: bool,
+    /// Audit every seat's view for hidden-information leaks after every decision.
+    #[arg(long)]
+    views: bool,
+    /// Re-run every k-th game from its replay and compare final hashes.
+    #[arg(long)]
+    replay_every: Option<u64>,
+    /// Use real vanilla/French-vanilla cards and basic-type lands from the card DB
+    /// instead of the synthetic test set.
+    #[arg(long)]
+    real: bool,
+    #[command(flatten)]
+    db: DbArgs,
+    #[arg(long)]
+    json: bool,
 }
 
 fn main() -> ExitCode {
@@ -194,7 +237,126 @@ fn run(cli: Cli) -> Result<ExitCode> {
             require,
             json,
         }) => cr_check(&cr, &paths, require, json),
+        Command::Dev(DevCmd::Fuzz(args)) => fuzz(&args),
     }
+}
+
+fn fuzz(a: &FuzzArgs) -> Result<ExitCode> {
+    use std::sync::Arc;
+
+    use mtg_engine::{CardPool, GameRules};
+    use mtg_policy::{Policy, RandomPolicy};
+    use mtg_sim::runner::{BatchConfig, Checks, run_batch};
+
+    if a.players < 2 {
+        bail!("--players must be at least 2");
+    }
+    let (pool, source) = if a.real {
+        let (db, _) = a.db.load()?;
+        let (pool, rejected) = mtg_sim::vanilla::vanilla_pool(&db);
+        if pool.is_empty() {
+            bail!("no card in {} converts to the M2 card IR", db.id());
+        }
+        let label = format!(
+            "{} ({} vanilla-convertible cards, {rejected} creatures/lands rejected)",
+            db.id(),
+            pool.len()
+        );
+        (pool, label)
+    } else {
+        (CardPool::test_set(), "synthetic M2 test set".to_owned())
+    };
+    let pool = Arc::new(pool);
+    let cfg = BatchConfig {
+        games: a.games,
+        seed: a.seed,
+        rules: GameRules {
+            starting_life: a.life,
+            turn_limit: Some(a.turn_limit),
+            log_events: false,
+            ..GameRules::default()
+        },
+        checks: Checks {
+            invariants: a.invariants,
+            views: a.views,
+            replay_every: a.replay_every,
+        },
+        threads: a.threads,
+    };
+    let (players, deck_size, real, seed) = (a.players, a.deck_size, a.real, a.seed);
+    let pool_for_decks = Arc::clone(&pool);
+    let decks = move |index: u64| -> Vec<Vec<mtg_engine::DefId>> {
+        (0..players)
+            .map(|seat| {
+                if real {
+                    let s = mtg_engine::rng::splitmix64(
+                        mtg_engine::rng::game_seed(seed, index) ^ (seat as u64 + 1),
+                    );
+                    mtg_sim::vanilla::random_deck(&pool_for_decks, s, deck_size)
+                } else {
+                    mtg_engine::decks::test_deck(
+                        &pool_for_decks,
+                        seat + usize::try_from(index % 5).unwrap_or(0),
+                        deck_size,
+                    )
+                }
+            })
+            .collect()
+    };
+    let pass = a.pass;
+    let policies = move |_| -> Vec<Box<dyn Policy>> {
+        (0..players)
+            .map(|_| Box::new(RandomPolicy::new(pass)) as Box<dyn Policy>)
+            .collect()
+    };
+    let stats = run_batch(&pool, &cfg, decks, policies);
+    if a.json {
+        print_json(
+            &serde_json::json!({ "source": source, "players": players, "config": cfg, "stats": stats }),
+        )?;
+    } else {
+        let secs = stats.elapsed_ms as f64 / 1000.0;
+        println!(
+            "Fuzzed {} {players}-player games on {source} in {secs:.1}s ({:.0} games/s)",
+            stats.games,
+            stats.games as f64 / secs.max(0.001)
+        );
+        println!(
+            "  results: wins by seat {:?}, draws {}, aborted (turn limit) {}",
+            stats.wins_by_seat, stats.draws, stats.aborted
+        );
+        let g = stats.games.max(1) as f64;
+        println!(
+            "  avg turns {:.1}, decisions/game {:.0}, policy calls/game {:.0}",
+            stats.total_turns as f64 / g,
+            stats.total_decisions as f64 / g,
+            stats.total_policy_calls as f64 / g
+        );
+        println!(
+            "  checks: invariants {}, views {}, replays verified {}",
+            if a.invariants { "on" } else { "off" },
+            if a.views { "on" } else { "off" },
+            stats.replays_checked
+        );
+        println!(
+            "  violations {}, replay divergences {}, panics {}",
+            stats.violation_count, stats.replay_failure_count, stats.panic_count
+        );
+        for (i, s, m) in stats
+            .violations
+            .iter()
+            .chain(&stats.replay_failures)
+            .chain(&stats.panics)
+            .take(10)
+        {
+            println!("    game {i} (seed {s:#x}): {m}");
+        }
+    }
+    Ok(if stats.clean() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::from(1)
+    })
 }
 
 fn print_json<T: Serialize>(value: &T) -> Result<()> {

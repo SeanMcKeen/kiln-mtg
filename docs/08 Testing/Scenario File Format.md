@@ -1,52 +1,71 @@
 ---
 type: design
-status: draft
+status: implemented-v1
 tags: [testing, format, judge]
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
-# Scenario File Format (draft)
+# Scenario File Format
 
-The same format serves **tests**, the **judge tool**, and **MCP `mtg_rules_scenario`**.
+The same format serves **tests**, the **judge tool**, and **MCP `mtg_rules_scenario`**. Version 1 is implemented in M2 (`mtg-testkit::scenario`). The scenarios live in `tests/scenarios/*.yaml` and run in CI (`crates/mtg-testkit/tests/scenarios.rs`). YAML is parsed with `yaml_serde`, which is maintained by the YAML organization.
 
 ```yaml
 scenario: mtg-scenario/1
-name: Thassa's Oracle vs Platinum Angel
-cr: ["101.2", "104.2b"]
-format: commander
+name: Trample assigns lethal to the blocker, the rest to the player
+cr: ["702.19b", "510.1c", "510.2"]       # must exist in the CR (checked by the test)
 players:
-  - id: P1
-    life: 40
-    commander: Tymna the Weaver
-    hand: [Thassa's Oracle]
-    library: []                      # empty library
-    battlefield:
-      - { card: Island }
-      - { card: Island }
-  - id: P2
-    life: 40
-    battlefield:
-      - { card: Platinum Angel }
-  - id: P3
-  - id: P4
-turn: { active: P1, step: precombat_main, number: 5 }
-priority: P1
-script:                              # choices by option label (resolved to indices at runtime)
-  - { player: P1, choose: "Cast Thassa's Oracle" }
-  - { pay: auto_first_plan }
-  - pass_all                          # all players pass → resolves
-  - { player: P1, choose: "Put trigger on stack" }   # if a decision is raised
+  - battlefield: [Test Rhino]
+  - battlefield: [Test Bird]
+turn: { number: 3, active: P1, step: declare_attackers }
+script:
+  - choose: Test Rhino attacks P2         # matched by option label
+  - pass_all                              # every player in the game passes once (CR 117.4)
+  - { player: P2, choose: Test Bird blocks Test Rhino (P1) }
   - pass_all
+  - check:                                # mid-script expectations
+      decision:
+        player: P1
+        kind: assign_damage
+        options: ["1 damage to Test Bird (P2)", "1 damage to P2"]
+  - choose: 1 damage to P2
+  - choose: 1 damage to P2
+  - choose: 1 damage to P2
 expect:
-  result: in_progress
-  events_include:
-    - { type: ability_resolved, source: "Thassa's Oracle" }
-  events_exclude:
-    - { type: player_won }
+  life: { P2: 17 }
+  zones: { P2.graveyard: [Test Bird] }
 ```
 
-## Notes
-- Unspecified libraries are filled with basic lands, or are empty if `library: []`.
-- Card references are by name and resolved through the card DB. Ambiguous names are an error.
-- Object attributes include `tapped`, `counters`, `attached_to`, `face_down`, `summoning_sick`, `controller` (if different from the owner), `damage`, `commander: true`.
-- `script` choices are matched by **option label**, so tests survive option reordering. Raw indices are allowed for replays.
+## Setup
+- `players[]`: `life`, `hand`, `library` (top first), `graveyard` and `battlefield`. A battlefield entry is either a card name or `{ card, tapped, damage, sick }`, where `sick` means summoning sick (CR 302.6).
+- **An omitted `library` holds 20 filler lands ("Test Wastes")**, so draws don't end the game. `library: []` means an empty library.
+- `turn`: `number`, `active` (`P1`…), and `step`. The game begins at that step and performs its turn-based actions first. Combat scenarios start at `declare_attackers` and script the attacks.
+- Card names are resolved in the card pool. In M2 that's the synthetic test set (`CardPool::test_set`). An unknown name is an error.
+- Mulligans are skipped. Game-start rules (CR 103) are tested in Rust (`crates/mtg-engine/tests/setup_rules.rs`).
+
+## Script
+| Step | Meaning |
+|---|---|
+| `choose: <label>` | Pick the option with that exact label. An unknown label is an error that lists the available labels. |
+| `{ player: P2, choose: … }` | The same, also asserting who decides. |
+| `pass_all` | Each player still in the game passes priority once. |
+| `pass: N` | Pass priority N times. |
+| `check: { … }` | Check expectations at this point. |
+
+Option labels come from `Game::option_label`, for example:
+- "Cast Test Bolt", "Play Test Forest", "Tap Test Forest for {G}", "Pass"
+- "Target Test Bear (P2)", "Pay with Test Mountain, Test Forest", "Pay manually", "Spend {R}"
+- "Test Bear attacks P3", "Test Wall blocks Test Bear (P1)", "1 damage to P2"
+- "Discard Test Bolt", "Keep Test Champion [2]" (for same-name permanents, `[k]` is the 1-based position)
+
+## Expectations
+- `result`: `in_progress`, `draw` or `win P2`.
+- `life`: per player.
+- `zones`: `P1.hand`, `P1.library`, `P1.graveyard`, `P1.battlefield` (permanents P1 controls), `stack`, `exile`. Each is compared as a multiset of card names.
+- `tapped`: card name → expected state.
+- `step`: the current step.
+- `decision`: `player`, `kind` (`priority`, `declare_blocker`, `assign_damage`, …), `options` (exact, in order), `options_include` and `options_exclude`.
+
+## Not yet
+- Board-state attributes beyond M2's: `counters`, `attached_to`, `face_down`, `controller`, `commander`.
+- `events_include` / `events_exclude`.
+- Real card names, which need the M3 card IR.

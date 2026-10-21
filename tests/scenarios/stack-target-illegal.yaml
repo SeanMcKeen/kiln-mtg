@@ -1,0 +1,32 @@
+scenario: mtg-scenario/1
+name: A spell whose only target became illegal doesn't resolve (LIFO stack)
+cr: ["608.2b", "117.4", "405.5", "601.2c", "608.2n", "701.8a"]
+players:
+  - hand: [Test Bolt]
+    battlefield: [Test Mountain]
+  - hand: [Test Murder]
+    battlefield: [Test Bear, Test Swamp, Test Swamp, Test Swamp]
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Test Bolt
+  - check:
+      decision:
+        kind: choose_target
+        options: ["Target P1", "Target P2", "Target Test Bear (P2)"]
+  - choose: Target Test Bear (P2)
+  - choose: Pay with Test Mountain
+  - pass: 1            # P1 passes; P2 gets priority
+  - { player: P2, choose: Cast Test Murder }
+  - choose: Target Test Bear (P2)
+  - choose: Pay with Test Swamp, Test Swamp, Test Swamp
+  - pass_all           # Murder resolves first (last in, first out)
+  - check:
+      zones:
+        P2.graveyard: [Test Murder, Test Bear]
+        stack: [Test Bolt]
+  - pass_all           # Bolt's target is gone: it doesn't resolve
+expect:
+  zones:
+    P1.graveyard: [Test Bolt]
+    stack: []
+  life: { P2: 20 }

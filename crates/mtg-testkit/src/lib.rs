@@ -6,6 +6,7 @@
 
 pub mod citations;
 pub mod cr;
+pub mod scenario;
 
 pub use citations::{Citation, CitationProblem, check_tree, scan_text};
 pub use cr::{Rule, RuleTree, RuleTreeError};

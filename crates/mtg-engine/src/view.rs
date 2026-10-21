@@ -1,0 +1,314 @@
+//! Player views (`docs/03 Architecture/Hidden Information & Player Views.md`)
+//! and human-readable option labels.
+//!
+//! Policies see only a [`PlayerView`]: public zones, their own hand, and
+//! counts of hidden zones. Hidden objects' ids are never exposed, because
+//! ids could otherwise correlate with card identities (Design Principle 5).
+
+use mtg_core::{ObjectId, PlayerId};
+use serde::Serialize;
+
+use crate::card::{CardDef, DefId};
+use crate::decision::{Action, DamageRecipient, DecisionKind, ManaStep, PendingDecision};
+use crate::engine::Game;
+use crate::state::{Step, Target, TurnState, ZoneId};
+
+/// A borrowed, redacted view of a game for one player.
+#[derive(Debug, Clone, Copy)]
+pub struct PlayerView<'g> {
+    game: &'g Game,
+    me: PlayerId,
+}
+
+/// An object the viewer can see.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct VisibleObject {
+    pub id: ObjectId,
+    pub def: DefId,
+    pub name: String,
+    pub owner: PlayerId,
+    pub controller: PlayerId,
+    pub zone: ZoneId,
+    pub tapped: bool,
+    pub damage: u32,
+    pub power: Option<i32>,
+    pub toughness: Option<i32>,
+    pub attacking: Option<PlayerId>,
+    pub blocking: Option<ObjectId>,
+}
+
+/// Public facts about a player.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct PublicPlayer {
+    pub id: PlayerId,
+    pub in_game: bool,
+    pub life: i64,
+    pub poison: u32,
+    pub hand_count: usize,
+    pub library_count: usize,
+    pub mana_pool: [u32; 6],
+}
+
+/// A serializable snapshot of a view (for LLMs, MCP, logs and the redaction auditor).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ViewSnapshot {
+    pub me: PlayerId,
+    pub turn: u32,
+    pub active: PlayerId,
+    pub step: Step,
+    pub players: Vec<PublicPlayer>,
+    pub hand: Vec<VisibleObject>,
+    pub battlefield: Vec<VisibleObject>,
+    pub stack: Vec<(VisibleObject, Vec<Target>)>,
+    pub graveyards: Vec<Vec<VisibleObject>>,
+    pub exile: Vec<VisibleObject>,
+}
+
+impl Game {
+    /// The view for `me`.
+    pub fn view(&self, me: PlayerId) -> PlayerView<'_> {
+        PlayerView { game: self, me }
+    }
+
+    /// Invariant 5: the view snapshot for `me` exposes no hidden object
+    /// (another player's hand, any library).
+    pub fn audit_view(&self, me: PlayerId) -> Result<(), String> {
+        let snap = self.view(me).snapshot();
+        let mut exposed: Vec<ObjectId> = snap
+            .hand
+            .iter()
+            .chain(&snap.battlefield)
+            .chain(&snap.exile)
+            .map(|o| o.id)
+            .collect();
+        exposed.extend(snap.stack.iter().map(|(o, _)| o.id));
+        exposed.extend(snap.graveyards.iter().flatten().map(|o| o.id));
+        for id in exposed {
+            let Some(o) = self.obj(id) else {
+                return Err(format!("view exposes dead object {id}"));
+            };
+            match o.zone {
+                ZoneId::Library(_) => {
+                    return Err(format!("view for {me} exposes library object {id}"));
+                }
+                ZoneId::Hand(p) if p != me => {
+                    return Err(format!("view for {me} exposes {p}'s hand object {id}"));
+                }
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+
+    fn name_of(&self, id: ObjectId) -> String {
+        self.obj_def(id)
+            .map_or_else(|| format!("{id}"), |d| d.name.clone())
+    }
+
+    /// A short label for option `i` of the pending decision, used by scenario
+    /// scripts and human/LLM interfaces. Labels name cards, not ids.
+    pub fn option_label(&self, i: usize) -> Option<String> {
+        let d = self.pending.as_ref()?;
+        Some(self.label(d, i))
+    }
+
+    fn label(&self, d: &PendingDecision, i: usize) -> String {
+        let name = |id: ObjectId| self.name_of(id);
+        let who = |id: ObjectId| {
+            let n = name(id);
+            match self.obj(id) {
+                Some(o) if o.zone == ZoneId::Battlefield => format!("{n} ({})", o.controller),
+                _ => n,
+            }
+        };
+        match &d.kind {
+            DecisionKind::Mulligan { .. } => if i == 0 { "Keep" } else { "Mulligan" }.to_owned(),
+            DecisionKind::BottomCard { cards, .. } => format!("Bottom {}", name(cards[i])),
+            DecisionKind::Discard { cards, .. } => format!("Discard {}", name(cards[i])),
+            DecisionKind::Priority { actions } => match actions[i] {
+                Action::Pass => "Pass".into(),
+                Action::PlayLand(id) => format!("Play {}", name(id)),
+                Action::Cast(id) => format!("Cast {}", name(id)),
+                Action::ActivateMana { source, ability } => {
+                    let mana = self
+                        .obj_def(source)
+                        .and_then(|def| def.mana_abilities.get(ability as usize).copied());
+                    format!(
+                        "Tap {} for {}",
+                        name(source),
+                        mana.map_or_else(String::new, |m| m.to_string())
+                    )
+                }
+            },
+            DecisionKind::ChooseTarget { targets, .. } => match targets[i] {
+                Target::Player(p) => format!("Target {p}"),
+                Target::Object(id) => format!("Target {}", who(id)),
+            },
+            DecisionKind::PayMana { plans, .. } => match plans.get(i) {
+                None => "Pay manually".into(),
+                Some(plan) => {
+                    let mut parts: Vec<String> =
+                        plan.activations.iter().map(|(id, _)| name(*id)).collect();
+                    let produced: u32 = plan.activations.len().try_into().unwrap_or(0);
+                    let pool_used = plan.spend.iter().sum::<u32>().saturating_sub(produced);
+                    if pool_used > 0 {
+                        parts.push(format!("{pool_used} from pool"));
+                    }
+                    format!("Pay with {}", parts.join(", "))
+                }
+            },
+            DecisionKind::ManaStep { steps, .. } => match steps[i] {
+                ManaStep::Activate { source, ability } => {
+                    let mana = self
+                        .obj_def(source)
+                        .and_then(|def| def.mana_abilities.get(ability as usize).copied());
+                    format!(
+                        "Tap {} for {}",
+                        name(source),
+                        mana.map_or_else(String::new, |m| m.to_string())
+                    )
+                }
+                ManaStep::Spend(m) => format!("Spend {m}"),
+            },
+            DecisionKind::DeclareAttacker { creature, targets } => match targets[i] {
+                None => format!("{} doesn't attack", name(*creature)),
+                Some(p) => format!("{} attacks {p}", name(*creature)),
+            },
+            DecisionKind::DeclareBlocker {
+                creature,
+                attackers,
+            } => match attackers[i] {
+                None => format!("{} doesn't block", name(*creature)),
+                Some(a) => format!("{} blocks {}", name(*creature), who(a)),
+            },
+            DecisionKind::AssignDamage { recipients, .. } => match recipients[i] {
+                DamageRecipient::Creature(id) => format!("1 damage to {}", who(id)),
+                DamageRecipient::Player(p) => format!("1 damage to {p}"),
+            },
+            // Same-name permanents are told apart by position (1-based, battlefield order).
+            DecisionKind::LegendRule { candidates } => {
+                format!("Keep {} [{}]", name(candidates[i]), i + 1)
+            }
+        }
+    }
+}
+
+impl<'g> PlayerView<'g> {
+    pub fn me(&self) -> PlayerId {
+        self.me
+    }
+
+    pub fn turn(&self) -> &'g TurnState {
+        &self.game.turn
+    }
+
+    pub fn player_count(&self) -> usize {
+        self.game.players.len()
+    }
+
+    /// The pending decision, if it's this viewer's.
+    pub fn pending(&self) -> Option<&'g PendingDecision> {
+        self.game.pending.as_ref().filter(|d| d.player == self.me)
+    }
+
+    pub fn option_label(&self, i: usize) -> Option<String> {
+        self.pending().and_then(|_| self.game.option_label(i))
+    }
+
+    pub fn player(&self, p: PlayerId) -> PublicPlayer {
+        let pl = self.game.player(p);
+        PublicPlayer {
+            id: p,
+            in_game: pl.in_game(),
+            life: pl.life,
+            poison: pl.poison,
+            hand_count: pl.hand.len(),
+            library_count: pl.library.len(),
+            mana_pool: pl.pool.0,
+        }
+    }
+
+    /// Whether the viewer may see object `id` (CR 400.2).
+    pub fn can_see(&self, id: ObjectId) -> bool {
+        self.game.obj(id).is_some_and(|o| match o.zone {
+            ZoneId::Library(_) => false,
+            ZoneId::Hand(p) => p == self.me,
+            _ => true,
+        })
+    }
+
+    /// The definition of a visible object.
+    pub fn card(&self, id: ObjectId) -> Option<&'g CardDef> {
+        if self.can_see(id) {
+            self.game.obj_def(id)
+        } else {
+            None
+        }
+    }
+
+    pub fn object(&self, id: ObjectId) -> Option<VisibleObject> {
+        if !self.can_see(id) {
+            return None;
+        }
+        let o = self.game.obj(id)?;
+        let def = self.game.def(o.def);
+        let combat = self.game.combat.as_ref();
+        Some(VisibleObject {
+            id,
+            def: o.def,
+            name: def.name.clone(),
+            owner: o.owner,
+            controller: o.controller,
+            zone: o.zone,
+            tapped: o.tapped,
+            damage: o.damage,
+            power: def.power,
+            toughness: def.toughness,
+            attacking: combat.and_then(|c| c.attacker(id)).map(|a| a.defending),
+            blocking: combat.and_then(|c| c.blocks.iter().find(|(b, _)| *b == id).map(|(_, a)| *a)),
+        })
+    }
+
+    pub fn hand(&self) -> &'g [ObjectId] {
+        &self.game.player(self.me).hand
+    }
+
+    pub fn battlefield(&self) -> &'g [ObjectId] {
+        &self.game.battlefield
+    }
+
+    pub fn snapshot(&self) -> ViewSnapshot {
+        let objs = |ids: &[ObjectId]| {
+            ids.iter()
+                .filter_map(|id| self.object(*id))
+                .collect::<Vec<_>>()
+        };
+        ViewSnapshot {
+            me: self.me,
+            turn: self.game.turn.number,
+            active: self.game.turn.active,
+            step: self.game.turn.step,
+            players: self
+                .game
+                .players
+                .iter()
+                .map(|p| self.player(p.id))
+                .collect(),
+            hand: objs(self.hand()),
+            battlefield: objs(&self.game.battlefield),
+            stack: self
+                .game
+                .stack
+                .iter()
+                .filter_map(|s| self.object(s.object).map(|o| (o, s.targets.to_vec())))
+                .collect(),
+            graveyards: self
+                .game
+                .players
+                .iter()
+                .map(|p| objs(&p.graveyard))
+                .collect(),
+            exile: objs(&self.game.exile),
+        }
+    }
+}

@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: One land per turn, as a special action that keeps priority
+cr: ["305.2", "305.2a", "116.2a", "117.3c"]
+players:
+  - hand: [Test Forest, Test Forest]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - check:
+      decision: { player: P1, options_include: ["Play Test Forest"] }
+  - choose: Play Test Forest
+expect:
+  zones:
+    P1.battlefield: [Test Forest]
+    P1.hand: [Test Forest]
+  decision:
+    player: P1
+    kind: priority
+    options_exclude: ["Play Test Forest"]
+    options_include: ["Tap Test Forest for {G}"]

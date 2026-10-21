@@ -1,0 +1,11 @@
+scenario: mtg-scenario/1
+name: Drawing from an empty library loses at the next SBA check
+cr: ["704.5b", "504.1", "121.1"]
+players:
+  - library: []
+  - {}
+turn: { number: 3, active: P1, step: upkeep }
+script:
+  - pass_all     # → draw step: the draw fails, then SBAs on the way to priority
+expect:
+  result: win P2

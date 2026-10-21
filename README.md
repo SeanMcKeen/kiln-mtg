@@ -7,7 +7,7 @@
 
 ## Status
 
-**Milestone M1 (Foundations & Data) is in review.** The Rust workspace, core types, the card database pipeline, Commander deck validation, and CR tooling all work. The game engine starts in M2. All scope, research, architecture and decisions live in the Obsidian vault under [`docs/`](docs/00%20Home.md). Start at **[docs/00 Home.md](docs/00%20Home.md)**.
+**Milestone M2 (Core Game Loop) is in review.** The N-player engine plays complete games: lands, mana with payment plans, casting, the stack, combat (first and double strike, trample, deathtouch, lifelink, menace, flying, reach), state-based actions, mulligans, player views, deterministic replays, and a parallel fuzz runner. Cards are a small synthetic test set plus real vanilla creatures and basic lands. Real card behaviour arrives in M3. All scope, research, architecture and decisions live in the Obsidian vault under [`docs/`](docs/00%20Home.md). Start at **[docs/00 Home.md](docs/00%20Home.md)**.
 
 ## Quick start
 
@@ -22,6 +22,13 @@ cargo build --release
 ```
 
 Every card currently reports `unsupported` coverage, because card behaviour arrives in M3. The engine refuses to pretend otherwise.
+
+```bash
+# Play 10,000 random 4-player games with every invariant checked
+./target/release/mtg dev fuzz --games 10000 --invariants --views --replay-every 100
+# The same with real vanilla creatures and basic lands from the card DB
+./target/release/mtg dev fuzz --games 10000 --real
+```
 
 ## What this is
 

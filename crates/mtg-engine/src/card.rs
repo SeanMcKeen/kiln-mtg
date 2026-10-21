@@ -233,20 +233,19 @@ impl CardDef {
         if !t.other.is_empty() {
             return Err(unsupported("non-standard type line"));
         }
-        if let Some(cost) = &f.mana_cost {
-            if cost.has_unsupported()
-                || cost.has_variable()
-                || cost.symbols().iter().any(|s| {
-                    !matches!(
-                        s,
-                        ManaSymbol::Generic(_) | ManaSymbol::Colored(_) | ManaSymbol::Colorless
-                    )
-                })
-            {
-                return Err(unsupported(
-                    "mana cost needs hybrid/Phyrexian/X/snow payment (M3)",
-                ));
-            }
+        let simple = |s: &ManaSymbol| {
+            matches!(
+                s,
+                ManaSymbol::Generic(_) | ManaSymbol::Colored(_) | ManaSymbol::Colorless
+            )
+        };
+        if f.mana_cost
+            .as_ref()
+            .is_some_and(|c| !c.symbols().iter().all(simple))
+        {
+            return Err(unsupported(
+                "mana cost needs hybrid/Phyrexian/X/snow payment (M3)",
+            ));
         }
         let mut keywords = Keywords::default();
         let mut mana_abilities = SmallVec::new();
@@ -381,7 +380,7 @@ impl CardPool {
             mana_abilities: SmallVec::from_slice(&[ManaType::Colorless]),
             spell_effect: None,
         });
-        let creatures: [(&str, &str, &str, i32, i32, &[Keywords]); 16] = [
+        let creatures: [TestCreature; 16] = [
             ("Test Bear", "{1}{G}", "Creature — Bear", 2, 2, &[]),
             ("Test Ogre", "{2}{R}", "Creature — Ogre", 3, 2, &[]),
             (
@@ -554,6 +553,16 @@ impl CardPool {
         pool
     }
 }
+
+/// (name, cost, type line, power, toughness, keywords)
+type TestCreature = (
+    &'static str,
+    &'static str,
+    &'static str,
+    i32,
+    i32,
+    &'static [Keywords],
+);
 
 fn tl(s: &str) -> TypeLine {
     match s.parse() {

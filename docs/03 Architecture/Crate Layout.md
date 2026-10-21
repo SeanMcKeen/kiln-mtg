@@ -65,6 +65,15 @@ Workspace conventions:
 - edition 2024, toolchain pinned in `rust-toolchain.toml`
 - `unsafe_code = "forbid"`, a small set of clippy lints, and CI runs `-D warnings`
 
+### M2 additions (2026-10-21)
+| Crate | M2 state | Dependencies chosen |
+|---|---|---|
+| `mtg-engine` | `Game` (task-stack decision state machine), M2 card IR, mana plans, casting, combat, SBAs, views, replays, invariants, scenario builder, synthetic test decks; criterion benches | **`rand_chacha` 0.10** (ChaCha8; sampling and shuffles are our own code), `smallvec`, `serde_json` (replay pool hash) |
+| `mtg-policy` | `Policy` trait; random (pass bias), passive, scripted | — |
+| `mtg-sim` | `runner` (rayon batch runner with checks), `vanilla` (real-card pools for M2) | **`rayon`** |
+| `mtg-testkit` | YAML scenario loader | **`yaml_serde`** (YAML organization's maintained serde_yaml) |
+| `mtg-cli` | `mtg dev fuzz` | — |
+
 Deck import landed in `mtg-sim` as this note says. If it stays CLI-only through M6, consider moving it to `mtg-data` so the CLI doesn't pull in simulation code.
 
 ## Rules

@@ -1,0 +1,22 @@
+scenario: mtg-scenario/1
+name: First strike kills the blocker before it deals damage
+cr: ["510.4", "702.7b", "704.5g"]
+players:
+  - battlefield: [Test Knight]
+  - battlefield: [Test Bear]
+turn: { number: 3, active: P1, step: declare_attackers }
+script:
+  - choose: Test Knight attacks P2
+  - pass_all
+  - { player: P2, choose: Test Bear blocks Test Knight (P1) }
+  - pass_all          # end of declare blockers → first-strike damage step
+  - check:
+      step: first_strike_damage
+      zones: { P2.graveyard: [Test Bear] }
+  - pass_all          # → regular combat damage step: the Bear is gone, deals nothing
+expect:
+  step: combat_damage
+  zones:
+    P1.battlefield: [Test Knight]
+    P2.graveyard: [Test Bear]
+  life: { P1: 20, P2: 20 }

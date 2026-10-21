@@ -1,0 +1,26 @@
+scenario: mtg-scenario/1
+name: Trample assigns lethal to the blocker, the rest to the player
+cr: ["702.19b", "510.1c", "510.2"]
+players:
+  - battlefield: [Test Rhino]
+  - battlefield: [Test Bird]
+turn: { number: 3, active: P1, step: declare_attackers }
+script:
+  - choose: Test Rhino attacks P2
+  - pass_all
+  - { player: P2, choose: Test Bird blocks Test Rhino (P1) }
+  - pass_all
+  # The first point must go to the Bird (lethal first), so it isn't a decision.
+  - check:
+      decision:
+        player: P1
+        kind: assign_damage
+        options: ["1 damage to Test Bird (P2)", "1 damage to P2"]
+  - choose: 1 damage to P2
+  - choose: 1 damage to P2
+  - choose: 1 damage to P2
+expect:
+  life: { P2: 17 }
+  zones:
+    P2.graveyard: [Test Bird]
+    P1.battlefield: [Test Rhino]

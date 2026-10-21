@@ -1,0 +1,37 @@
+scenario: mtg-scenario/1
+name: Payment offers outcome-distinct plans plus manual payment
+cr: ["601.2g", "601.2h", "605.3a", "106.4"]
+players:
+  - hand: [Test Ogre]
+    battlefield: [Test Mountain, Test Forest, Test Forest, Test Island]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Test Ogre
+  # {2}{R}: the Mountain pays {R}; the two Forests are interchangeable, so tapping
+  # "Forest + Island" and "Forest + Forest" are the only distinct ways to pay {2}.
+  - check:
+      decision:
+        kind: pay_mana
+        options:
+          - Pay with Test Mountain, Test Forest, Test Island
+          - Pay with Test Mountain, Test Forest, Test Forest
+          - Pay manually
+  - choose: Pay manually
+  - choose: Tap Test Mountain for {R}
+  - choose: Spend {R}
+  - choose: Tap Test Island for {U}
+  - choose: Spend {U}
+  - choose: Tap Test Forest for {G}
+  - check:
+      # Only spending the {G} can complete the payment now: no other step is offered
+      # that would leave an unpayable cost.
+      decision: { kind: mana_step, options_include: ["Spend {G}"] }
+  - choose: Spend {G}
+expect:
+  zones:
+    stack: [Test Ogre]
+  tapped:
+    Test Mountain: true
+    Test Island: true
+  decision: { player: P1, kind: priority }

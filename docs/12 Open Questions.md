@@ -22,13 +22,11 @@ Each question has an owner note and a target milestone. Move a question to **Res
 | # | Question | Owner note | Target |
 |---|---|---|---|
 | Q10 | Persistent (`rpds`/`im`) vs. arena-clone vs. hybrid game state | [[Performance & Cheap Cloning]] | M2 |
-| Q11 | Hand-written continuation enums vs. a small internal "procedure VM" for rules procedures | [[Game State Model]] | M2 |
-| Q12 | Constraint-aware factoring for attack/block requirements (CR 508.1d / 509.1c) | [[Combat]], [[Decision & Action Model]] | M2–M4 |
-| Q13 | Payment-plan enumeration and canonicalization; when to require manual payment | [[Costs & Mana]] | M2 |
-| Q14 | Precise castability pre-check vs. lazy check with invisible rewind (CR 601.2e / 733) | [[Casting & Activating]] | M2–M3 |
+| Q12 | Constraint-aware factoring for attack/block requirements (CR 508.1d / 509.1c). **M2: done for menace** (block options are offered only if a matching keeps every menace attacker satisfiable). Requirements and restrictions ("attacks each combat if able") remain. | [[Combat]], [[Decision & Action Model]] | M4 |
+| Q14 | Precise castability pre-check vs. lazy check with invisible rewind (CR 601.2e / 733). **M2: precise pre-check**, which is exact for mana-only costs. Non-mana costs and cost modifiers in M3 will decide it. | [[Casting & Activating]] | M3 |
 | Q15 | Representation of arbitrarily large numbers (FR-E11) | [[Loops & Shortcuts]], [[MTG Complexity & Loops]] | M4 |
 | Q16 | Loop detection: hashing "modulo monotonic quantities", and proving linearity for extrapolation | [[Loops & Shortcuts]] | M4 |
-| Q17 | How much last-known information to snapshot | [[Zones & Objects]] | M2 |
+| Q17 | How much last-known information to snapshot. M2 needs none (no triggers or abilities look back), so this is deferred. | [[Zones & Objects]] | M4 |
 
 ## Cards
 | # | Question | Owner note | Target |
@@ -61,3 +59,6 @@ Each question has an owner note and a target milestone. Move a question to **Res
 | R7 | Card name collisions (prepare/adventure spell faces named like real cards) | Two-tier name index: full names before face names; spell faces of adventure/prepare cards aren't indexed ([[Ingestion Pipeline]]) |
 | R8 | Which color identity to validate decks with | Union of Scryfall's and the CR 903.4 recomputation, plus a CR 903.5d basic-land-type check ([[Deck Import]]) |
 | R9 | Relationship to phase.rs (Q21) | E3, borrow selectively; clean-room engine core ([[ADR-0012 Relationship to phase.rs]], accepted 2026-10-20) |
+| R10 | Continuations (Q11) | A stack of small hand-written task enums stored in the game state; the loop pops tasks until one needs a decision. Cloneable and hashable mid-procedure. Revisit at M4 if triggers and replacements make it unwieldy ([[M2 Core Game Loop]]) |
+| R11 | Payment plans (Q13) | Outcome-distinct plans (interchangeable sources grouped), capped at 32, plus a manual mode that offers only steps keeping the payment completable ([[M2 Core Game Loop]]) |
+| R12 | Scenario file syntax (part of Q22) | YAML via `yaml_serde`, matched by option label ([[Scenario File Format]]). Card-definition overrides stay open under Q22 |

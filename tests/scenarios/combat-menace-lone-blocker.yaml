@@ -1,0 +1,17 @@
+scenario: mtg-scenario/1
+name: A single potential blocker can't block a menace attacker
+cr: ["702.111b"]
+players:
+  - battlefield: [Test Brute]
+  - battlefield: [Test Bear]
+turn: { number: 3, active: P1, step: declare_attackers }
+script:
+  - choose: Test Brute attacks P2
+  - pass_all
+  # No block decision exists: the Bear's only legal choice is not to block.
+  - check:
+      step: declare_blockers
+      decision: { player: P1, kind: priority }
+  - pass_all
+expect:
+  life: { P2: 17 }
