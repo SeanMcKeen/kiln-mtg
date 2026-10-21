@@ -25,3 +25,11 @@ updated: 2026-10-20
 - **Bad:** more verbose rules code, with procedures written as explicit steps. Mitigate with helper macros, or a small internal procedure VM (open question).
 
 **Accept by:** M2, after prototyping casting and combat in this style.
+
+## M2 evidence (2026-10-21)
+Casting (CR 601.2a–i), payment, combat (factored attacks and blocks, per-point damage division), mulligans and SBAs are all written as resumable tasks on a stack stored in the game state (R10).
+- **Clone/serialize at any point:** a clone of a mid-game state costs 377 ns, and clone-then-apply equals apply on every decision tested.
+- **Legality by construction:** a property test applies *every* offered option. Over 1M fuzz games (~4 billion decisions), the engine never rejected an offered option.
+- **Verbosity:** acceptable. Each procedure is a small task enum plus `step`/`answer` methods.
+
+**Status: ready to accept.** This is the user's call ([[12 Open Questions]] Q2).

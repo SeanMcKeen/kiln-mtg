@@ -68,5 +68,17 @@ Targets that fall out of this:
 - Tier 1: macOS aarch64, Linux x86_64.
 - Tier 2: Windows x86_64, `wasm32-unknown-unknown` (engine and sim, without threads).
 
+## Measurements
+| Date | Target | Measured | Conditions |
+|---|---|---|---|
+| 2026-10-21 (M2) | NFR-P1 ≤ 5 ms engine time per 4-player game | **1.37 ms** per complete random game | Synthetic vanilla decks, random policy, one core, Apple Silicon; `cargo bench -p mtg-engine` |
+| 2026-10-21 (M2) | NFR-P2 clone ≤ 10 µs | **377 ns** | 4-player mid-game, 28 permanents (smaller than a cEDH board) |
+| 2026-10-21 (M2) | NFR-P3 priority enumeration ≤ 20 µs | **334 ns** | Same board |
+| 2026-10-21 (M1) | NFR-P6 card DB load ≤ 1 s | **~210 ms** | Full Scryfall `oracle_cards` (38,940 objects) |
+| 2026-10-21 (M2) | NFR-P4 ≥ 85% scaling at 8 cores | 13.2× on 18 cores (73%; mix of performance and efficiency cores) | `mtg dev fuzz`, unchecked |
+| 2026-10-21 (M2) | NFR-D1 identical across thread counts | ✅ identical results on 1 and 18 threads | 5,000-game batch |
+
+M2 numbers use vanilla cards. Re-baseline at M6 with real cEDH decks, where card IR interpretation and layers add cost.
+
 ## Related
 [[Functional Requirements]] · [[Performance & Cheap Cloning]] · [[Batch Runner & Parallelism]]

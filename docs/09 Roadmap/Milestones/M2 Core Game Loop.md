@@ -1,9 +1,9 @@
 ---
 type: milestone
-status: in-progress
+status: review
 milestone: M2
 tags: [milestone]
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # M2: Core Game Loop
@@ -11,25 +11,59 @@ updated: 2026-10-20
 **Goal:** an N-player engine that plays complete games with lands, mana, vanilla and French-vanilla creatures, simple spells (hand-coded IR), combat, SBAs, deterministic replays, and a random policy.
 
 ## Checklist
-- [ ] `GameState`, object arena, zones ([[Game State Model]], [[Zones & Objects]])
-- [ ] Decision model v1: `PendingDecision`/`Choice`, continuations ([[Decision & Action Model]]) → accept ADR-0004
-- [ ] Turn structure and turn-based actions ([[Turn Structure]])
-- [ ] Priority and the stack, resolution ([[Priority & the Stack]], [[Resolution]])
-- [ ] Mana pools, mana abilities, cost payment v1 with plan enumeration ([[Costs & Mana]])
-- [ ] Casting procedure skeleton per CR 601.2 ([[Casting & Activating]])
-- [ ] Combat with factored declarations ([[Combat]])
-- [ ] Core SBAs (704.5a–j) ([[State-Based Actions]])
-- [ ] Mulligans (London, multiplayer free mulligan)
-- [ ] Seeded RNG, replay log, determinism tests → accept ADR-0005 ([[Determinism & Replay]])
-- [ ] PlayerView v1 with knowledge tracking basics ([[Hidden Information & Player Views]])
-- [ ] Event system v1 ([[Event System]])
-- [ ] `mtg-policy`: the Policy trait, random, passive, scripted
-- [ ] Sim skeleton: run N random games in parallel. Invariant checks ([[Invariants & Property Tests]])
-- [ ] Benchmarks: clone cost, games/sec → decide the persistent vs. arena state strategy ([[Performance & Cheap Cloning]])
-- [ ] Scenario file loader v1 ([[Scenario File Format]])
+- [x] `GameState`, object arena, zones ([[Game State Model]], [[Zones & Objects]])
+- [x] Decision model v1: `PendingDecision`/`Choice`, continuations ([[Decision & Action Model]]) → accept ADR-0004
+- [x] Turn structure and turn-based actions ([[Turn Structure]])
+- [x] Priority and the stack, resolution ([[Priority & the Stack]], [[Resolution]])
+- [x] Mana pools, mana abilities, cost payment v1 with plan enumeration ([[Costs & Mana]])
+- [x] Casting procedure skeleton per CR 601.2 ([[Casting & Activating]])
+- [x] Combat with factored declarations ([[Combat]])
+- [x] Core SBAs (704.5a–j) ([[State-Based Actions]])
+- [x] Mulligans (London, multiplayer free mulligan)
+- [x] Seeded RNG, replay log, determinism tests → accept ADR-0005 ([[Determinism & Replay]])
+- [x] PlayerView v1 with knowledge tracking basics ([[Hidden Information & Player Views]])
+- [x] Event system v1 ([[Event System]])
+- [x] `mtg-policy`: the Policy trait, random, passive, scripted
+- [x] Sim skeleton: run N random games in parallel. Invariant checks ([[Invariants & Property Tests]])
+- [x] Benchmarks: clone cost, games/sec → decide the persistent vs. arena state strategy ([[Performance & Cheap Cloning]])
+- [x] Scenario file loader v1 ([[Scenario File Format]])
 
 ## Exit criteria
-1M random 4-player games with vanilla decks: no panics, no invariant violations, 100% replay determinism. Benchmarks recorded.
+1M random 4-player games with vanilla decks: no panics, no invariant violations, 100% replay determinism. Benchmarks recorded. ✅ **Met on 2026-10-21.**
+
+## Results
+**Fuzz:** 1,000,000 random 4-player games on the synthetic test set (`mtg dev fuzz`, seeds 2026–2035, 100k per seed).
+
+| Measure | Result |
+|---|---|
+| Decisions checked | ~4.0 billion |
+| Invariant violations | **0**: all 9 invariants after every decision; view audits every decision in the first 400k, then every 16th decision plus game end |
+| Replays re-run from their logs | **1,000 / 1,000** identical (every 1,000th game) |
+| Panics | **0** |
+| Real vanilla cards (741 convertible from the card DB) | 2,000 games, clean |
+
+- Results are identical on 1 thread and 18 threads.
+- Three golden replays (2, 4 and 6 players) are committed in `tests/golden/`.
+
+**Benchmarks** (`cargo bench -p mtg-engine`, one core, Apple Silicon):
+
+| Benchmark | Result | Target |
+|---|---|---|
+| `GameState` clone, 4-player mid-game | **377 ns** | NFR-P2 ≤ 10 µs |
+| Legal-option enumeration at priority | **334 ns** | NFR-P3 ≤ 20 µs |
+| Complete random 4-player game (~4,000 decisions) | **1.37 ms** | NFR-P1 ≤ 5 ms |
+| State hash | 6.9 µs | — |
+| Unchecked fuzz throughput | 669 games/s on one core, 8,834 games/s on 18 cores | — |
+
+- The benchmark board had only 28 permanents, smaller than a typical cEDH board (~60). Clone is linear in object count, so the margin holds.
+- **Q10 is decided:** plain `Vec` arenas; persistent structures aren't needed.
+
+**Rules tests:**
+- 16 CR-cited scenarios (`tests/scenarios/*.yaml`)
+- game-start rule tests (CR 103.5c, 103.8a/c)
+- random-game property tests: every offered option applies, clone-then-apply equals apply, and replays reproduce
+
+**Decisions ready for the user:** ADR-0004 and ADR-0005 have the evidence their "accept by M2" conditions asked for (see each ADR).
 
 ## Plan (final, 2026-10-20)
 ADR-0012 was accepted as E3 (clean-room core), so this plan stands. It builds in four lessons from [[phase.rs Evaluation]]:

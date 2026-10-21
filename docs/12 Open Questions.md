@@ -13,7 +13,7 @@ Each question has an owner note and a target milestone. Move a question to **Res
 | # | Question | Notes | Target |
 |---|---|---|---|
 | Q1 | **Project name?** "mtg-rules-engine" is a working title. | Avoid WotC trademarks in the name (e.g. "Magic"). | M0 |
-| Q2 | Review the proposed ADRs 0004, 0005, 0008, 0009 and 0011: accept or amend? ADR-0009 now has M1 evidence and is ready to accept. | [[ADR Index]] | M0 |
+| Q2 | Review the proposed ADRs: 0004 and 0005 (M2 evidence: ready to accept), 0009 (M1 evidence: ready to accept), 0008 and 0011 (M7/M8). Accept or amend? | [[ADR Index]] | now |
 | Q3 | Create the GitHub repo (public or private) and `git init`? | [[M0 Groundwork]] | M0 |
 | Q4 | Should deck *optimization* (suggesting swaps from sims) become a goal later? | Currently a non-goal ([[Scope & Non-Goals]]) | post-M9 |
 | Q5 | Arena-only digital mechanics (Alchemy) ever? | Non-goal for now | — |
@@ -21,7 +21,7 @@ Each question has an owner note and a target milestone. Move a question to **Res
 ## Architecture
 | # | Question | Owner note | Target |
 |---|---|---|---|
-| Q10 | Persistent (`rpds`/`im`) vs. arena-clone vs. hybrid game state | [[Performance & Cheap Cloning]] | M2 |
+| Q10 | ~~Persistent vs. arena-clone state~~ **Decided in M2:** plain `Vec` arenas (clone 377 ns, far under the 10 µs target). Revisit only if real cEDH boards change that. | [[Performance & Cheap Cloning]] | done |
 | Q12 | Constraint-aware factoring for attack/block requirements (CR 508.1d / 509.1c). **M2: done for menace** (block options are offered only if a matching keeps every menace attacker satisfiable). Requirements and restrictions ("attacks each combat if able") remain. | [[Combat]], [[Decision & Action Model]] | M4 |
 | Q14 | Precise castability pre-check vs. lazy check with invisible rewind (CR 601.2e / 733). **M2: precise pre-check**, which is exact for mana-only costs. Non-mana costs and cost modifiers in M3 will decide it. | [[Casting & Activating]] | M3 |
 | Q15 | Representation of arbitrarily large numbers (FR-E11) | [[Loops & Shortcuts]], [[MTG Complexity & Loops]] | M4 |
