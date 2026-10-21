@@ -5,11 +5,11 @@
 //! decision is "pick one of N" (M2 plan, D1): a [`Choice`] names the decision
 //! and an option index. Where a "decline" option exists, it is index 0 (D2).
 
-use mtg_core::{CrRef, ObjectId, PlayerId};
+use mtg_core::{Color, CrRef, ObjectId, PlayerId};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
-use crate::card::ManaType;
+use crate::card::{DefId, ManaType};
 use crate::state::Target;
 
 /// Monotonic id of a decision within a game (R7). A choice must echo it.
@@ -111,7 +111,81 @@ pub enum DecisionKind {
     },
     /// CR 704.5j: choose the legendary permanent to keep.
     LegendRule { candidates: Vec<ObjectId> },
+    /// A yes/no choice while an effect resolves (CR 608.2d): option 0 declines, option 1 accepts.
+    Optional {
+        source: ObjectId,
+        kind: OptionalKind,
+    },
+    /// Pick the next card for `purpose`. `cards[0]` is `None` (stop) when
+    /// stopping is allowed; ordering decisions pick the next card to place.
+    ChooseCard {
+        source: ObjectId,
+        purpose: CardPurpose,
+        cards: Vec<Option<ObjectId>>,
+    },
+    /// Choose which mana an effect adds (CR 106.1b): one option per outcome.
+    ChooseMana {
+        source: ObjectId,
+        options: Vec<ManaBag>,
+    },
+    /// Choose a card name (CR 201.4): the card names in the game's pool (never
+    /// a token's), plus `None` for "a name not in this game", which is
+    /// outcome-equivalent to every other absent name (M3 plan, B-D5).
+    ChooseName {
+        source: ObjectId,
+        names: Vec<Option<DefId>>,
+    },
+    /// Choose a number from `min` to `max` inclusive (option i = `min + i`).
+    ChooseNumber {
+        source: ObjectId,
+        min: i64,
+        max: i64,
+    },
+    /// Choose a color (CR 105.1).
+    ChooseColor {
+        source: ObjectId,
+        colors: Vec<Color>,
+    },
 }
+
+/// What a yes/no choice is about.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum OptionalKind {
+    /// "You may …" (CR 608.2d).
+    May,
+    /// "[Player] may [action]. If they do, …": whether to take the action.
+    IfDoes,
+    /// "… unless [player] pays [cost]" (CR 118.12): whether to pay.
+    PayUnless,
+}
+
+/// Why a card is being chosen.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum CardPurpose {
+    /// Find a card while searching (CR 701.23).
+    Search,
+    /// Discard it (CR 701.9a).
+    Discard,
+    /// Sacrifice it (CR 701.21a).
+    Sacrifice,
+    /// Exile it.
+    Exile,
+    /// Put it on top of its owner's library next (the last one placed ends up on top).
+    PutOnTop,
+    /// Put it on the bottom of its owner's library next (CR 701.22a for scry).
+    PutOnBottom,
+    /// Take it from the looked-at cards.
+    Take,
+    /// Return it to its owner's hand.
+    ReturnToHand,
+    /// Put it onto the battlefield.
+    PutOntoBattlefield,
+    /// Put it into its owner's graveyard.
+    PutIntoGraveyard,
+}
+
+/// Mana by [`ManaType`] index (W U B R G C).
+pub type ManaBag = [u8; 6];
 
 /// A decision awaiting a [`Choice`].
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -138,6 +212,14 @@ impl PendingDecision {
             DecisionKind::DeclareBlocker { attackers, .. } => attackers.len(),
             DecisionKind::AssignDamage { recipients, .. } => recipients.len(),
             DecisionKind::LegendRule { candidates } => candidates.len(),
+            DecisionKind::Optional { .. } => 2,
+            DecisionKind::ChooseCard { cards, .. } => cards.len(),
+            DecisionKind::ChooseMana { options, .. } => options.len(),
+            DecisionKind::ChooseName { names, .. } => names.len(),
+            DecisionKind::ChooseNumber { min, max, .. } => {
+                usize::try_from(max - min + 1).unwrap_or(0)
+            }
+            DecisionKind::ChooseColor { colors, .. } => colors.len(),
         }
     }
 
@@ -146,7 +228,9 @@ impl PendingDecision {
         match &self.kind {
             DecisionKind::Mulligan { .. }
             | DecisionKind::Priority { .. }
-            | DecisionKind::DeclareAttacker { .. } => true,
+            | DecisionKind::DeclareAttacker { .. }
+            | DecisionKind::Optional { .. } => true,
+            DecisionKind::ChooseCard { cards, .. } => cards.first().is_some_and(Option::is_none),
             // Not blocking can be illegal when it would strand a menace attacker.
             DecisionKind::DeclareBlocker { attackers, .. } => {
                 attackers.first().is_some_and(Option::is_none)

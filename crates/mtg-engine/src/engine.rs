@@ -16,6 +16,7 @@ use smallvec::SmallVec;
 
 use crate::card::{CardDef, CardPool, DefId, Keywords};
 use crate::decision::{Action, Choice, ChoiceError, DecisionId, DecisionKind, PendingDecision};
+use crate::effects::{AbilityRef, EffectCtx, EffectTask};
 use crate::events::Event;
 use crate::rng::GameRng;
 use crate::state::{
@@ -130,6 +131,12 @@ pub(crate) enum Task {
         discarded: bool,
     },
     Sba(crate::sba::SbaTask),
+    /// An effect being executed (M3 plan, B-D3).
+    Effect(Box<crate::effects::EffectTask>),
+    /// CR 608.2n: the last step of an instant or sorcery's resolution.
+    FinishSpell {
+        object: ObjectId,
+    },
 }
 
 /// A game in progress (or finished).
@@ -152,6 +159,8 @@ pub struct Game {
     pub(crate) result: Option<GameResult>,
     pub(crate) events: Vec<Event>,
     pub(crate) event_count: u64,
+    /// Until-end-of-turn power/toughness changes (layer 7c, CR 613.4c), ended in cleanup (CR 514.2).
+    pub(crate) pt_effects: Vec<(ObjectId, i32, i32)>,
 }
 
 impl Game {
@@ -201,6 +210,7 @@ impl Game {
             result: None,
             events: Vec::new(),
             event_count: 0,
+            pt_effects: Vec::new(),
         };
         for (seat, deck) in setup.decks.iter().enumerate() {
             let id = PlayerId(u8::try_from(seat).unwrap_or(0));
@@ -377,6 +387,11 @@ impl Game {
         self.tasks.hash(&mut h);
         self.pending.hash(&mut h);
         self.result.hash(&mut h);
+        // State added after M2 is hashed only when present, so states that
+        // don't use it keep their M2 hashes (golden replays stay comparable).
+        if !self.pt_effects.is_empty() {
+            self.pt_effects.hash(&mut h);
+        }
         h.finish()
     }
 
@@ -428,13 +443,26 @@ impl Game {
             .unwrap_or(p)
     }
 
-    /// Effective power and toughness (no continuous effects in M2).
+    /// Effective power and toughness: printed values plus until-end-of-turn
+    /// changes (layer 7c; M3 has no other layers yet).
     pub(crate) fn power(&self, id: ObjectId) -> i32 {
-        self.obj_def(id).and_then(|d| d.power).unwrap_or(0)
+        let base = self.obj_def(id).and_then(|d| d.power).unwrap_or(0);
+        base + self
+            .pt_effects
+            .iter()
+            .filter(|(o, _, _)| *o == id)
+            .map(|(_, p, _)| p)
+            .sum::<i32>()
     }
 
     pub(crate) fn toughness(&self, id: ObjectId) -> i32 {
-        self.obj_def(id).and_then(|d| d.toughness).unwrap_or(0)
+        let base = self.obj_def(id).and_then(|d| d.toughness).unwrap_or(0);
+        base + self
+            .pt_effects
+            .iter()
+            .filter(|(o, _, _)| *o == id)
+            .map(|(_, _, t)| t)
+            .sum::<i32>()
     }
 
     pub(crate) fn keywords(&self, id: ObjectId) -> Keywords {
@@ -717,6 +745,14 @@ impl Game {
             Task::CombatDamage(t) => self.damage_step(t),
             Task::Cleanup { discarded } => self.cleanup(discarded),
             Task::Sba(t) => self.sba_step(t),
+            Task::Effect(t) => self.effect_step(t),
+            Task::FinishSpell { object } => {
+                if let Some(o) = self.obj(object).copied()
+                    && o.zone == ZoneId::Stack
+                {
+                    self.move_object(object, ZoneId::Graveyard(o.owner), true);
+                }
+            }
         }
     }
 
@@ -781,6 +817,7 @@ impl Game {
             (Task::Sba(t), DecisionKind::LegendRule { candidates }) => {
                 self.sba_answer(t, candidates[option]);
             }
+            (Task::Effect(t), kind) => self.effect_answer(t, kind, option),
             (task, kind) => unreachable!("decision {kind:?} answered for task {task:?}"),
         }
     }
@@ -1040,12 +1077,13 @@ impl Game {
                 return;
             }
         }
-        // CR 514.2: damage wears off.
+        // CR 514.2: damage wears off and "until end of turn" effects end.
         for id in self.battlefield.clone() {
             if let Some(o) = self.objects.get_mut(id) {
                 o.damage = 0;
             }
         }
+        self.pt_effects.clear();
         // CR 514.3a: if SBAs would be performed, they are, then players get priority and another cleanup follows.
         if self.sba_pending() {
             self.turn.extra_cleanup = true;
@@ -1213,52 +1251,34 @@ impl Game {
             }
             return;
         }
-        if let Some(spell) = spell {
-            let target = item
-                .targets
-                .first()
-                .copied()
-                .filter(|t| slot_legal(self, 0, *t));
-            self.apply_effect(item.object, item.controller, &spell.effect, target);
-        }
         // CR 608.2n: an instant or sorcery goes to its owner's graveyard last.
-        self.move_object(item.object, ZoneId::Graveyard(obj.owner), true);
-    }
-
-    /// The M2 effect subset, kept until the general interpreter (M3 B2)
-    /// replaces it; `support::check` admits nothing else.
-    fn apply_effect(
-        &mut self,
-        source: ObjectId,
-        controller: PlayerId,
-        effect: &ir::Effect,
-        target: Option<Target>,
-    ) {
-        let fixed = |q: &ir::Quantity| match q {
-            ir::Quantity::Fixed(n) => u32::try_from(*n).unwrap_or(0),
-            ir::Quantity::Expr(_) => 0,
-        };
-        match (effect, target) {
-            (ir::Effect::DealDamage { amount, .. }, Some(t)) => {
-                self.deal_damage(source, t, fixed(amount), false);
-            }
-            (ir::Effect::Destroy(_), Some(Target::Object(id))) => {
-                // CR 701.8a
-                let owner = self.obj(id).map(|o| o.owner);
-                if let Some(owner) = owner {
-                    self.log(Event::Destroyed { object: id });
-                    self.move_object(id, ZoneId::Graveyard(owner), true);
+        self.tasks.push(Task::FinishSpell {
+            object: item.object,
+        });
+        let ability = def
+            .abilities
+            .iter()
+            .position(|a| matches!(a, ir::Ability::Spell(_)));
+        if let Some(ability) = ability.and_then(|i| u8::try_from(i).ok()) {
+            let mut ctx = EffectCtx::new(
+                AbilityRef {
+                    def: obj.def,
+                    ability,
+                },
+                item.object,
+                item.controller,
+            );
+            // CR 608.2b: illegal targets aren't affected.
+            for (i, t) in item.targets.iter().enumerate() {
+                if ctx.targets.len() <= i {
+                    ctx.targets.resize(i + 1, SmallVec::new());
+                }
+                if slot_legal(self, i, *t) {
+                    ctx.targets[i].push(*t);
                 }
             }
-            (ir::Effect::Draw { amount, .. }, _) => {
-                for _ in 0..fixed(amount) {
-                    self.draw(controller);
-                }
-            }
-            (ir::Effect::GainLife { amount, .. }, _) => {
-                self.gain_life(controller, fixed(amount));
-            }
-            _ => {}
+            self.tasks
+                .push(Task::Effect(Box::new(EffectTask::new(ctx))));
         }
     }
 

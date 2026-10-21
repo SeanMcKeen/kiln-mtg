@@ -1,0 +1,15 @@
+scenario: mtg-scenario/1
+name: A player who can't pay isn't asked; the effect happens
+cr: ["118.12", "119.3"]
+players:
+  - battlefield: [Test Island, Test Wastes]
+    hand: [Test Tax]
+  - battlefield: [Test Wastes]
+script:
+  - choose: Cast Test Tax
+  - choose: Target P2
+  - choose: Pay with Test Island, Test Wastes
+  - pass_all
+expect:
+  life: { P2: 17 }
+  decision: { player: P1, kind: priority }

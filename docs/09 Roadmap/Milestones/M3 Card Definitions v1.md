@@ -77,3 +77,14 @@ ADR-0007 is still open, but its fixed constraint is that **every option compiles
 - The commander zone and commander color identity (M6).
 - Activated abilities from zones other than the battlefield, such as cycling and Spirit Guides (later in M3 if time allows).
 - Divided damage (601.2d).
+
+## Progress (Phase B)
+| Phase | Status | Evidence |
+|---|---|---|
+| B1 | ✅ 2026-10-21 | `CardDef` = characteristics + IR abilities; support check (`support.rs`); IR target filters (`targets.rs`). Golden replays: every choice and final state hash unchanged (only `pool_hash` re-blessed). |
+| B2 | ✅ 2026-10-21 | `effects.rs`: resumable interpreter with paths into the IR, LKI (608.2h), illegal-target skipping (608.2b). Six new one-of-N decision kinds (optional, choose card, mana, name, number, color). 22 synthetic IR cards (`tests/fixtures/synthetic-ir-cards.yaml`) with 23 CR-cited scenarios. Random-play property tests over them: invariants and view audits after every decision, every offered option applies, replays reproduce. M2 golden replays still pass unchanged. |
+
+Semantics fixed while building B2 (documented in `ir.rs`):
+- A search for "a card" must find one if possible (701.23d); a filter states a quality, so finding nothing is allowed (701.23b).
+- `search … to: top_of_library` means search, shuffle, then put on top (701.24b).
+- "Each player …" clauses run per player in APNAP order. Later players see earlier players' choices, as CR 608.2e's announcements allow; there are no simultaneity-sensitive triggers until M4.

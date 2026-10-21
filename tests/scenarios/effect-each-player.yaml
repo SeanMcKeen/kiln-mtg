@@ -1,0 +1,17 @@
+scenario: mtg-scenario/1
+name: Each player discards their hand, then draws as many as the most discarded
+cr: ["101.4", "701.9a", "608.2h"]
+players:
+  - battlefield: [Test Island, Test Wastes, Test Wastes]
+    hand: [Test Windfall, Test Bolt, Test Bear]
+  - hand: [Test Ogre, Test Wall, Test Golem, Test Bird]
+script:
+  - choose: Cast Test Windfall
+  - choose: Pay with Test Island, Test Wastes, Test Wastes
+  - pass_all
+expect:
+  zones:
+    P1.hand: [Test Wastes, Test Wastes, Test Wastes, Test Wastes]
+    P2.hand: [Test Wastes, Test Wastes, Test Wastes, Test Wastes]
+    P1.graveyard: [Test Bolt, Test Bear, Test Windfall]
+    P2.graveyard: [Test Ogre, Test Wall, Test Golem, Test Bird]

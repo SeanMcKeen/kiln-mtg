@@ -288,7 +288,7 @@ impl CardDef {
                     }
                 }
                 Ability::Activated(x) if is_mana_ability(x) => {
-                    let alternatives = mana_output(&x.effect).map_err(unsupported)?;
+                    let alternatives = ability_mana_output(&x.effect).map_err(unsupported)?;
                     mana_abilities.push(ManaAbility {
                         ability: u8::try_from(i)
                             .map_err(|_| unsupported("more than 255 abilities".into()))?,
@@ -369,9 +369,12 @@ fn could_add_mana(e: &ir::Effect) -> bool {
     }
 }
 
+/// Ways the mana of a mana ability or spell can come out.
+pub type ManaAlternatives = SmallVec<[SmallVec<[ManaUnit; 2]>; 1]>;
+
 /// The output of a mana ability's effect. Only a single unconditional
-/// `AddMana` with a fixed amount is supported so far.
-fn mana_output(e: &ir::Effect) -> Result<SmallVec<[SmallVec<[ManaUnit; 2]>; 1]>, String> {
+/// `AddMana` is supported so far.
+fn ability_mana_output(e: &ir::Effect) -> Result<ManaAlternatives, String> {
     use ir::Effect as E;
     let adds: Vec<&ManaSpec> = match e {
         E::AddMana { mana, .. } => vec![mana],
@@ -387,6 +390,11 @@ fn mana_output(e: &ir::Effect) -> Result<SmallVec<[SmallVec<[ManaUnit; 2]>; 1]>,
     let [spec] = adds.as_slice() else {
         return Err("mana ability that doesn't add mana exactly once, unconditionally".into());
     };
+    mana_output(spec)
+}
+
+/// The alternatives a mana spec produces, for fixed amounts of 1 to 16 mana.
+pub(crate) fn mana_output(spec: &ManaSpec) -> Result<ManaAlternatives, String> {
     let fixed = |q: &Quantity| match q {
         Quantity::Fixed(n) if (1..=16).contains(n) => usize::try_from(*n).ok(),
         _ => None,
@@ -776,6 +784,28 @@ impl CardPool {
     }
 }
 
+impl CardPool {
+    /// The M2 test set plus the made-up cards in
+    /// `tests/fixtures/synthetic-ir-cards.yaml`, which exercise the M3 effect
+    /// interpreter. M2 definitions keep their ids.
+    pub fn m3_test_set() -> CardPool {
+        let mut pool = CardPool::test_set();
+        let text = include_str!("../../../tests/fixtures/synthetic-ir-cards.yaml");
+        let cards = mtg_cards::defs::parse_synthetic(text, "synthetic-ir-cards.yaml")
+            .unwrap_or_else(|e| panic!("{e}"));
+        for c in cards {
+            let ch = synthetic(
+                &c.name,
+                c.cost.as_deref(),
+                &c.types,
+                c.pt.map(|[p, t]| (p, t)),
+            );
+            pool.add_synthetic(ch, c.abilities);
+        }
+        pool
+    }
+}
+
 /// (name, cost, type line, power, toughness, keywords)
 type TestCreature = (
     &'static str,
@@ -915,12 +945,7 @@ mod tests {
 
     #[test]
     fn mana_outputs() {
-        let units = |spec: ManaSpec| {
-            mana_output(&ir::Effect::AddMana {
-                mana: spec,
-                spend_only_on: None,
-            })
-        };
+        let units = |spec: ManaSpec| mana_output(&spec);
         let sol = units(ManaSpec::Fixed("{C}{C}".into())).unwrap_or_default();
         assert_eq!(sol.len(), 1);
         assert_eq!(sol[0].as_slice(), &[ManaType::Colorless.bit(); 2]);

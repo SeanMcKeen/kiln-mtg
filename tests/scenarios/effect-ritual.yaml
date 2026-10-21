@@ -1,0 +1,18 @@
+scenario: mtg-scenario/1
+name: A spell adds mana to its controller's pool, which pays for the next spell
+cr: ["106.4", "601.2h"]
+players:
+  - battlefield: [Test Swamp]
+    hand: [Test Ritual, Test Murder]
+  - battlefield: [Test Ogre]
+script:
+  - choose: Cast Test Ritual
+  - choose: Pay with Test Swamp
+  - pass_all
+  - choose: Cast Test Murder
+  - choose: Target Test Ogre (P2)
+  - choose: Pay with 3 from pool
+  - pass_all
+expect:
+  zones:
+    P2.graveyard: [Test Ogre]

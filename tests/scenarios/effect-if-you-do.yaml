@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: "\"You may discard a card. If you do, draw two cards.\""
+cr: ["608.2d", "701.9a"]
+players:
+  - battlefield: [Test Swamp]
+    hand: [Test Bargain, Test Bolt, Test Bear]
+  - {}
+script:
+  - choose: Cast Test Bargain
+  - choose: Pay with Test Swamp
+  - pass_all
+  - check:
+      decision: { player: P1, kind: optional, options: ["No", "Yes"] }
+  - choose: "Yes"
+  - choose: Discard Test Bolt
+expect:
+  zones:
+    P1.hand: [Test Bear, Test Wastes, Test Wastes]
+    P1.graveyard: [Test Bolt, Test Bargain]

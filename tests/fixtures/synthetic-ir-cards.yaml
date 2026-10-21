@@ -1,0 +1,219 @@
+# Made-up cards (not real Magic cards) that exercise the M3 effect
+# interpreter. Each one covers one interpreter path; CR-cited scenarios in
+# tests/scenarios/ use them. Loaded by `CardPool::m3_test_set`, appended after
+# the frozen M2 test set.
+
+- name: Test Tutor
+  cost: "{1}{B}"
+  types: Sorcery
+  abilities:
+    - spell:
+        effect:
+          seq:
+            - search: { who: you, filter: {}, count: 1, to: hand, reveal: false }
+            - shuffle: you
+
+- name: Test Land Seeker
+  cost: "{G}"
+  types: Sorcery
+  abilities:
+    - spell:
+        effect:
+          seq:
+            - search: { who: you, filter: { types: [land], supertypes: [basic] }, count: 1, to: battlefield, reveal: true }
+            - shuffle: you
+
+- name: Test Seal
+  cost: "{B}"
+  types: Sorcery
+  abilities:
+    - spell:
+        effect: { search: { who: you, filter: {}, count: 1, to: top_of_library, reveal: false } }
+
+- name: Test Scry
+  cost: "{U}"
+  types: Instant
+  abilities:
+    - spell:
+        effect:
+          seq:
+            - scry: { who: you, amount: 2 }
+            - draw: { who: you, amount: 1 }
+
+- name: Test Ponder
+  cost: "{U}"
+  types: Sorcery
+  abilities:
+    - spell:
+        effect:
+          seq:
+            - look_at_top: { who: you, count: 3, rest: top_any_order }
+            - may: { shuffle: you }
+            - draw: { who: you, amount: 1 }
+
+- name: Test Brainstorm
+  cost: "{U}"
+  types: Instant
+  abilities:
+    - spell:
+        effect:
+          seq:
+            - draw: { who: you, amount: 3 }
+            - move_cards: { who: you, from: hand, count: 2, to: top_of_library }
+
+- name: Test Windfall
+  cost: "{2}{U}"
+  types: Sorcery
+  abilities:
+    - spell:
+        effect:
+          seq:
+            - for_each_player: { players: any, effect: { discard: { who: each, what: hand } } }
+            - for_each_player: { players: any, effect: { draw: { who: each, amount: most_discarded_this_way } } }
+
+- name: Test Exile
+  cost: "{W}"
+  types: Instant
+  abilities:
+    - spell:
+        targets: [{ what: { object: { types: [creature] } } }]
+        effect:
+          seq:
+            - exile: { what: { one: { target: 0 } } }
+            - gain_life: { who: { controller_of: { target: 0 } }, amount: { power_of: { target: 0 } } }
+
+- name: Test Ritual
+  cost: "{B}"
+  types: Instant
+  abilities:
+    - spell:
+        effect: { add_mana: { mana: { fixed: "{B}{B}{B}" } } }
+
+- name: Test Prism
+  cost: "{1}"
+  types: Instant
+  abilities:
+    - spell:
+        effect: { add_mana: { mana: { any_color: 1 } } }
+
+- name: Test Tax
+  cost: "{1}{U}"
+  types: Instant
+  abilities:
+    - spell:
+        targets: [{ what: { player: any } }]
+        effect:
+          unless:
+            payer: { target: 0 }
+            cost: [{ mana: "{2}" }]
+            effect: { lose_life: { who: { target: 0 }, amount: 3 } }
+
+- name: Test Consult
+  cost: "{B}"
+  types: Instant
+  abilities:
+    - spell:
+        effect:
+          seq:
+            - choose: { what: card_name, store: name }
+            - exile: { what: { top_of_library: { owner: you, count: 2 } } }
+            - reveal_until: { who: you, filter: { named: name }, found_to: hand, rest_to: exile }
+
+- name: Test Gamble
+  cost: "{R}"
+  types: Sorcery
+  abilities:
+    - spell:
+        effect:
+          seq:
+            - search: { who: you, filter: {}, count: 1, to: hand, reveal: false }
+            - discard: { who: you, what: { random: 1 } }
+            - shuffle: you
+
+- name: Test Growth
+  cost: "{G}"
+  types: Instant
+  abilities:
+    - spell:
+        targets: [{ what: { object: { types: [creature] } } }]
+        effect: { pump: { what: { one: { target: 0 } }, power: 3, toughness: 3 } }
+
+- name: Test Purge
+  cost: "{2}{B}"
+  types: Sorcery
+  abilities:
+    - spell:
+        effect:
+          for_each_player:
+            players: any
+            effect:
+              sacrifice:
+                who: each
+                what: { chosen_from: { who: each, zone: battlefield, filter: { types: [creature] }, count: 1 } }
+
+- name: Test Mind Rot
+  cost: "{2}{B}"
+  types: Sorcery
+  abilities:
+    - spell:
+        targets: [{ what: { player: any } }]
+        effect: { discard: { who: { target: 0 }, what: { chosen: { count: 2 } } } }
+
+- name: Test Ascension
+  cost: "{5}"
+  types: Sorcery
+  abilities:
+    - spell:
+        effect:
+          if:
+            condition: { at_least: [{ count: { types: [creature], controller: you } }, 3] }
+            then: { win_game: you }
+
+- name: Test Reckoning
+  cost: "{2}{W}{W}"
+  types: Sorcery
+  abilities:
+    - spell:
+        effect: { destroy: { all: { types: [creature] } } }
+
+- name: Test Bounce
+  cost: "{1}{U}"
+  types: Instant
+  abilities:
+    - spell:
+        targets: [{ what: { object: { types: [creature] } } }]
+        effect: { move: { what: { one: { target: 0 } }, to: hand } }
+
+- name: Test Bargain
+  cost: "{B}"
+  types: Sorcery
+  abilities:
+    - spell:
+        effect:
+          if_does:
+            who: you
+            action: { discard: { who: you, what: { chosen: { count: 1 } } } }
+            then: { draw: { who: you, amount: 2 } }
+
+- name: Test Seer
+  cost: "{2}{U}"
+  types: Sorcery
+  abilities:
+    - spell:
+        effect:
+          look_at_top:
+            who: you
+            count: 4
+            take: { filter: { types: [creature] }, up_to: 1, to: hand }
+            rest: bottom_random
+
+- name: Test Sign
+  cost: "{B}{B}"
+  types: Sorcery
+  abilities:
+    - spell:
+        targets: [{ what: { player: any } }]
+        effect:
+          seq:
+            - draw: { who: { target: 0 }, amount: 2 }
+            - lose_life: { who: { target: 0 }, amount: 2 }

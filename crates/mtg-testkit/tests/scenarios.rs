@@ -1,4 +1,4 @@
-//! Runs every scenario in `tests/scenarios/` against the M2 test card set.
+//! Runs every scenario in `tests/scenarios/` against the synthetic test cards (M2 set plus M3 IR cards).
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -22,7 +22,7 @@ fn files() -> Vec<PathBuf> {
 
 #[test]
 fn all_scenarios_pass() {
-    let pool = Arc::new(CardPool::test_set());
+    let pool = Arc::new(CardPool::m3_test_set());
     let files = files();
     assert!(
         files.len() >= 15,
@@ -84,7 +84,7 @@ fn scenario_citations_exist() {
 
 #[test]
 fn wrong_expectations_fail() {
-    let pool = Arc::new(CardPool::test_set());
+    let pool = Arc::new(CardPool::m3_test_set());
     let path = root().join("tests/scenarios/combat-trample.yaml");
     let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{e}"));
     let wrong_life = scenario::parse(
@@ -114,7 +114,7 @@ fn wrong_expectations_fail() {
 
 #[test]
 fn bad_labels_are_actionable() {
-    let pool = Arc::new(CardPool::test_set());
+    let pool = Arc::new(CardPool::m3_test_set());
     let s = scenario::parse(
         "scenario: mtg-scenario/1\nname: bad\ncr: [\"117.1\"]\nplayers: [{hand: [Test Bolt]}, {}]\nscript:\n  - choose: Cast Lightning Bolt\n",
         "inline",

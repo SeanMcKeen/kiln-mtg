@@ -8,8 +8,10 @@
 use mtg_core::{ObjectId, PlayerId};
 use serde::Serialize;
 
-use crate::card::{CardDef, DefId};
-use crate::decision::{Action, DamageRecipient, DecisionKind, ManaStep, PendingDecision};
+use crate::card::{CardDef, DefId, ManaType};
+use crate::decision::{
+    Action, CardPurpose, DamageRecipient, DecisionKind, ManaStep, OptionalKind, PendingDecision,
+};
 use crate::engine::Game;
 use crate::state::{Step, Target, TurnState, ZoneId};
 
@@ -189,6 +191,47 @@ impl Game {
             DecisionKind::LegendRule { candidates } => {
                 format!("Keep {} [{}]", name(candidates[i]), i + 1)
             }
+            DecisionKind::Optional { kind, .. } => match (kind, i) {
+                (OptionalKind::May | OptionalKind::IfDoes, 0) => "No".into(),
+                (OptionalKind::May | OptionalKind::IfDoes, _) => "Yes".into(),
+                (OptionalKind::PayUnless, 0) => "Don't pay".into(),
+                (OptionalKind::PayUnless, _) => "Pay".into(),
+            },
+            DecisionKind::ChooseCard { purpose, cards, .. } => match cards[i] {
+                None => "Stop".into(),
+                Some(id) => {
+                    let verb = match purpose {
+                        CardPurpose::Search => "Find",
+                        CardPurpose::Discard => "Discard",
+                        CardPurpose::Sacrifice => "Sacrifice",
+                        CardPurpose::Exile => "Exile",
+                        CardPurpose::PutOnTop => "Put on top",
+                        CardPurpose::PutOnBottom => "Put on bottom",
+                        CardPurpose::Take => "Take",
+                        CardPurpose::ReturnToHand => "Return to hand",
+                        CardPurpose::PutOntoBattlefield => "Put onto the battlefield",
+                        CardPurpose::PutIntoGraveyard => "Put into graveyard",
+                    };
+                    format!("{verb} {}", who(id))
+                }
+            },
+            DecisionKind::ChooseMana { options, .. } => {
+                let mut s = String::from("Add ");
+                for t in ManaType::ALL {
+                    for _ in 0..options[i][t.index()] {
+                        s.push_str(t.symbol());
+                    }
+                }
+                s
+            }
+            DecisionKind::ChooseName { names, .. } => match names[i] {
+                Some(d) => format!("Name {}", self.def(d).name),
+                None => "Name a card not in this game".into(),
+            },
+            DecisionKind::ChooseNumber { min, .. } => {
+                format!("Choose {}", min + i64::try_from(i).unwrap_or(0))
+            }
+            DecisionKind::ChooseColor { colors, .. } => format!("Choose {:?}", colors[i]),
         }
     }
 }

@@ -208,6 +208,7 @@ impl GameBuilder {
             result: None,
             events: Vec::new(),
             event_count: 0,
+            pt_effects: Vec::new(),
         };
         if matches!(
             self.step,

@@ -1,0 +1,24 @@
+scenario: mtg-scenario/1
+name: Scry puts any number on the bottom and the rest back on top
+cr: ["701.22a"]
+players:
+  - battlefield: [Test Island]
+    hand: [Test Scry]
+    library: [Test Bolt, Test Bear, Test Ogre, Test Wall]
+  - {}
+script:
+  - choose: Cast Test Scry
+  - choose: Pay with Test Island
+  - pass_all
+  - check:
+      decision:
+        player: P1
+        kind: choose_card
+        options: [Stop, Put on bottom Test Bolt, Put on bottom Test Bear]
+  - choose: Put on bottom Test Bolt
+  - choose: Stop
+expect:
+  zones:
+    P1.hand: [Test Bear]
+  library_top:
+    P1: [Test Ogre, Test Wall, Test Bolt]

@@ -1,0 +1,18 @@
+scenario: mtg-scenario/1
+name: Search, shuffle, then put the found card on top
+cr: ["701.24b", "701.23a"]
+players:
+  - battlefield: [Test Swamp]
+    hand: [Test Seal]
+    library: [Test Bolt, Test Bear, Test Ogre, Test Wall]
+  - {}
+script:
+  - choose: Cast Test Seal
+  - choose: Pay with Test Swamp
+  - pass_all
+  - choose: Find Test Wall
+expect:
+  library_top:
+    P1: [Test Wall]
+  zones:
+    P1.library: [Test Bolt, Test Bear, Test Ogre, Test Wall]

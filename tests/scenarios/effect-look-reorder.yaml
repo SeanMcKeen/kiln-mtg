@@ -1,0 +1,28 @@
+scenario: mtg-scenario/1
+name: Looked-at cards go back in any order, one placement at a time; "you may" asks
+cr: ["701.20e", "608.2d", "701.24a"]
+players:
+  - battlefield: [Test Island]
+    hand: [Test Ponder]
+    library: [Test Bolt, Test Bear, Test Ogre, Test Wall]
+  - {}
+script:
+  - choose: Cast Test Ponder
+  - choose: Pay with Test Island
+  - pass_all
+  - check:
+      decision:
+        player: P1
+        kind: choose_card
+        options: [Put on top Test Bolt, Put on top Test Bear, Put on top Test Ogre]
+  # Each placed card goes on top of the previous one; the last card is forced.
+  - choose: Put on top Test Ogre
+  - choose: Put on top Test Bolt
+  - check:
+      decision: { player: P1, kind: optional, options: ["No", "Yes"] }
+  - choose: "No"
+expect:
+  zones:
+    P1.hand: [Test Bear]
+  library_top:
+    P1: [Test Bolt, Test Ogre, Test Wall]

@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: Putting cards from hand on top of the library in a chosen order
+cr: ["608.2c", "121.1"]
+players:
+  - battlefield: [Test Island]
+    hand: [Test Brainstorm, Test Golem]
+    library: [Test Bolt, Test Bear, Test Ogre, Test Wall]
+  - {}
+script:
+  - choose: Cast Test Brainstorm
+  - choose: Pay with Test Island
+  - pass_all
+  - choose: Put on top Test Golem
+  - choose: Put on top Test Bolt
+expect:
+  zones:
+    P1.hand: [Test Bear, Test Ogre]
+  library_top:
+    P1: [Test Bolt, Test Golem, Test Wall]

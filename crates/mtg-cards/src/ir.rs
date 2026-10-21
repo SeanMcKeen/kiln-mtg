@@ -18,13 +18,13 @@
 use serde::{Deserialize, Serialize};
 
 /// A card's behaviour: one entry per face.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CardIr {
     pub faces: Vec<FaceIr>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FaceIr {
     #[serde(default)]
@@ -32,7 +32,7 @@ pub struct FaceIr {
 }
 
 /// An ability (CR 113) or the effect of an instant/sorcery (CR 113.3a).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum Ability {
     /// A keyword ability (CR 702).
@@ -52,7 +52,7 @@ pub enum Ability {
 }
 
 /// A named Rust implementation, with the Oracle text it covers.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Escape {
     pub function: String,
@@ -60,7 +60,7 @@ pub struct Escape {
 }
 
 /// Keyword abilities (CR 702) the IR names directly.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum Keyword {
     Deathtouch,
@@ -90,7 +90,7 @@ pub enum Keyword {
     Protection(ObjectFilter),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SpellAbility {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -105,7 +105,7 @@ pub struct SpellAbility {
 }
 
 /// An alternative cost (CR 118.9), optionally conditional.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AltCost {
     /// Empty = "without paying its mana cost".
@@ -115,7 +115,7 @@ pub struct AltCost {
     pub condition: Option<Condition>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ActivatedAbility {
     pub cost: Vec<CostPart>,
@@ -130,7 +130,7 @@ pub struct ActivatedAbility {
     pub once_per_turn: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum Timing {
     #[default]
@@ -144,7 +144,7 @@ fn is_default<T: Default + PartialEq>(t: &T) -> bool {
     *t == T::default()
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TriggeredAbility {
     pub trigger: Trigger,
@@ -156,7 +156,7 @@ pub struct TriggeredAbility {
     pub effect: Effect,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StaticAbility {
     pub effect: StaticEffect,
@@ -165,7 +165,7 @@ pub struct StaticAbility {
     pub condition: Option<Condition>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ReplacementAbility {
     pub event: ReplaceEvent,
@@ -174,7 +174,7 @@ pub struct ReplacementAbility {
 }
 
 /// Events a replacement effect watches (CR 614.1).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum ReplaceEvent {
     /// "If [object] would enter" / "As [object] enters" (CR 614.1c, 614.12).
@@ -190,7 +190,7 @@ pub enum ReplaceEvent {
 // ---- triggers ----------------------------------------------------------------
 
 /// Trigger events (CR 603.2).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum Trigger {
     /// "When/Whenever [object] enters" (CR 603.6a).
@@ -231,7 +231,7 @@ pub enum Trigger {
     AnyOf(Vec<Trigger>),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum StepName {
     Upkeep,
@@ -245,7 +245,7 @@ pub enum StepName {
 // ---- static effects ----------------------------------------------------------
 
 /// Continuous effects from static abilities (CR 604, 611.3).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum StaticEffect {
     /// Layer 7c: "[objects] get +N/+M".
@@ -290,7 +290,7 @@ pub enum StaticEffect {
 
 /// Statics that modify game rules rather than objects. A closed set the engine
 /// implements one by one; adding a variant is a reviewed engine change.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum RuleMod {
     /// "You control your opponents while they're searching their libraries" (CR 723).
@@ -302,7 +302,7 @@ pub enum RuleMod {
 // ---- effects -----------------------------------------------------------------
 
 /// One-shot effects, executed in written order (CR 608.2c).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum Effect {
     /// Several effects in order ("…, then …").
@@ -408,7 +408,11 @@ pub enum Effect {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         spend_only_on: Option<ObjectFilter>,
     },
-    /// CR 701.23
+    /// CR 701.23. A search for "a card" (an empty filter) must find one if
+    /// possible (701.23d); a filter states a quality, so finding nothing is
+    /// allowed (701.23b). With `to: top_of_library` the library is shuffled
+    /// before the found cards go on top (CR 701.24b), so no separate
+    /// `shuffle` follows.
     Search {
         who: PlayerRef,
         filter: ObjectFilter,
@@ -468,7 +472,7 @@ pub enum Effect {
 }
 
 /// Who or what receives damage.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum Recipient {
     Target(u8),
@@ -476,7 +480,7 @@ pub enum Recipient {
     Object(ObjectRef),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum DiscardSpec {
     /// "discards their hand".
@@ -491,7 +495,7 @@ pub enum DiscardSpec {
     Random(Quantity),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TakeSpec {
     pub filter: ObjectFilter,
@@ -499,7 +503,7 @@ pub struct TakeSpec {
     pub to: Destination,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum RestOrder {
     /// Back on top in any order.
@@ -510,7 +514,7 @@ pub enum RestOrder {
     BottomRandom,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum ZoneName {
     Hand,
@@ -523,7 +527,7 @@ pub enum ZoneName {
 }
 
 /// Where moved cards go.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum Destination {
     Hand,
@@ -534,14 +538,14 @@ pub enum Destination {
     Exile,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum TokenSpec {
     /// A predefined token (CR 111.10): Treasure, Clue, Food…
     Predefined(String),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum ChoiceSpec {
     CardName,
@@ -550,7 +554,7 @@ pub enum ChoiceSpec {
 }
 
 /// Mana produced by an effect (CR 106).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum ManaSpec {
     /// Specific symbols, e.g. "{C}{C}" or "{B}{B}{B}".
@@ -572,7 +576,7 @@ pub enum ManaSpec {
 // ---- references, filters, quantities ----------------------------------------
 
 /// A single object an effect refers to.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum ObjectRef {
     /// The object the ability is on ("this", "~").
@@ -586,7 +590,7 @@ pub enum ObjectRef {
 }
 
 /// A set of objects an effect acts on.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum ObjectSet {
     One(ObjectRef),
@@ -607,7 +611,7 @@ pub enum ObjectSet {
 }
 
 /// A player an effect refers to.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum PlayerRef {
     /// The ability's controller.
@@ -623,7 +627,7 @@ pub enum PlayerRef {
 }
 
 /// A relation to the ability's controller, for filters and "each" effects.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum PlayerRel {
     #[default]
@@ -633,7 +637,7 @@ pub enum PlayerRel {
 }
 
 /// What a target slot accepts (CR 115).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TargetSpec {
     pub what: TargetKind,
@@ -642,7 +646,7 @@ pub struct TargetSpec {
     pub up_to: Option<u32>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum TargetKind {
     /// "any target" (CR 115.4).
@@ -655,7 +659,7 @@ pub enum TargetKind {
 }
 
 /// Object characteristics a filter can test. All present fields must match.
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ObjectFilter {
     /// Only this object.
@@ -694,14 +698,14 @@ pub struct ObjectFilter {
 }
 
 /// Numbers (CR 107.1).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Quantity {
     Fixed(i64),
     Expr(QuantityExpr),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum QuantityExpr {
     /// The announced X (CR 107.3).
@@ -723,7 +727,7 @@ pub enum QuantityExpr {
 }
 
 /// Conditions (intervening ifs, "if you control …").
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum Condition {
     YourTurn,
@@ -738,7 +742,7 @@ pub enum Condition {
 }
 
 /// Parts of a cost (CR 118).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum CostPart {
     /// Mana symbols, e.g. "{2}{U}".

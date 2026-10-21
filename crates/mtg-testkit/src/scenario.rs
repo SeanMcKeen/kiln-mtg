@@ -126,7 +126,7 @@ pub enum ScriptStep {
     /// Pass priority `n` times.
     Pass { pass: u32 },
     /// Check expectations mid-script.
-    Check { check: Expect },
+    Check { check: Box<Expect> },
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -140,6 +140,9 @@ pub struct Expect {
     /// Compared as multisets of card names.
     #[serde(default)]
     pub zones: BTreeMap<String, Vec<String>>,
+    /// `P1` → the top cards of that player's library, top first, in order.
+    #[serde(default)]
+    pub library_top: BTreeMap<String, Vec<String>>,
     /// Card name → expected tapped state, for the first permanent with that name.
     #[serde(default)]
     pub tapped: BTreeMap<String, bool>,
@@ -263,6 +266,12 @@ pub fn kind_name(k: &DecisionKind) -> &'static str {
         DecisionKind::AssignDamage { .. } => "assign_damage",
         DecisionKind::Discard { .. } => "discard",
         DecisionKind::LegendRule { .. } => "legend_rule",
+        DecisionKind::Optional { .. } => "optional",
+        DecisionKind::ChooseCard { .. } => "choose_card",
+        DecisionKind::ChooseMana { .. } => "choose_mana",
+        DecisionKind::ChooseName { .. } => "choose_name",
+        DecisionKind::ChooseNumber { .. } => "choose_number",
+        DecisionKind::ChooseColor { .. } => "choose_color",
     }
 }
 
@@ -470,6 +479,21 @@ fn check_expect(game: &Game, e: &Expect, at: &str) -> Result<(), ScenarioError> 
         want.sort();
         if actual != want {
             return Err(fail(format!("{key} is {actual:?}, expected {want:?}")));
+        }
+    }
+    for (p, want) in &e.library_top {
+        let id = player_id(p, n).map_err(fail)?;
+        let actual: Vec<String> = game
+            .objects_in(ZoneId::Library(id))
+            .iter()
+            .rev()
+            .take(want.len())
+            .filter_map(|o| game.object_def(*o).map(|d| d.name.clone()))
+            .collect();
+        if &actual != want {
+            return Err(fail(format!(
+                "{p}'s library top is {actual:?}, expected {want:?}"
+            )));
         }
     }
     for (name, tapped) in &e.tapped {

@@ -97,6 +97,47 @@ pub enum Event {
     Destroyed {
         object: ObjectId,
     },
+    /// Cards shown to all players (CR 701.20a). Ids are the objects as revealed.
+    Revealed {
+        player: PlayerId,
+        objects: Vec<ObjectId>,
+    },
+    /// A library was shuffled (CR 701.24a).
+    Shuffled {
+        player: PlayerId,
+    },
+    /// A player searched their library (CR 701.23a). What they found is private unless revealed.
+    Searched {
+        player: PlayerId,
+        found: u32,
+    },
+    /// A player scried (CR 701.22a).
+    Scried {
+        player: PlayerId,
+        count: u32,
+    },
+    /// `object` is the graveyard object (CR 701.9a).
+    Discarded {
+        player: PlayerId,
+        object: ObjectId,
+    },
+    /// `object` is the permanent that was sacrificed (CR 701.21a).
+    Sacrificed {
+        object: ObjectId,
+    },
+    /// `object` is the spell that was countered (CR 701.6a).
+    Countered {
+        object: ObjectId,
+    },
+    /// A public choice made while an effect resolved (CR 608.2d), such as a card name.
+    Chose {
+        player: PlayerId,
+        choice: String,
+    },
+    /// An effect says this player wins the game (CR 104.2b).
+    WonByEffect {
+        player: PlayerId,
+    },
     PlayerLost {
         player: PlayerId,
         reason: LossReason,
@@ -130,6 +171,15 @@ impl Event {
             Event::AttackerDeclared { .. } => "508.1",
             Event::BlockerDeclared { .. } => "509.1",
             Event::Destroyed { .. } => "701.8a",
+            Event::Revealed { .. } => "701.20a",
+            Event::Shuffled { .. } => "701.24a",
+            Event::Searched { .. } => "701.23a",
+            Event::Scried { .. } => "701.22a",
+            Event::Discarded { .. } => "701.9a",
+            Event::Sacrificed { .. } => "701.21a",
+            Event::Countered { .. } => "701.6a",
+            Event::Chose { .. } => "608.2d",
+            Event::WonByEffect { .. } => "104.2b",
             Event::PlayerLost { .. } => "104.3",
             Event::PlayerLeft { .. } => "800.4a",
             Event::GameOver => "104.1",
