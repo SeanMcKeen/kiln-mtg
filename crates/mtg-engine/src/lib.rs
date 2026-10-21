@@ -1,3 +1,5 @@
-//! `mtg-engine`: Game state, rules procedures, decisions, events, player views and replay.
+//! `mtg-engine`: game state, rules procedures, decisions, events, views, replay.
 //!
-//! **Stub.** Implementation is scheduled for milestone M2. Design: `docs/03 Architecture/Architecture Overview.md`.
+//! M2 is in progress; see `docs/09 Roadmap/Milestones/M2 Core Game Loop.md`.
+pub mod card;
+pub mod rng;

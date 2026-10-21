@@ -1,6 +1,6 @@
 ---
 type: adr
-status: open
+status: accepted
 tags: [adr, prior-art]
 updated: 2026-10-20
 ---
@@ -44,4 +44,4 @@ E1 depend on it · E2 fork it · E3 borrow selectively (parser grammar, test cor
 
 The engine doesn't meet our fidelity or throughput bars, so E1 and E2 would mean rewriting its core anyway. Its parser is the strongest asset in the field, so the M3 card-definition spike should treat it as a primary contender, and its coverage data should serve as a differential oracle.
 
-**Status: still open.** The user decides (Q21). If accepted, this ADR becomes "Accepted: E3", with the scope above.
+**Status: ✅ Accepted (2026-10-20): E3, borrow selectively**, with the scope above. Decided by the user after the M1 evaluation. The engine core is clean-room; the phase.rs parser is a primary contender in the M3 card-definition spike; its coverage data is a differential oracle (Q24).

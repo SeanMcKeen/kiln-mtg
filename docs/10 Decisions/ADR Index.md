@@ -22,4 +22,4 @@ A live table is in `Decisions.base`. New ADRs use the [[ADR Template]]. Accepted
 | [[ADR-0009 Card Data Source of Truth]] | Scryfall primary, MTGJSON secondary | 🟡 proposed: ready to accept (M1 evidence) |
 | [[ADR-0010 Commander-First N-Player Core]] | Commander-first | ✅ accepted |
 | [[ADR-0011 Experiment Spec and Report Schema]] | Spec, report, replay schemas | 🟡 proposed (M7) |
-| [[ADR-0012 Relationship to phase.rs]] | Depend / fork / borrow / ignore | 🟠 open: E3 recommended after the M1 eval |
+| [[ADR-0012 Relationship to phase.rs]] | E3: borrow selectively (clean-room core) | ✅ accepted |

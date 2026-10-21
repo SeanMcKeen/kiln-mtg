@@ -1,6 +1,6 @@
 ---
 type: milestone
-status: planned
+status: in-progress
 milestone: M2
 tags: [milestone]
 updated: 2026-10-20
@@ -31,33 +31,46 @@ updated: 2026-10-20
 ## Exit criteria
 1M random 4-player games with vanilla decks: no panics, no invariant violations, 100% replay determinism. Benchmarks recorded.
 
-## Implementation plan (draft for review, written at the end of M1)
-> [!warning] Depends on ADR-0012
-> This plan assumes the M1 recommendation, **E3 (borrow selectively)**: a clean-room engine core. If the user picks E1 (depend) or E2 (fork) instead, this plan is replaced.
+## Plan (final, 2026-10-20)
+ADR-0012 was accepted as E3 (clean-room core), so this plan stands. It builds in four lessons from [[phase.rs Evaluation]]:
+1. Every offered option must apply successfully, and a test checks it.
+2. The cost of enumerating options is a design input.
+3. Policies only ever see a `PlayerView`.
+4. Nothing is ever dropped silently.
 
-Lessons from [[phase.rs Evaluation]] are built in as hard requirements:
-1. **Offered ⇒ applicable, tested.** A CI property test applies *every* offered option to a clone (invariant 3 in [[Invariants & Property Tests]]). phase.rs offered actions its engine then rejected in about 1 of every 1,300 random actions.
-2. **Enumeration cost is a design input.** Priority options are maintained incrementally (indices by zone and type), not recomputed from scratch. Target: NFR-P3, ≤ 20 µs. phase.rs measured about 4 ms per `legal_actions` call.
-3. **Policies receive only a `PlayerView`.** Perfect information isn't reachable through the policy API, whatever a config says.
-4. **No silent drops anywhere.** Unknown names, unsupported cards and dropped actions are errors or explicit report entries.
+### Design decisions
+| # | Decision | Why |
+|---|---|---|
+| D1 | **Every decision is "pick one of N enumerated options".** Multi-part choices are factored into sequences: bottoming after a mulligan picks one card at a time, cleanup discards one card at a time, attacks and blocks are per creature, and damage division is assigned one point at a time. A `Choice` is `(DecisionId, option index)`. | One uniform contract for every client. Small option lists for random play, search and LLMs. Replays are compact (R1, R7). |
+| D2 | **Option 0 is the "decline" option** wherever one exists (pass, keep, don't attack, don't block). | Gives a trivial passive policy and a stable convention for scripted tests. |
+| D3 | **Continuations are a task stack.** `GameState` holds a `Vec<Task>` of small enums (begin step, priority, cast step, combat step…). The engine loop pops and runs tasks until one needs a decision. `apply(choice)` feeds the choice to the task on top. Q11 is resolved for M2 as hand-written enums in a stack; revisit at M4. | Cloneable and serializable mid-procedure (ADR-0004), with no async. |
+| D4 | **State uses plain `Vec` arenas** (strategy A/C). Objects hold a `DefId` into an `Arc<CardPool>` shared by every clone, plus small `Copy` fields. They have no heap allocations, so a clone is mostly a memcpy. Zones are `Vec<ObjectId>`. A zone change allocates a new id (CR 400.7). | Targets NFR-P2 (≤ 10 µs clone). `im` is tried only if benchmarks miss the target (Q10). |
+| D5 | **Temporary M2 card IR** (`mtg_engine::card`): P/T, a keyword bitset (flying, reach, first strike, double strike, deathtouch, lifelink, trample, vigilance, haste, defender, menace), `{T}: Add {X}` mana abilities including intrinsic basic-land abilities (CR 305.6), and spell effects (deal N damage to any target, draw N, gain N life, destroy target creature). Definitions come from a synthetic test set, or from `mtg-data` records that are vanilla, French-vanilla or basic lands. Anything else is a loud error. | Lets M2 play real vanilla decks without pre-empting ADR-0007. M3 replaces it. |
+| D6 | **Mana payment** offers enumerated payment plans: assignments of pool mana and untapped mana sources to the cost, de-duplicated when they leave identical outcomes (identical sources are interchangeable), capped at 32. A "pay manually" option steps through single mana-ability activations, offering only steps that keep payment completable. | Both are legal CR behaviour (R2, Q13). Plans make random and LLM play sensible. |
+| D7 | **Castability is checked exactly before offering.** M2 costs are mana-only and targets don't depend on payment, so "castable" means a target exists for every slot and at least one plan exists. CR 601.2e still runs as an assertion. | Legality by construction, with no rewind needed (Q14 is deferred to M3, where non-mana costs appear). |
+| D8 | **Blocks are constraint-aware.** For menace, an option is offered only if a matching (remaining candidates → attackers that still need blockers) can still satisfy every pending constraint. | A first answer to Q12 that generalizes to requirements later. |
+| D9 | **Determinism:**<br>• game RNG: ChaCha8, using our own unbiased bounded sampling and Fisher–Yates, so dependency upgrades can't change shuffles<br>• per-game seeds from splitmix64(experiment seed, game index)<br>• policy RNG: separate per-seat streams<br>• state hash: our own FNV-1a over a canonical traversal, little-endian<br>• no `HashMap` anywhere in the engine | ADR-0005, NFR-D1. |
+| D10 | **A turn limit is a harness feature, not a rule.** `GameRules::turn_limit` ends the game as `GameResult::Aborted { TurnLimit }`, and it's reported separately. | Random play can stall. Results stay honest. |
+| D11 | **Events:** an append-only `Vec<Event>` per game, each carrying a `CrRef`. Logging is configurable (`Off`/`On`) for throughput. The `PlayerView` exposes public events only. | [[Event System]]. |
+| D12 | **Scenario files are YAML via `yaml_serde`** (maintained by the YAML organization), using the [[Scenario File Format]] shape. Options are matched by label. | Q22 is resolved for scenarios. Card-definition overrides remain M3. |
 
 ### Phases
 | # | Work | CR | Done when |
 |---|---|---|---|
-| 2.1 | `GameState`: players, zones, generational object arena (a zone change makes a new object), `TurnState`, ChaCha8 RNG with hash-split per-game seeds, structural state hash | 400.7, 103 | Unit tests; hash stable across clones |
-| 2.2 | Decision model v1: `PendingDecision`/`Choice`, monotonic `DecisionId`, hand-written continuation enums (Q11: start with enums, revisit at M4) | 117 | Debug-build invariant harness runs after every `apply` |
-| 2.3 | Turn structure, turn-based actions, priority (APNAP), stack, resolution, game end, leaving the game | 500–514, 117, 405, 608, 104, 800.4a | Scripted scenarios pass |
-| 2.4 | SBAs 704.5a–j, including the legend rule as a decision | 704 | Each SBA has a CR-cited scenario |
-| 2.5 | Mana: pools, intrinsic basic-land mana abilities, payment-plan enumeration with outcome de-duplication, manual mode (Q13) | 106, 305.6, 601.2g–h, 605 | Every plan is legal (property test) |
-| 2.6 | Casting skeleton per 601.2a–i for vanilla permanents and simple spells. Land play as a special action | 601, 305.1, 116.2a | Casting scenarios pass |
-| 2.7 | Combat, factored per creature: attack targets (player, planeswalker, battle), blocks, first/double strike, damage division per 510.1c–e. French-vanilla keywords (flying, reach, vigilance, haste, trample, deathtouch, lifelink, menace, defender) | 506–511, 702 | Combat scenarios pass |
-| 2.8 | Mulligans: London, plus the multiplayer free first mulligan | 103.5, 103.5c | Scenario tests |
-| 2.9 | `PlayerView` v1 plus redaction auditor. `mtg-policy`: `Policy` trait, random, passive, scripted. Trivial-decision fast path | 400.2 | Auditor finds no leaks across 10k games |
-| 2.10 | Replay log `(decision_id, option_index)` and a replay runner that reports the first divergence | — | Replays are 100% identical over the fuzz corpus → accept ADR-0004 and ADR-0005 |
-| 2.11 | Sim skeleton: rayon batch runner, synthetic vanilla decks, invariant checks, 1M-game fuzz run | — | Exit criterion |
-| 2.12 | Benchmarks (criterion): clone, games/s, priority enumeration. Start with plain `Vec` arenas plus `Arc`-shared definitions (strategy A/C); try `im` only if clone > 10 µs (Q10) | — | Numbers recorded in [[Non-Functional Requirements]] |
-| 2.13 | Scenario file loader v1 (YAML, [[Scenario File Format]]) for the hand-coded M2 test cards | — | Scenarios run from data files |
+| 2.1 | Card IR v0 and pool; `GameState`, players, zones, object arena, RNG, hash | 109, 400, 400.7, 103 | Unit tests |
+| 2.2 | Decision types, task-stack engine loop, events, game setup, mulligans, game start, turn order | 103.1–103.8, 117 | A game starts, and passive policies loop through turns until a library runs out (704.5b) |
+| 2.3 | Turn structure and turn-based actions (untap, draw, cleanup discard, damage removal, pools empty); priority passing, holding priority, stack resolution, land play | 500–505, 512–514, 117, 305.1, 116.2a, 405, 608 | Scripted scenarios |
+| 2.4 | Mana (pools, abilities, plan enumeration, manual payment) and casting 601.2a–i for permanents and the M2 spell effects; targets with recheck on resolution | 106, 305.6, 601, 605, 608.2b | Property: every offered plan pays |
+| 2.5 | Combat: factored attacks (multiple defending players), blocks (APNAP across defenders; flying/reach/menace constraints), first/double strike steps, per-point damage division with trample and deathtouch, lifelink | 506–511, 702.2, .4, .7, .9, .15, .17, .19, .20, .111 | Combat scenarios |
+| 2.6 | SBAs 704.5a–j with the legend rule as a decision; losing and leaving the game; game end and draws | 704, 104, 800.4a | SBA scenarios |
+| 2.7 | `PlayerView`, a redaction snapshot plus an auditor test; `mtg-policy` (`Policy` trait, random with pass bias, passive, scripted) | 400.2 | The auditor finds no hidden identities |
+| 2.8 | Replay log and replay runner (first-divergence report); invariant checker (9 invariants); the "every option applies" property test | — | Determinism tests → accept ADR-0004/0005 |
+| 2.9 | `mtg-sim` runner (rayon, per-game seeds, stats) and `mtg dev fuzz`; synthetic vanilla decks plus real vanilla decks from the card DB | — | **1M 4-player games**, exit criterion |
+| 2.10 | criterion benchmarks: clone, random game, priority enumeration; record results in [[Non-Functional Requirements]] | — | Numbers recorded, Q10 decided |
+| 2.11 | Scenario loader v1 (YAML) plus CR-cited scenario tests for each phase | — | Scenarios run from files |
 
-**Cards in M2:** a deliberately tiny, hand-written test-card set: basic lands, vanilla and French-vanilla creatures, and a few burn and draw spells. It lives in a temporary M2 IR so it can't pre-empt ADR-0007. It's replaced by the real IR in M3.
-
-**Order:** 2.1 → 2.2 → 2.3/2.4 → 2.5/2.6 → 2.7 → 2.8 → 2.9 → 2.10 → 2.11/2.12 → 2.13. Benchmarks (2.12) get a first pass right after 2.6, so the state strategy is chosen before combat code piles up.
+### Verification at the end of M2
+- `cargo nextest run`, clippy and fmt are clean.
+- `mtg dev cr-check` passes.
+- `mtg dev fuzz --games 1000000 --players 4 --invariants --replay-every 1000` shows zero panics, zero violations and zero replay divergences.
+- Benchmark numbers are recorded.

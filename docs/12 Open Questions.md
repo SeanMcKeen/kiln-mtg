@@ -34,7 +34,6 @@ Each question has an owner note and a target milestone. Move a question to **Res
 | # | Question | Owner note | Target |
 |---|---|---|---|
 | Q20 | **Card definition approach** | [[ADR-0007 Card Definition Approach]] | M3 |
-| Q21 | **Depend on, fork, borrow from, or ignore phase.rs.** The M1 evaluation is done ([[phase.rs Evaluation]]) and recommends E3, borrowing selectively. **Awaiting the user's decision.** | [[ADR-0012 Relationship to phase.rs]] | M1 |
 | Q23 | "Spell commander" (5 cards) isn't in the 2026-06-19 CR. M1 treats it as CR 903.3a "can be your commander" text. Revisit when the CR adds it. | [[Commander]], [[CR Update Process]] | next CR |
 | Q24 | Should phase.rs's published per-card coverage data be used as a differential-testing oracle for our card definitions? | [[phase.rs Evaluation]] | M3 |
 | Q22 | DSL syntax (YAML/RON/custom) if overrides exist | [[Option - Hybrid IR]] | M3 |
@@ -61,3 +60,4 @@ Each question has an owner note and a target milestone. Move a question to **Res
 | R6 | Binary card DB format | `postcard` with a magic+version header; content-hashed. ~210 ms load ([[M1 Foundations & Data]]) |
 | R7 | Card name collisions (prepare/adventure spell faces named like real cards) | Two-tier name index: full names before face names; spell faces of adventure/prepare cards aren't indexed ([[Ingestion Pipeline]]) |
 | R8 | Which color identity to validate decks with | Union of Scryfall's and the CR 903.4 recomputation, plus a CR 903.5d basic-land-type check ([[Deck Import]]) |
+| R9 | Relationship to phase.rs (Q21) | E3, borrow selectively; clean-room engine core ([[ADR-0012 Relationship to phase.rs]], accepted 2026-10-20) |

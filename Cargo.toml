@@ -22,6 +22,11 @@ mtg-testkit = { path = "crates/mtg-testkit" }
 
 # External
 anyhow = "1"
+criterion = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }
+rand_chacha = { version = "0.10", default-features = false }
+rand_core = { version = "0.10", default-features = false }
+rayon = "1"
+yaml_serde = "0.10"
 clap = { version = "4", features = ["derive", "env"] }
 csv = "1"
 flate2 = "1"
