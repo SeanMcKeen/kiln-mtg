@@ -10,7 +10,8 @@ use serde::Serialize;
 
 use crate::card::{CardDef, DefId, ManaType};
 use crate::decision::{
-    Action, CardPurpose, DamageRecipient, DecisionKind, ManaStep, OptionalKind, PendingDecision,
+    Action, CardPurpose, CastCost, DamageRecipient, DecisionKind, ManaStep, OptionalKind,
+    PendingDecision, SymbolPay,
 };
 use crate::engine::Game;
 use crate::state::{Step, Target, TurnState, ZoneId};
@@ -143,8 +144,9 @@ impl Game {
                 }
             },
             DecisionKind::ChooseTarget { targets, .. } => match targets[i] {
-                Target::Player(p) => format!("Target {p}"),
-                Target::Object(id) => format!("Target {}", who(id)),
+                None => "No more targets".into(),
+                Some(Target::Player(p)) => format!("Target {p}"),
+                Some(Target::Object(id)) => format!("Target {}", who(id)),
             },
             DecisionKind::PayMana { plans, .. } => match plans.get(i) {
                 None => "Pay manually".into(),
@@ -232,6 +234,21 @@ impl Game {
                 format!("Choose {}", min + i64::try_from(i).unwrap_or(0))
             }
             DecisionKind::ChooseColor { colors, .. } => format!("Choose {:?}", colors[i]),
+            DecisionKind::ChooseMode { modes, .. } => match modes[i] {
+                None => "No more modes".into(),
+                Some(m) => format!("Mode {}", m + 1),
+            },
+            DecisionKind::ChooseCost { options, .. } => match options[i] {
+                CastCost::Normal => "Pay the mana cost".into(),
+                CastCost::Alternative(a) => format!("Pay alternative cost {}", a + 1),
+            },
+            DecisionKind::ChooseSymbolPay {
+                symbol, options, ..
+            } => match options[i] {
+                SymbolPay::Mana(t) => format!("Pay {symbol} with {t}"),
+                SymbolPay::TwoGeneric => format!("Pay {symbol} with {{2}}"),
+                SymbolPay::TwoLife => format!("Pay {symbol} with 2 life"),
+            },
         }
     }
 }

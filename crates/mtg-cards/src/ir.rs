@@ -297,6 +297,8 @@ pub enum RuleMod {
     ControlOpponentsWhileSearching,
     /// "You may play those cards … spend mana as though any color" (linked to exiled cards).
     MayPlayExiledWithThis { any_color_mana: bool },
+    /// "This spell can't be countered" (a static ability that functions on the stack, CR 101.2).
+    CantBeCountered,
 }
 
 // ---- effects -----------------------------------------------------------------

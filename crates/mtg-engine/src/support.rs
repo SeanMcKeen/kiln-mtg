@@ -7,7 +7,7 @@
 
 use mtg_cards::ir::{
     Ability, ChoiceSpec, Condition, CostPart, DiscardSpec, Effect, ObjectRef, ObjectSet, PlayerRef,
-    Quantity, QuantityExpr, Recipient, SpellAbility, TargetKind, Timing,
+    Quantity, QuantityExpr, Recipient, RuleMod, SpellAbility, StaticAbility, StaticEffect, Timing,
 };
 use mtg_core::CardType;
 
@@ -15,7 +15,11 @@ use crate::card::{CardDef, Keywords, is_mana_ability};
 use crate::effects::simple_mana;
 
 /// Keywords whose rules the engine implements.
-const IMPLEMENTED_KEYWORDS: [Keywords; 11] = [
+const IMPLEMENTED_KEYWORDS: [Keywords; 15] = [
+    Keywords::FLASH,
+    Keywords::HEXPROOF,
+    Keywords::SHROUD,
+    Keywords::INDESTRUCTIBLE,
     Keywords::DEATHTOUCH,
     Keywords::DEFENDER,
     Keywords::DOUBLE_STRIKE,
@@ -62,6 +66,10 @@ pub(crate) fn check(def: &CardDef) -> Check {
             }
             Ability::Activated(_) => return Err("non-mana activated abilities (M3 B4)".into()),
             Ability::Triggered(_) => return Err("triggered abilities (M4)".into()),
+            Ability::Static(StaticAbility {
+                effect: StaticEffect::Rule(RuleMod::CantBeCountered),
+                condition: None,
+            }) => {}
             Ability::Static(_) => return Err("static abilities (M5)".into()),
             Ability::Replacement(_) => return Err("replacement effects (M4)".into()),
             Ability::Escape(e) => return Err(format!("escape function {:?}", e.function)),
@@ -75,28 +83,50 @@ pub(crate) fn check(def: &CardDef) -> Check {
 }
 
 fn spell(s: &SpellAbility) -> Check {
-    if !s.alternative_costs.is_empty() || !s.additional_costs.is_empty() {
-        return Err("alternative and additional costs (M3 B3)".into());
-    }
-    match s.targets.as_slice() {
-        [] => {}
-        [t] => {
-            if t.up_to.is_some() {
-                return Err("\"up to N\" targets (M3 B3)".into());
-            }
-            if matches!(t.what, TargetKind::Spell(_)) {
-                return Err("spell targets (M3 B3)".into());
-            }
+    for alt in &s.alternative_costs {
+        cast_cost(&alt.cost)?;
+        if let Some(c) = &alt.condition {
+            condition(c)?;
         }
-        _ => return Err("more than one target slot (M3 B3)".into()),
+    }
+    cast_cost(&s.additional_costs)?;
+    if s.targets.len() > 32 {
+        return Err("more than 32 target slots".into());
+    }
+    if let Effect::Modal { min, max, modes } = &s.effect
+        && (min > max || *max as usize > modes.len())
+    {
+        return Err("modal spell with impossible mode counts".into());
+    }
+    for (i, t) in s.targets.iter().enumerate() {
+        if t.up_to == Some(0) {
+            return Err(format!("target slot {i} allows zero targets"));
+        }
     }
     effect(&s.effect)
+}
+
+/// Casting costs: mana may use any symbol the cast procedure pays (CR 601.2b, 601.2f).
+fn cast_cost(parts: &[CostPart]) -> Check {
+    for p in parts {
+        if let CostPart::Mana(s) = p {
+            let ok = s
+                .parse::<mtg_core::ManaCost>()
+                .is_ok_and(|c| c.symbols().iter().all(crate::card::payable_symbol));
+            if !ok {
+                return Err(format!("mana cost {s} with snow or non-tournament symbols"));
+            }
+        } else {
+            cost(std::slice::from_ref(p))?;
+        }
+    }
+    Ok(())
 }
 
 fn effect(e: &Effect) -> Check {
     match e {
         Effect::Seq(v) => v.iter().try_for_each(effect),
-        Effect::Modal { .. } => Err("modal spells (M3 B3)".into()),
+        Effect::Modal { modes, .. } => modes.iter().try_for_each(effect),
         Effect::May(x) => effect(x),
         Effect::IfDoes {
             who,
@@ -163,7 +193,8 @@ fn effect(e: &Effect) -> Check {
             player(who)?;
             set(what)
         }
-        Effect::Counter(_) => Err("countering needs spell targets (M3 B3)".into()),
+        Effect::Counter(ObjectSet::One(ObjectRef::Target(_))) => Ok(()),
+        Effect::Counter(_) => Err("countering anything but a targeted spell".into()),
         Effect::Draw { who, amount }
         | Effect::GainLife { who, amount }
         | Effect::LoseLife { who, amount }

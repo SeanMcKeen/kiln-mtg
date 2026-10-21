@@ -263,6 +263,39 @@ pub struct CardDef {
     pub keywords: Keywords,
     /// Derived: the mana abilities (CR 605.1a), in ability order.
     pub mana_abilities: SmallVec<[ManaAbility; 2]>,
+    /// Derived: for a modal spell, a bitmask per mode of the target slots it
+    /// refers to (CR 601.2c: only the chosen modes' targets are required).
+    pub mode_slots: SmallVec<[u32; 4]>,
+}
+
+/// Bitmask of the target slots an effect refers to.
+pub(crate) fn target_slots(e: &ir::Effect) -> u32 {
+    fn walk(v: &serde_json::Value, mask: &mut u32) {
+        match v {
+            serde_json::Value::Object(m) => {
+                if m.len() == 1
+                    && let Some(n) = m.get("target").and_then(serde_json::Value::as_u64)
+                    && n < 32
+                {
+                    *mask |= 1 << n;
+                }
+                for x in m.values() {
+                    walk(x, mask);
+                }
+            }
+            serde_json::Value::Array(a) => {
+                for x in a {
+                    walk(x, mask);
+                }
+            }
+            _ => {}
+        }
+    }
+    let mut mask = 0;
+    if let Ok(v) = serde_json::to_value(e) {
+        walk(&v, &mut mask);
+    }
+    mask
 }
 
 impl CardDef {
@@ -299,6 +332,14 @@ impl CardDef {
                 _ => {}
             }
         }
+        let mut mode_slots = SmallVec::new();
+        for a in &abilities {
+            if let Ability::Spell(s) = a
+                && let ir::Effect::Modal { modes, .. } = &s.effect
+            {
+                mode_slots.extend(modes.iter().map(target_slots));
+            }
+        }
         let def = CardDef {
             name: ch.name,
             oracle_id: ch.oracle_id,
@@ -310,6 +351,7 @@ impl CardDef {
             abilities,
             keywords,
             mana_abilities,
+            mode_slots,
         };
         crate::support::check(&def).map_err(|reason| Unsupported {
             name: def.name.clone(),
@@ -342,6 +384,19 @@ impl CardDef {
 
     pub fn mana_value(&self) -> u32 {
         self.mana_cost.as_ref().map_or(0, ManaCost::mana_value)
+    }
+
+    /// "This spell can't be countered."
+    pub fn cant_be_countered(&self) -> bool {
+        self.abilities.iter().any(|a| {
+            matches!(
+                a,
+                Ability::Static(ir::StaticAbility {
+                    effect: ir::StaticEffect::Rule(ir::RuleMod::CantBeCountered),
+                    ..
+                })
+            )
+        })
     }
 
     /// The spell ability of an instant or sorcery (CR 113.3a).
@@ -442,6 +497,13 @@ fn parse_mana_units(s: &str) -> Result<SmallVec<[ManaUnit; 2]>, String> {
         .collect()
 }
 
+/// Mana symbols the engine can pay (CR 107.4): everything except snow and
+/// non-tournament symbols.
+pub(crate) fn payable_symbol(s: &ManaSymbol) -> bool {
+    !matches!(s, ManaSymbol::Snow | ManaSymbol::Unsupported(_))
+        && !matches!(s, ManaSymbol::Variable(c) if *c != 'X')
+}
+
 /// `{T}: Add <type>.`
 pub fn tap_for(t: ManaType) -> Ability {
     Ability::Activated(ActivatedAbility {
@@ -478,19 +540,11 @@ impl Characteristics {
         if !f.type_line.other.is_empty() {
             return Err(unsupported("non-standard type line"));
         }
-        let simple = |s: &ManaSymbol| {
-            matches!(
-                s,
-                ManaSymbol::Generic(_) | ManaSymbol::Colored(_) | ManaSymbol::Colorless
-            )
-        };
         if f.mana_cost
             .as_ref()
-            .is_some_and(|c| !c.symbols().iter().all(simple))
+            .is_some_and(|c| !c.symbols().iter().all(payable_symbol))
         {
-            return Err(unsupported(
-                "mana cost needs hybrid/Phyrexian/X/snow payment",
-            ));
+            return Err(unsupported("mana cost with snow or non-tournament symbols"));
         }
         let stat = |s: &Option<PrintedStat>| match s {
             Some(PrintedStat::Fixed(n)) => Ok(Some(*n)),

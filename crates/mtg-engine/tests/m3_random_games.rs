@@ -46,6 +46,10 @@ fn kind(k: &DecisionKind) -> &'static str {
         DecisionKind::ChooseMana { .. } => "choose_mana",
         DecisionKind::ChooseName { .. } => "choose_name",
         DecisionKind::ChooseTarget { .. } => "choose_target",
+        DecisionKind::ChooseMode { .. } => "choose_mode",
+        DecisionKind::ChooseCost { .. } => "choose_cost",
+        DecisionKind::ChooseSymbolPay { .. } => "choose_symbol_pay",
+        DecisionKind::ChooseNumber { .. } => "choose_number",
         _ => "other",
     }
 }
@@ -88,6 +92,10 @@ fn m3_games_keep_invariants_and_reach_every_decision_kind() {
         "choose_mana",
         "choose_name",
         "choose_target",
+        "choose_mode",
+        "choose_cost",
+        "choose_symbol_pay",
+        "choose_number",
     ] {
         assert!(
             counts.get(k).copied().unwrap_or(0) > 0,

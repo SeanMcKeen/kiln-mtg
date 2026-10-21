@@ -1228,8 +1228,8 @@ impl Game {
             && item
                 .targets
                 .iter()
-                .enumerate()
-                .all(|(i, t)| !slot_legal(self, i, *t))
+                .zip(&item.slots)
+                .all(|(t, s)| !slot_legal(self, usize::from(*s), *t))
         {
             self.log(Event::DidNotResolve {
                 object: item.object,
@@ -1269,7 +1269,8 @@ impl Game {
                 item.controller,
             );
             // CR 608.2b: illegal targets aren't affected.
-            for (i, t) in item.targets.iter().enumerate() {
+            for (t, s) in item.targets.iter().zip(&item.slots) {
+                let i = usize::from(*s);
                 if ctx.targets.len() <= i {
                     ctx.targets.resize(i + 1, SmallVec::new());
                 }
@@ -1277,6 +1278,8 @@ impl Game {
                     ctx.targets[i].push(*t);
                 }
             }
+            ctx.modes.clone_from(&item.modes);
+            ctx.x = item.x;
             self.tasks
                 .push(Task::Effect(Box::new(EffectTask::new(ctx))));
         }

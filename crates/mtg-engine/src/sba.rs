@@ -10,6 +10,7 @@ use std::collections::BTreeMap;
 use mtg_core::{ObjectId, PlayerId};
 use serde::{Deserialize, Serialize};
 
+use crate::card::Keywords;
 use crate::decision::DecisionKind;
 use crate::engine::{Game, Task};
 use crate::events::Event;
@@ -72,8 +73,11 @@ impl Game {
             let t = self.toughness(id);
             if t <= 0 {
                 dying.push((id, false)); // CR 704.5f: put into the graveyard, not destroyed
-            } else if i64::from(o.damage) >= i64::from(t) || o.deathtouch_damage {
-                dying.push((id, true)); // CR 704.5g, 704.5h: destroyed
+            } else if (i64::from(o.damage) >= i64::from(t) || o.deathtouch_damage)
+                && !self.keywords(id).has(Keywords::INDESTRUCTIBLE)
+            {
+                // CR 704.5g, 704.5h: destroyed; indestructible ignores these (CR 702.12b).
+                dying.push((id, true));
             }
         }
         SbaChecks { losers, dying }

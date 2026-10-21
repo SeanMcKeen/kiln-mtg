@@ -1,26 +1,41 @@
 //! Casting spells (CR 601.2a–i) as a resumable procedure
-//! (`docs/03 Architecture/Subsystems/Casting & Activating.md`).
+//! (`docs/03 Architecture/Subsystems/Casting & Activating.md`, M3 plan B-D6).
 //!
-//! Castability is checked exactly before a spell is offered (M2 plan, D7):
-//! every target slot has a legal target and some payment exists. So the
-//! CR 601.2e legality check can't fail, and no rewind is needed in M2.
+//! The announcements of CR 601.2b come first (modes, alternative cost, X,
+//! hybrid and Phyrexian payment), then targets (601.2c), then mana payment
+//! and the other costs (601.2g–h). Every choice is offered only while a
+//! complete legal cast still exists, so the CR 601.2e legality check can't
+//! fail and no rewind (CR 733) is needed.
 
-use mtg_core::{CardType, ObjectId, PlayerId};
+use mtg_cards::ir::{CostPart, Effect, Quantity, SpellAbility, TargetSpec};
+use mtg_core::{CardType, ManaCost, ManaSymbol, ObjectId, PlayerId};
 use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
 
-use crate::card::ManaType;
-use crate::decision::{DecisionKind, ManaStep};
+use crate::card::{CardDef, DefId, Keywords, ManaType};
+use crate::decision::{CastCost, DecisionKind, ManaStep, SymbolPay};
+use crate::effects::{AbilityRef, EffectCtx, EffectTask};
 use crate::engine::{Game, Task};
 use crate::events::Event;
 use crate::mana::{CostReq, enumerate_plans, payable};
-use crate::state::{StackItem, ZoneId};
+use crate::state::{StackItem, Target, ZoneId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub(crate) enum CastStage {
-    /// CR 601.2c
+    /// CR 601.2b, 700.2a
+    Modes,
+    /// CR 601.2b, 118.9
+    Cost,
+    /// CR 601.2b, 107.3a
+    X,
+    /// CR 601.2b: hybrid and Phyrexian symbols.
+    Symbols,
+    /// CR 601.2c, `index` = target slot.
     Targets,
-    /// CR 601.2f–h
+    /// CR 601.2f–h: mana.
     Pay,
+    /// CR 601.2h: the other costs.
+    PayOther,
     /// CR 601.2i
     Done,
 }
@@ -30,6 +45,7 @@ pub(crate) struct CastTask {
     pub spell: ObjectId,
     pub caster: PlayerId,
     pub stage: CastStage,
+    pub index: u8,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -39,36 +55,259 @@ pub(crate) struct ManualPayTask {
     pub remaining: CostReq,
 }
 
+/// The parts of a total cost before X and symbol choices (CR 601.2f).
+struct CostShape {
+    symbols: Vec<ManaSymbol>,
+    other: Vec<CostPart>,
+}
+
+/// How each kind of hybrid or Phyrexian symbol may be paid (CR 107.4e–f).
+pub(crate) fn symbol_options(s: &ManaSymbol) -> Vec<SymbolPay> {
+    let m = |c| SymbolPay::Mana(ManaType::of_color(c));
+    match s {
+        ManaSymbol::Hybrid(a, b) => vec![m(*a), m(*b)],
+        ManaSymbol::TwoHybrid(c) => vec![m(*c), SymbolPay::TwoGeneric],
+        ManaSymbol::ColorlessHybrid(c) => vec![SymbolPay::Mana(ManaType::Colorless), m(*c)],
+        ManaSymbol::Phyrexian(c) => vec![m(*c), SymbolPay::TwoLife],
+        ManaSymbol::HybridPhyrexian(a, b) => vec![m(*a), m(*b), SymbolPay::TwoLife],
+        _ => Vec::new(),
+    }
+}
+
+fn is_open(s: &ManaSymbol) -> bool {
+    !symbol_options(s).is_empty()
+}
+
+/// The mana requirement and life payment for fully chosen symbols.
+fn requirement(symbols: &[ManaSymbol], x: u32, pays: &[SymbolPay]) -> (CostReq, i64) {
+    let mut req = CostReq::default();
+    let mut life = 0;
+    let mut k = 0;
+    for s in symbols {
+        match s {
+            ManaSymbol::Generic(n) => req.generic += n,
+            ManaSymbol::Colored(c) => req.colored[ManaType::of_color(*c).index()] += 1,
+            ManaSymbol::Colorless => req.colorless += 1,
+            ManaSymbol::Variable(_) => req.generic += x,
+            open if is_open(open) => {
+                match pays.get(k) {
+                    Some(SymbolPay::Mana(ManaType::Colorless)) => req.colorless += 1,
+                    Some(SymbolPay::Mana(t)) => req.colored[t.index()] += 1,
+                    Some(SymbolPay::TwoGeneric) => req.generic += 2,
+                    Some(SymbolPay::TwoLife) => life += 2,
+                    None => {}
+                }
+                k += 1;
+            }
+            // Snow and non-tournament symbols are rejected when the definition is built.
+            _ => {}
+        }
+    }
+    (req, life)
+}
+
+/// The cost shape of a definition's chosen cost, or `None` if it can't be
+/// paid at all (no mana cost, CR 202.1b; or no such alternative cost).
+fn cost_shape(def: &CardDef, cost: CastCost) -> Option<CostShape> {
+    let spell = def.spell();
+    let mut symbols: Vec<ManaSymbol> = Vec::new();
+    let mut other = Vec::new();
+    let mut add = |parts: &[CostPart], symbols: &mut Vec<ManaSymbol>| {
+        for p in parts {
+            match p {
+                CostPart::Mana(s) => {
+                    if let Ok(c) = s.parse::<ManaCost>() {
+                        symbols.extend(c.symbols().iter().cloned());
+                    }
+                }
+                other_part => other.push(other_part.clone()),
+            }
+        }
+    };
+    match cost {
+        CastCost::Normal => symbols.extend(def.mana_cost.as_ref()?.symbols().iter().cloned()),
+        CastCost::Alternative(i) => {
+            let alt = spell?.alternative_costs.get(usize::from(i))?;
+            add(&alt.cost, &mut symbols);
+        }
+    }
+    if let Some(s) = spell {
+        add(&s.additional_costs, &mut symbols);
+    }
+    Some(CostShape { symbols, other })
+}
+
+fn cast_ctx(def_id: DefId, def: &CardDef, source: ObjectId, p: PlayerId) -> EffectCtx {
+    let ability = def
+        .abilities
+        .iter()
+        .position(|a| matches!(a, mtg_cards::ir::Ability::Spell(_)))
+        .and_then(|i| u8::try_from(i).ok())
+        .unwrap_or(0);
+    EffectCtx::new(
+        AbilityRef {
+            def: def_id,
+            ability,
+        },
+        source,
+        p,
+    )
+}
+
 impl Game {
+    // ---- payability -------------------------------------------------------
+
+    /// Whether `p` can pay `shape` with this X and these symbol choices so far
+    /// (the remaining open symbols chosen freely).
+    fn shape_payable(
+        &self,
+        p: PlayerId,
+        ctx: &EffectCtx,
+        shape: &CostShape,
+        x: u32,
+        pays: &[SymbolPay],
+    ) -> bool {
+        if !self.can_pay(ctx, p, &shape.other) {
+            return false;
+        }
+        let fixed_life: i64 = shape
+            .other
+            .iter()
+            .filter_map(|c| match c {
+                CostPart::PayLife(q) => Some(self.quantity(ctx, q).max(0)),
+                _ => None,
+            })
+            .sum();
+        let open: Vec<Vec<SymbolPay>> = shape
+            .symbols
+            .iter()
+            .filter(|s| is_open(s))
+            .skip(pays.len())
+            .map(symbol_options)
+            .collect();
+        let pool = self.player(p).pool;
+        let sources = self.mana_sources(p, None);
+        let life = self.player(p).life;
+        // Try every completion of the open symbols (a spell has only a few).
+        let mut choice = vec![0usize; open.len()];
+        loop {
+            let mut all: SmallVec<[SymbolPay; 4]> = pays.iter().copied().collect();
+            all.extend(choice.iter().zip(&open).map(|(i, o)| o[*i]));
+            let (req, paid_life) = requirement(&shape.symbols, x, &all);
+            // CR 119.4: life can be paid only up to the life total.
+            let total_life = fixed_life + paid_life;
+            if (total_life == 0 || life >= total_life) && payable(&req, &pool, &sources) {
+                return true;
+            }
+            let mut i = 0;
+            loop {
+                if i == open.len() {
+                    return false;
+                }
+                choice[i] += 1;
+                if choice[i] < open[i].len() {
+                    break;
+                }
+                choice[i] = 0;
+                i += 1;
+            }
+        }
+    }
+
+    /// The largest X `p` could pay (CR 107.3a); payability is monotonic in X.
+    fn max_x(&self, p: PlayerId, ctx: &EffectCtx, shape: &CostShape) -> u32 {
+        let pool = self.player(p).pool.total();
+        let sources = u32::try_from(self.mana_sources(p, None).len()).unwrap_or(u32::MAX);
+        let cap = pool.saturating_add(sources.saturating_mul(16)).min(1_000);
+        let mut x = 0;
+        while x < cap && self.shape_payable(p, ctx, shape, x + 1, &[]) {
+            x += 1;
+        }
+        x
+    }
+
+    // ---- castability (exact, before offering) ------------------------------
+
+    /// Whether a target slot can be satisfied ("up to N" slots always can).
+    fn slot_ok(&self, spec: &TargetSpec, p: PlayerId, this: Option<ObjectId>) -> bool {
+        spec.up_to.is_some() || !self.legal_targets(&spec.what, p, this).is_empty()
+    }
+
+    /// The modes of a modal spell whose targets can be chosen.
+    fn ok_modes(
+        &self,
+        def: &CardDef,
+        spell: &SpellAbility,
+        p: PlayerId,
+        this: Option<ObjectId>,
+    ) -> Vec<u8> {
+        let slots_ok = |mask: u32| {
+            spell
+                .targets
+                .iter()
+                .enumerate()
+                .all(|(i, t)| mask & (1 << i) == 0 || self.slot_ok(t, p, this))
+        };
+        (0..def.mode_slots.len())
+            .filter(|m| slots_ok(def.mode_slots[*m]))
+            .filter_map(|m| u8::try_from(m).ok())
+            .collect()
+    }
+
+    /// Cost choices `p` can complete for this spell (CR 601.2b, 118.9).
+    fn cost_options(&self, def: &CardDef, ctx: &EffectCtx, p: PlayerId) -> Vec<CastCost> {
+        let alts = def.spell().map_or(0, |s| s.alternative_costs.len());
+        let candidates = std::iter::once(CastCost::Normal).chain(
+            (0..alts)
+                .filter_map(|i| u8::try_from(i).ok())
+                .map(CastCost::Alternative),
+        );
+        let mut out = Vec::new();
+        for c in candidates {
+            if let CastCost::Alternative(i) = c {
+                let cond = def
+                    .spell()
+                    .and_then(|s| s.alternative_costs.get(usize::from(i)))
+                    .and_then(|a| a.condition.as_ref());
+                if cond.is_some_and(|cond| !self.condition(ctx, cond)) {
+                    continue;
+                }
+            }
+            if let Some(shape) = cost_shape(def, c)
+                && self.shape_payable(p, ctx, &shape, 0, &[])
+            {
+                out.push(c);
+            }
+        }
+        out
+    }
+
     /// Whether `p` may begin casting card `id` from hand right now, with a
     /// complete legal cast guaranteed to exist.
     pub(crate) fn can_cast(&self, p: PlayerId, id: ObjectId, sorcery_timing: bool) -> bool {
-        let Some(def) = self.obj_def(id) else {
+        let Some(def_id) = self.obj(id).map(|o| o.def) else {
             return false;
         };
-        // CR 202.1b: no mana cost means it can't be cast this way.
-        let Some(cost) = &def.mana_cost else {
-            return false;
-        };
-        // CR 117.1a: instants any time with priority; everything else at sorcery timing.
-        if !def.is(CardType::Instant) && !sorcery_timing {
+        let def = self.def(def_id);
+        // CR 117.1a, 702.8a: instants and flash any time the player has
+        // priority; everything else at sorcery timing.
+        if !(def.is(CardType::Instant) || def.keywords.has(Keywords::FLASH)) && !sorcery_timing {
             return false;
         }
-        // CR 601.2c: every required target slot needs a legal target.
-        if let Some(spell) = def.spell()
-            && spell
-                .targets
-                .iter()
-                .any(|t| t.up_to.is_none() && self.legal_targets(&t.what, p).is_empty())
-        {
-            return false;
+        if let Some(spell) = def.spell() {
+            if let Effect::Modal { min, .. } = &spell.effect {
+                if self.ok_modes(def, spell, p, None).len() < *min as usize {
+                    return false;
+                }
+            } else if !spell.targets.iter().all(|t| self.slot_ok(t, p, None)) {
+                return false;
+            }
         }
-        payable(
-            &CostReq::from_cost(cost),
-            &self.player(p).pool,
-            &self.mana_sources(p, None),
-        )
+        let ctx = cast_ctx(def_id, def, id, p);
+        !self.cost_options(def, &ctx, p).is_empty()
     }
+
+    // ---- the procedure ------------------------------------------------------
 
     /// CR 601.2a: move the card to the stack and start the procedure.
     pub(crate) fn begin_cast(&mut self, p: PlayerId, card: ObjectId) {
@@ -76,60 +315,222 @@ impl Game {
         let Some(spell) = self.move_object(card, ZoneId::Stack, true) else {
             return;
         };
-        self.stack.push(StackItem {
-            object: spell,
-            controller: p,
-            targets: smallvec::SmallVec::new(),
-        });
+        self.stack.push(StackItem::new(spell, p));
         self.tasks.push(Task::Cast(CastTask {
             spell,
             caster: p,
-            stage: CastStage::Targets,
+            stage: CastStage::Modes,
+            index: 0,
         }));
     }
 
+    fn item(&self, spell: ObjectId) -> Option<&StackItem> {
+        self.stack.iter().find(|s| s.object == spell)
+    }
+
+    fn item_mut(&mut self, spell: ObjectId) -> Option<&mut StackItem> {
+        self.stack.iter_mut().find(|s| s.object == spell)
+    }
+
+    fn advance(&mut self, t: CastTask, stage: CastStage) {
+        self.tasks.push(Task::Cast(CastTask {
+            stage,
+            index: 0,
+            ..t
+        }));
+    }
+
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn cast_step(&mut self, t: CastTask) {
-        let Some(def) = self.obj_def(t.spell).cloned() else {
+        let Some(def_id) = self.obj(t.spell).map(|o| o.def) else {
             return;
         };
+        let pool = std::sync::Arc::clone(&self.pool);
+        let def = pool.get(def_id);
+        let Some(item) = self.item(t.spell).cloned() else {
+            return;
+        };
+        let ctx = cast_ctx(def_id, def, t.spell, t.caster);
         match t.stage {
-            CastStage::Targets => {
-                // CR 601.2c
-                if let Some(slot) = def.spell().and_then(|s| s.targets.first()) {
-                    let targets = self.legal_targets(&slot.what, t.caster);
-                    debug_assert!(
-                        !targets.is_empty(),
-                        "castability pre-check guarantees a target"
-                    );
-                    self.tasks.push(Task::Cast(t));
-                    self.decide(
-                        t.caster,
-                        DecisionKind::ChooseTarget {
-                            spell: t.spell,
-                            targets,
-                        },
-                        "601.2c",
-                    );
-                } else {
-                    self.tasks.push(Task::Cast(CastTask {
-                        stage: CastStage::Pay,
-                        ..t
-                    }));
+            CastStage::Modes => {
+                let Some(spell) = def.spell() else {
+                    return self.advance(t, CastStage::Cost);
+                };
+                let Effect::Modal { min, max, .. } = &spell.effect else {
+                    return self.advance(t, CastStage::Cost);
+                };
+                let chosen = item.modes.len();
+                let mut modes: Vec<Option<u8>> = Vec::new();
+                if chosen >= *min as usize {
+                    modes.push(None);
                 }
+                if chosen < *max as usize {
+                    modes.extend(
+                        self.ok_modes(def, spell, t.caster, Some(t.spell))
+                            .into_iter()
+                            .filter(|m| !item.modes.contains(m))
+                            .map(Some),
+                    );
+                }
+                if modes.iter().all(Option::is_none) {
+                    return self.advance(t, CastStage::Cost);
+                }
+                self.tasks.push(Task::Cast(t));
+                self.decide(
+                    t.caster,
+                    DecisionKind::ChooseMode {
+                        spell: t.spell,
+                        modes,
+                    },
+                    "700.2a",
+                );
+            }
+            CastStage::Cost => {
+                let options = self.cost_options(def, &ctx, t.caster);
+                debug_assert!(!options.is_empty(), "castability guarantees a cost");
+                if let [only] = options.as_slice() {
+                    let only = *only;
+                    if let Some(i) = self.item_mut(t.spell) {
+                        i.cost = only;
+                    }
+                    return self.advance(t, CastStage::X);
+                }
+                self.tasks.push(Task::Cast(t));
+                self.decide(
+                    t.caster,
+                    DecisionKind::ChooseCost {
+                        spell: t.spell,
+                        options,
+                    },
+                    "601.2b",
+                );
+            }
+            CastStage::X => {
+                let Some(shape) = cost_shape(def, item.cost) else {
+                    return;
+                };
+                if !shape
+                    .symbols
+                    .iter()
+                    .any(|s| matches!(s, ManaSymbol::Variable(_)))
+                {
+                    return self.advance(t, CastStage::Symbols);
+                }
+                let max = self.max_x(t.caster, &ctx, &shape);
+                self.tasks.push(Task::Cast(t));
+                self.decide(
+                    t.caster,
+                    DecisionKind::ChooseNumber {
+                        source: t.spell,
+                        min: 0,
+                        max: i64::from(max),
+                    },
+                    "107.3a",
+                );
+            }
+            CastStage::Symbols => {
+                let Some(shape) = cost_shape(def, item.cost) else {
+                    return;
+                };
+                let Some(symbol) = shape
+                    .symbols
+                    .iter()
+                    .filter(|s| is_open(s))
+                    .nth(item.pays.len())
+                    .cloned()
+                else {
+                    return self.advance(t, CastStage::Targets);
+                };
+                let options: Vec<SymbolPay> = symbol_options(&symbol)
+                    .into_iter()
+                    .filter(|o| {
+                        let mut pays = item.pays.to_vec();
+                        pays.push(*o);
+                        self.shape_payable(t.caster, &ctx, &shape, item.x, &pays)
+                    })
+                    .collect();
+                debug_assert!(!options.is_empty(), "a payable cost has a payable choice");
+                if let [only] = options.as_slice() {
+                    let only = *only;
+                    if let Some(i) = self.item_mut(t.spell) {
+                        i.pays.push(only);
+                    }
+                    self.tasks.push(Task::Cast(t));
+                    return;
+                }
+                self.tasks.push(Task::Cast(t));
+                self.decide(
+                    t.caster,
+                    DecisionKind::ChooseSymbolPay {
+                        spell: t.spell,
+                        symbol,
+                        options,
+                    },
+                    "601.2b",
+                );
+            }
+            CastStage::Targets => {
+                let Some(spell) = def.spell() else {
+                    return self.advance(t, CastStage::Pay);
+                };
+                let slot = usize::from(t.index);
+                let Some(spec) = spell.targets.get(slot) else {
+                    return self.advance(t, CastStage::Pay);
+                };
+                let next_slot = CastTask {
+                    index: t.index + 1,
+                    ..t
+                };
+                // CR 601.2c: a modal spell requires only its chosen modes' targets.
+                let required = def.mode_slots.is_empty()
+                    || item
+                        .modes
+                        .iter()
+                        .any(|m| def.mode_slots[usize::from(*m)] & (1 << slot) != 0);
+                if !required {
+                    self.tasks.push(Task::Cast(next_slot));
+                    return;
+                }
+                let chosen: Vec<Target> = item
+                    .targets
+                    .iter()
+                    .zip(&item.slots)
+                    .filter(|(_, s)| usize::from(**s) == slot)
+                    .map(|(t, _)| *t)
+                    .collect();
+                let max = spec.up_to.unwrap_or(1) as usize;
+                let min = usize::from(spec.up_to.is_none());
+                // CR 115.3: the same target can't be chosen twice for one "target".
+                let candidates: Vec<Target> = self
+                    .legal_targets(&spec.what, t.caster, Some(t.spell))
+                    .into_iter()
+                    .filter(|c| !chosen.contains(c))
+                    .collect();
+                if chosen.len() >= max || (chosen.len() >= min && candidates.is_empty()) {
+                    self.tasks.push(Task::Cast(next_slot));
+                    return;
+                }
+                let mut targets: Vec<Option<Target>> = Vec::new();
+                if chosen.len() >= min {
+                    targets.push(None);
+                }
+                targets.extend(candidates.into_iter().map(Some));
+                self.tasks.push(Task::Cast(t));
+                self.decide(
+                    t.caster,
+                    DecisionKind::ChooseTarget {
+                        spell: t.spell,
+                        slot: t.index,
+                        targets,
+                    },
+                    "601.2c",
+                );
             }
             CastStage::Pay => {
-                // CR 601.2f: total cost (no modifiers in M2); CR 601.2g–h: activate mana abilities and pay.
-                let req = def
-                    .mana_cost
-                    .as_ref()
-                    .map(CostReq::from_cost)
-                    .unwrap_or_default();
+                // CR 601.2f: the total cost; 601.2g–h: activate mana abilities and pay.
+                let req = self.cast_requirement(def, &item).0;
                 if req.is_paid() {
-                    self.tasks.push(Task::Cast(CastTask {
-                        stage: CastStage::Done,
-                        ..t
-                    }));
-                    return;
+                    return self.advance(t, CastStage::PayOther);
                 }
                 let plans = enumerate_plans(
                     &req,
@@ -146,43 +547,96 @@ impl Game {
                     "601.2h",
                 );
             }
+            CastStage::PayOther => {
+                self.advance(t, CastStage::Done);
+                let Some(shape) = cost_shape(def, item.cost) else {
+                    return;
+                };
+                let life = self.cast_requirement(def, &item).1;
+                let mut parts = shape.other;
+                if life > 0 {
+                    parts.push(CostPart::PayLife(Quantity::Fixed(life)));
+                }
+                if !parts.is_empty() {
+                    self.tasks.push(Task::Effect(Box::new(EffectTask::paying(
+                        ctx, t.caster, &parts,
+                    ))));
+                }
+            }
             CastStage::Done => {
                 // CR 601.2i: the spell becomes cast.
-                if let Some(o) = self.obj(t.spell) {
-                    let def = o.def;
-                    self.log(Event::SpellCast {
-                        player: t.caster,
-                        object: t.spell,
-                        def,
-                    });
-                }
+                self.log(Event::SpellCast {
+                    player: t.caster,
+                    object: t.spell,
+                    def: def_id,
+                });
             }
         }
     }
 
+    /// The mana requirement and Phyrexian life of a spell's chosen cost.
+    pub(crate) fn cast_requirement(&self, def: &CardDef, item: &StackItem) -> (CostReq, i64) {
+        cost_shape(def, item.cost)
+            .map(|s| requirement(&s.symbols, item.x, &item.pays))
+            .unwrap_or_default()
+    }
+
     pub(crate) fn cast_answer(&mut self, t: CastTask, kind: DecisionKind, option: usize) {
         match kind {
-            DecisionKind::ChooseTarget { targets, .. } => {
-                if let Some(item) = self.stack.iter_mut().find(|s| s.object == t.spell) {
-                    item.targets.push(targets[option]);
+            DecisionKind::ChooseMode { modes, .. } => match modes[option] {
+                None => self.advance(t, CastStage::Cost),
+                Some(m) => {
+                    if let Some(i) = self.item_mut(t.spell) {
+                        i.modes.push(m);
+                        i.modes.sort_unstable();
+                    }
+                    self.tasks.push(Task::Cast(t));
                 }
-                self.tasks.push(Task::Cast(CastTask {
-                    stage: CastStage::Pay,
-                    ..t
-                }));
+            },
+            DecisionKind::ChooseCost { options, .. } => {
+                if let Some(i) = self.item_mut(t.spell) {
+                    i.cost = options[option];
+                }
+                self.advance(t, CastStage::X);
             }
-            DecisionKind::PayMana { plans, .. } => {
-                self.tasks.push(Task::Cast(CastTask {
-                    stage: CastStage::Done,
+            DecisionKind::ChooseNumber { min, .. } => {
+                let x = u32::try_from(min + i64::try_from(option).unwrap_or(0)).unwrap_or(0);
+                if let Some(i) = self.item_mut(t.spell) {
+                    i.x = x;
+                }
+                self.advance(t, CastStage::Symbols);
+            }
+            DecisionKind::ChooseSymbolPay { options, .. } => {
+                if let Some(i) = self.item_mut(t.spell) {
+                    i.pays.push(options[option]);
+                }
+                self.tasks.push(Task::Cast(t));
+            }
+            DecisionKind::ChooseTarget { targets, slot, .. } => match targets[option] {
+                None => self.tasks.push(Task::Cast(CastTask {
+                    index: t.index + 1,
                     ..t
-                }));
+                })),
+                Some(target) => {
+                    if let Some(i) = self.item_mut(t.spell) {
+                        i.targets.push(target);
+                        i.slots.push(slot);
+                    }
+                    self.tasks.push(Task::Cast(t));
+                }
+            },
+            DecisionKind::PayMana { plans, .. } => {
+                self.advance(t, CastStage::PayOther);
                 if let Some(plan) = plans.get(option) {
                     self.execute_plan(t.caster, plan);
                 } else {
                     let remaining = self
-                        .obj_def(t.spell)
-                        .and_then(|d| d.mana_cost.as_ref())
-                        .map(CostReq::from_cost)
+                        .obj(t.spell)
+                        .map(|o| o.def)
+                        .and_then(|d| {
+                            let item = self.item(t.spell)?;
+                            Some(self.cast_requirement(self.def(d), item).0)
+                        })
                         .unwrap_or_default();
                     self.tasks.push(Task::ManualPay(ManualPayTask {
                         spell: t.spell,

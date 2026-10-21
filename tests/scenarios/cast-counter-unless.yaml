@@ -1,0 +1,27 @@
+scenario: mtg-scenario/1
+name: "\"Counter target noncreature spell unless its controller pays {2}\""
+cr: ["118.12", "701.6a"]
+players:
+  - battlefield: [Test Island, Test Wastes, Test Wastes, Test Wastes, Test Wastes]
+    hand: [Test Study]
+  - battlefield: [Test Island]
+    hand: [Test Pierce]
+script:
+  - choose: Cast Test Study
+  - choose: Pay with Test Island, Test Wastes, Test Wastes
+  - pass: 1
+  - choose: Cast Test Pierce
+    player: P2
+  - choose: Target Test Study
+  - choose: Pay with Test Island
+  - pass_all
+  - check:
+      decision: { player: P1, kind: optional, options: [Don't pay, Pay] }
+  - choose: Pay
+  - choose: Pay with Test Wastes, Test Wastes
+  - pass_all
+expect:
+  zones:
+    P1.hand: [Test Wastes, Test Wastes, Test Wastes]
+    P1.graveyard: [Test Study]
+    P2.graveyard: [Test Pierce]

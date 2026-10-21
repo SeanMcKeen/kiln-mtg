@@ -1,0 +1,18 @@
+scenario: mtg-scenario/1
+name: A hybrid symbol is paid with either color, announced while casting
+cr: ["107.4e", "601.2b"]
+players:
+  - battlefield: [Test Forest, Test Mountain]
+    hand: [Test Flare]
+  - {}
+script:
+  - choose: Cast Test Flare
+  - check:
+      decision: { player: P1, kind: choose_symbol_pay, options: ["Pay {R/G} with {R}", "Pay {R/G} with {G}"] }
+  - choose: Pay {R/G} with {G}
+  - choose: Target P2
+  - choose: Pay with Test Forest
+  - pass_all
+expect:
+  life: { P2: 18 }
+  tapped: { Test Mountain: false, Test Forest: true }

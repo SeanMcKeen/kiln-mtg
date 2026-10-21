@@ -110,6 +110,14 @@ impl EffectTask {
             frames: vec![Frame::Run(Path::new())],
         }
     }
+
+    /// Only pays costs (casting or activation costs, CR 601.2h, 602.2b).
+    pub(crate) fn paying(ctx: EffectCtx, who: PlayerId, cost: &[CostPart]) -> Self {
+        Self {
+            ctx,
+            frames: vec![pay_frame(who, cost)],
+        }
+    }
 }
 
 /// One step of an effect's execution.
@@ -1295,7 +1303,8 @@ impl Game {
         let Some(o) = self.obj(id).copied() else {
             return;
         };
-        if o.zone != ZoneId::Stack {
+        // CR 101.2: "can't be countered" takes precedence.
+        if o.zone != ZoneId::Stack || self.def(o.def).cant_be_countered() {
             return;
         }
         self.log(Event::Countered { object: id });

@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
 use crate::card::{DefId, ManaType};
+use crate::decision::{CastCost, SymbolPay};
 
 /// A zone (CR 400.1). Libraries, hands and graveyards belong to a player.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -217,12 +218,37 @@ pub enum Target {
     Player(PlayerId),
 }
 
-/// A spell on the stack (CR 112, 405).
+/// A spell on the stack (CR 112, 405), with the choices made while casting it.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct StackItem {
     pub object: ObjectId,
     pub controller: PlayerId,
     pub targets: SmallVec<[Target; 1]>,
+    /// The target slot of each entry in `targets` (CR 601.2c).
+    pub slots: SmallVec<[u8; 1]>,
+    /// Chosen modes, in printed order (CR 601.2b, 700.2).
+    pub modes: SmallVec<[u8; 2]>,
+    /// CR 601.2b, 118.9.
+    pub cost: CastCost,
+    /// The announced X (CR 107.3a).
+    pub x: u32,
+    /// How each hybrid or Phyrexian symbol of the cost is paid, in symbol order (CR 601.2b).
+    pub pays: SmallVec<[SymbolPay; 1]>,
+}
+
+impl StackItem {
+    pub fn new(object: ObjectId, controller: PlayerId) -> Self {
+        Self {
+            object,
+            controller,
+            targets: SmallVec::new(),
+            slots: SmallVec::new(),
+            modes: SmallVec::new(),
+            cost: CastCost::Normal,
+            x: 0,
+            pays: SmallVec::new(),
+        }
+    }
 }
 
 /// Steps of a turn (CR 500.1).

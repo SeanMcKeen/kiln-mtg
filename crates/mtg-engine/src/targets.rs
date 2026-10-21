@@ -4,6 +4,7 @@
 use mtg_cards::ir::{ObjectFilter, PlayerRel, TargetKind};
 use mtg_core::{CardType, Color, ObjectId, PlayerId, Supertype};
 
+use crate::card::Keywords;
 use crate::engine::Game;
 use crate::state::{Target, ZoneId};
 
@@ -81,9 +82,15 @@ impl Game {
     }
 
     /// Legal choices for one target slot (CR 115.1, 601.2c), for a spell or
-    /// ability controlled by `you`. Players first in seat order, then
-    /// permanents in battlefield order.
-    pub(crate) fn legal_targets(&self, kind: &TargetKind, you: PlayerId) -> Vec<Target> {
+    /// ability controlled by `you` whose stack object is `this` (a spell is an
+    /// illegal target for itself, CR 115.5). Players first in seat order, then
+    /// permanents in battlefield order, then spells from the top of the stack.
+    pub(crate) fn legal_targets(
+        &self,
+        kind: &TargetKind,
+        you: PlayerId,
+        this: Option<ObjectId>,
+    ) -> Vec<Target> {
         let mut out = Vec::new();
         let players = |rel: PlayerRel, out: &mut Vec<Target>| {
             out.extend(
@@ -101,7 +108,9 @@ impl Game {
                     self.battlefield
                         .iter()
                         .copied()
-                        .filter(|id| self.is_any_target_permanent(*id))
+                        .filter(|id| {
+                            self.is_any_target_permanent(*id) && self.targetable_by(*id, you)
+                        })
                         .map(Target::Object),
                 );
             }
@@ -110,12 +119,38 @@ impl Game {
                 self.battlefield
                     .iter()
                     .copied()
-                    .filter(|id| self.matches_filter(*id, f, you, None))
+                    .filter(|id| {
+                        self.matches_filter(*id, f, you, None) && self.targetable_by(*id, you)
+                    })
                     .map(Target::Object),
             ),
-            TargetKind::Spell(_) => {}
+            TargetKind::Spell(f) => out.extend(
+                self.stack
+                    .iter()
+                    .rev()
+                    .map(|s| s.object)
+                    .filter(|id| Some(*id) != this && self.is_spell_matching(*id, f, you))
+                    .map(Target::Object),
+            ),
         }
         out
+    }
+
+    /// CR 702.18a (shroud), 702.11b (hexproof): whether a spell or ability
+    /// controlled by `you` may target permanent `id`.
+    pub(crate) fn targetable_by(&self, id: ObjectId, you: PlayerId) -> bool {
+        let kw = self.keywords(id);
+        if kw.has(Keywords::SHROUD) {
+            return false;
+        }
+        !(kw.has(Keywords::HEXPROOF) && self.obj(id).is_some_and(|o| o.controller != you))
+    }
+
+    fn is_spell_matching(&self, id: ObjectId, f: &ObjectFilter, you: PlayerId) -> bool {
+        let mut f = f.clone();
+        f.zone = None;
+        self.obj(id).is_some_and(|o| o.zone == ZoneId::Stack)
+            && self.matches_filter(id, &f, you, None)
     }
 
     /// CR 608.2b: whether a chosen target is still legal as the spell or
@@ -128,11 +163,16 @@ impl Game {
                 self.in_game(p) && self.player_rel(*rel, you, p)
             }
             (TargetKind::Any, Target::Object(id)) => {
-                self.on_battlefield(id) && self.is_any_target_permanent(id)
+                self.on_battlefield(id)
+                    && self.is_any_target_permanent(id)
+                    && self.targetable_by(id, you)
             }
             (TargetKind::Object(f), Target::Object(id)) => {
-                self.on_battlefield(id) && self.matches_filter(id, f, you, None)
+                self.on_battlefield(id)
+                    && self.matches_filter(id, f, you, None)
+                    && self.targetable_by(id, you)
             }
+            (TargetKind::Spell(f), Target::Object(id)) => self.is_spell_matching(id, f, you),
             _ => false,
         }
     }

@@ -1,0 +1,18 @@
+scenario: mtg-scenario/1
+name: A Phyrexian symbol is paid with its color or 2 life, announced while casting
+cr: ["107.4f", "601.2b", "119.4"]
+players:
+  - battlefield: [Test Island]
+    hand: [Test Probe]
+  - {}
+script:
+  - choose: Cast Test Probe
+  - check:
+      decision: { player: P1, kind: choose_symbol_pay, options: ["Pay {U/P} with {U}", "Pay {U/P} with 2 life"] }
+  - choose: Pay {U/P} with 2 life
+  - pass_all
+expect:
+  life: { P1: 18 }
+  tapped: { Test Island: false }
+  zones:
+    P1.hand: [Test Wastes]

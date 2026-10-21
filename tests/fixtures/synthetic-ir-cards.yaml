@@ -217,3 +217,136 @@
           seq:
             - draw: { who: { target: 0 }, amount: 2 }
             - lose_life: { who: { target: 0 }, amount: 2 }
+
+# ---- casting (M3 B3) and keywords (M3 B5) ------------------------------------
+
+- name: Test Charm
+  cost: "{R}"
+  types: Instant
+  abilities:
+    - spell:
+        targets: [{ what: any }]
+        effect:
+          modal:
+            min: 1
+            max: 1
+            modes:
+              - deal_damage: { to: { target: 0 }, amount: 2 }
+              - draw: { who: you, amount: 1 }
+
+- name: Test Command
+  cost: "{2}{B}"
+  types: Instant
+  abilities:
+    - spell:
+        targets: [{ what: { object: { types: [creature] } } }, { what: { player: any } }]
+        effect:
+          modal:
+            min: 2
+            max: 2
+            modes:
+              - destroy: { one: { target: 0 } }
+              - draw: { who: { target: 1 }, amount: 2 }
+              - gain_life: { who: you, amount: 3 }
+
+- name: Test Counterspell
+  cost: "{U}{U}"
+  types: Instant
+  abilities:
+    - spell:
+        targets: [{ what: { spell: {} } }]
+        effect: { counter: { one: { target: 0 } } }
+
+- name: Test Pierce
+  cost: "{U}"
+  types: Instant
+  abilities:
+    - spell:
+        targets: [{ what: { spell: { not_types: [creature] } } }]
+        effect:
+          unless:
+            payer: { controller_of: { target: 0 } }
+            cost: [{ mana: "{2}" }]
+            effect: { counter: { one: { target: 0 } } }
+
+- name: Test Will
+  cost: "{3}{U}{U}"
+  types: Instant
+  abilities:
+    - spell:
+        targets: [{ what: { spell: {} } }]
+        alternative_costs: [{ cost: [{ pay_life: 1 }, { exile_from_hand: { color: U } }] }]
+        effect: { counter: { one: { target: 0 } } }
+
+- name: Test Probe
+  cost: "{U/P}"
+  types: Sorcery
+  abilities:
+    - spell:
+        effect: { draw: { who: you, amount: 1 } }
+
+- name: Test Flare
+  cost: "{R/G}"
+  types: Instant
+  abilities:
+    - spell:
+        targets: [{ what: any }]
+        effect: { deal_damage: { to: { target: 0 }, amount: 2 } }
+
+- name: Test Fireball
+  cost: "{X}{R}"
+  types: Sorcery
+  abilities:
+    - spell:
+        targets: [{ what: any }]
+        effect: { deal_damage: { to: { target: 0 }, amount: x } }
+
+- name: Test Offering
+  cost: "{1}{B}"
+  types: Sorcery
+  abilities:
+    - spell:
+        additional_costs:
+          - sacrifice: { chosen_from: { who: you, zone: battlefield, filter: { types: [creature] }, count: 1 } }
+        effect: { draw: { who: you, amount: 3 } }
+
+- name: Test Volley
+  cost: "{1}{R}"
+  types: Instant
+  abilities:
+    - spell:
+        targets: [{ what: { object: { types: [creature] } }, up_to: 2 }]
+        effect: { deal_damage: { to: { target: 0 }, amount: 1 } }
+
+- name: Test Decay
+  cost: "{B}{G}"
+  types: Instant
+  abilities:
+    - static: { effect: { rule: cant_be_countered } }
+    - spell:
+        targets: [{ what: { object: { types: [creature] } } }]
+        effect: { destroy: { one: { target: 0 } } }
+
+- name: Test Hexproof Bear
+  cost: "{1}{G}"
+  types: Creature — Bear
+  pt: [2, 2]
+  abilities: [{ keyword: hexproof }]
+
+- name: Test Shroud Bear
+  cost: "{1}{G}"
+  types: Creature — Bear
+  pt: [2, 2]
+  abilities: [{ keyword: shroud }]
+
+- name: Test Flash Bear
+  cost: "{1}{G}"
+  types: Creature — Bear
+  pt: [2, 2]
+  abilities: [{ keyword: flash }]
+
+- name: Test Guardian
+  cost: "{3}"
+  types: Artifact Creature — Golem
+  pt: [1, 1]
+  abilities: [{ keyword: indestructible }]

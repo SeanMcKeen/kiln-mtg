@@ -5,7 +5,7 @@
 //! decision is "pick one of N" (M2 plan, D1): a [`Choice`] names the decision
 //! and an option index. Where a "decline" option exists, it is index 0 (D2).
 
-use mtg_core::{Color, CrRef, ObjectId, PlayerId};
+use mtg_core::{Color, CrRef, ManaSymbol, ObjectId, PlayerId};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
@@ -73,10 +73,12 @@ pub enum DecisionKind {
     },
     /// CR 117: `actions[0]` is always [`Action::Pass`].
     Priority { actions: Vec<Action> },
-    /// CR 601.2c
+    /// CR 601.2c: the next target for target slot `slot`. `targets[0]` is
+    /// `None` ("no more targets") when the slot allows fewer ("up to N").
     ChooseTarget {
         spell: ObjectId,
-        targets: Vec<Target>,
+        slot: u8,
+        targets: Vec<Option<Target>>,
     },
     /// CR 601.2g–h: one option per plan, then a final "pay manually" option.
     PayMana {
@@ -146,6 +148,44 @@ pub enum DecisionKind {
         source: ObjectId,
         colors: Vec<Color>,
     },
+    /// CR 601.2b, 700.2: the next mode of a modal spell; `modes[0]` is
+    /// `None` (done) once enough modes are chosen.
+    ChooseMode {
+        spell: ObjectId,
+        modes: Vec<Option<u8>>,
+    },
+    /// CR 601.2b, 118.9: pay the mana cost or an alternative cost.
+    ChooseCost {
+        spell: ObjectId,
+        options: Vec<CastCost>,
+    },
+    /// CR 601.2b, 107.4e–f: how to pay one hybrid or Phyrexian symbol.
+    ChooseSymbolPay {
+        spell: ObjectId,
+        symbol: ManaSymbol,
+        options: Vec<SymbolPay>,
+    },
+}
+
+/// Which cost a spell is cast for (CR 118.9a: at most one alternative cost).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+pub enum CastCost {
+    /// The mana cost.
+    #[default]
+    Normal,
+    /// The spell's alternative cost with this index.
+    Alternative(u8),
+}
+
+/// How one hybrid or Phyrexian mana symbol is paid (CR 107.4e–f).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum SymbolPay {
+    /// One mana of this type.
+    Mana(ManaType),
+    /// Two generic mana (monocolored hybrid `{2/W}`).
+    TwoGeneric,
+    /// 2 life (Phyrexian).
+    TwoLife,
 }
 
 /// What a yes/no choice is about.
@@ -220,6 +260,9 @@ impl PendingDecision {
                 usize::try_from(max - min + 1).unwrap_or(0)
             }
             DecisionKind::ChooseColor { colors, .. } => colors.len(),
+            DecisionKind::ChooseMode { modes, .. } => modes.len(),
+            DecisionKind::ChooseCost { options, .. } => options.len(),
+            DecisionKind::ChooseSymbolPay { options, .. } => options.len(),
         }
     }
 
@@ -231,6 +274,10 @@ impl PendingDecision {
             | DecisionKind::DeclareAttacker { .. }
             | DecisionKind::Optional { .. } => true,
             DecisionKind::ChooseCard { cards, .. } => cards.first().is_some_and(Option::is_none),
+            DecisionKind::ChooseTarget { targets, .. } => {
+                targets.first().is_some_and(Option::is_none)
+            }
+            DecisionKind::ChooseMode { modes, .. } => modes.first().is_some_and(Option::is_none),
             // Not blocking can be illegal when it would strand a menace attacker.
             DecisionKind::DeclareBlocker { attackers, .. } => {
                 attackers.first().is_some_and(Option::is_none)

@@ -1,0 +1,24 @@
+scenario: mtg-scenario/1
+name: A spell cast for its alternative cost (pay 1 life, exile a blue card from hand)
+cr: ["118.9", "118.9a", "601.2b", "601.2h", "119.4"]
+players:
+  - battlefield: [Test Mountain]
+    hand: [Test Bolt]
+  - hand: [Test Will, Test Insight]
+script:
+  - choose: Cast Test Bolt
+  - choose: Target P2
+  - choose: Pay with Test Mountain
+  - pass: 1
+  # No lands: only the alternative cost is payable, so there's no cost choice.
+  - choose: Cast Test Will
+    player: P2
+  - choose: Target Test Bolt
+  - pass_all
+expect:
+  life: { P2: 19 }
+  zones:
+    exile: [Test Insight]
+    P1.graveyard: [Test Bolt]
+    P2.graveyard: [Test Will]
+    P2.hand: []

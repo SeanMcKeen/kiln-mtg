@@ -23,7 +23,6 @@ Each question has an owner note and a target milestone. Move a question to **Res
 |---|---|---|---|
 | Q10 | ~~Persistent vs. arena-clone state~~ **Decided in M2:** plain `Vec` arenas (clone 377 ns, far under the 10 µs target). Revisit only if real cEDH boards change that. | [[Performance & Cheap Cloning]] | done |
 | Q12 | Constraint-aware factoring for attack/block requirements (CR 508.1d / 509.1c). **M2: done for menace** (block options are offered only if a matching keeps every menace attacker satisfiable). Requirements and restrictions ("attacks each combat if able") remain. | [[Combat]], [[Decision & Action Model]] | M4 |
-| Q14 | Precise castability pre-check vs. lazy check with invisible rewind (CR 601.2e / 733). **M2: precise pre-check**, which is exact for mana-only costs. Non-mana costs and cost modifiers in M3 will decide it. | [[Casting & Activating]] | M3 |
 | Q15 | Representation of arbitrarily large numbers (FR-E11) | [[Loops & Shortcuts]], [[MTG Complexity & Loops]] | M4 |
 | Q16 | Loop detection: hashing "modulo monotonic quantities", and proving linearity for extrapolation | [[Loops & Shortcuts]] | M4 |
 | Q17 | How much last-known information to snapshot. M2 needs none (no triggers or abilities look back), so this is deferred. | [[Zones & Objects]] | M4 |
@@ -62,4 +61,5 @@ Each question has an owner note and a target milestone. Move a question to **Res
 | R9 | Relationship to phase.rs (Q21) | E3, borrow selectively; clean-room engine core ([[ADR-0012 Relationship to phase.rs]], accepted 2026-10-20) |
 | R10 | Continuations (Q11) | A stack of small hand-written task enums stored in the game state; the loop pops tasks until one needs a decision. Cloneable and hashable mid-procedure. Revisit at M4 if triggers and replacements make it unwieldy ([[M2 Core Game Loop]]) |
 | R11 | Payment plans (Q13) | Outcome-distinct plans (interchangeable sources grouped), capped at 32, plus a manual mode that offers only steps keeping the payment completable ([[M2 Core Game Loop]]) |
+| R13 | Castability: precise pre-check vs. lazy check with rewind (Q14) | **Precise pre-check.** M3 extends it to modes, alternative and additional costs, X, hybrid and Phyrexian symbols: each casting choice is offered only while a complete cast still exists, so CR 601.2e never fails and no rewind (CR 733) is needed. Mana and other costs are checked independently, which is exact because mana is paid first (CR 601.2g–h). Revisit if cost modifiers in M5 break independence ([[M3 Card Definitions v1]]) |
 | R12 | Scenario file syntax (part of Q22) | YAML via `yaml_serde`, matched by option label ([[Scenario File Format]]). Card-definition overrides stay open under Q22 |

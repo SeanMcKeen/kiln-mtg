@@ -84,6 +84,9 @@ ADR-0007 is still open, but its fixed constraint is that **every option compiles
 | B1 | ✅ 2026-10-21 | `CardDef` = characteristics + IR abilities; support check (`support.rs`); IR target filters (`targets.rs`). Golden replays: every choice and final state hash unchanged (only `pool_hash` re-blessed). |
 | B2 | ✅ 2026-10-21 | `effects.rs`: resumable interpreter with paths into the IR, LKI (608.2h), illegal-target skipping (608.2b). Six new one-of-N decision kinds (optional, choose card, mana, name, number, color). 22 synthetic IR cards (`tests/fixtures/synthetic-ir-cards.yaml`) with 23 CR-cited scenarios. Random-play property tests over them: invariants and view audits after every decision, every offered option applies, replays reproduce. M2 golden replays still pass unchanged. |
 
+| B3 | ✅ 2026-10-21 | `cast.rs` rewritten per CR 601.2b–h: modes (`ChooseMode`), alternative costs (`ChooseCost`), X, hybrid/Phyrexian announcements (`ChooseSymbolPay`), targets per slot with "up to N" and spells as targets (CR 115.5 self-exclusion), mana payment, then non-mana costs through the interpreter's payment frames. Every choice is offered only while a complete cast still exists (exact pre-check, Q14 resolved). 12 new synthetic cards and 15 scenarios. |
+| B5 | ✅ 2026-10-21 | Flash (702.8a), hexproof (702.11b), shroud (702.18a), indestructible (702.12b, including SBA 704.5g/h), and "can't be countered" (a named rule mod, CR 101.2). Ward and protection moved to M4. |
+
 Semantics fixed while building B2 (documented in `ir.rs`):
 - A search for "a card" must find one if possible (701.23d); a filter states a quality, so finding nothing is allowed (701.23b).
 - `search … to: top_of_library` means search, shuffle, then put on top (701.24b).

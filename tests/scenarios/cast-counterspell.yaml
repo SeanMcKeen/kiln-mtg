@@ -1,0 +1,27 @@
+scenario: mtg-scenario/1
+name: A spell can target a spell on the stack and counter it
+cr: ["701.6a", "115.1", "117.3c"]
+players:
+  - battlefield: [Test Mountain]
+    hand: [Test Bolt]
+  - battlefield: [Test Island, Test Island]
+    hand: [Test Counterspell]
+script:
+  - choose: Cast Test Bolt
+  - choose: Target P2
+  - choose: Pay with Test Mountain
+  - pass: 1
+  - choose: Cast Test Counterspell
+    player: P2
+  - check:
+      # A spell is an illegal target for itself (CR 115.5).
+      decision: { player: P2, kind: choose_target, options: [Target Test Bolt] }
+  - choose: Target Test Bolt
+  - choose: Pay with Test Island, Test Island
+  - pass_all
+expect:
+  life: { P2: 20 }
+  zones:
+    P1.graveyard: [Test Bolt]
+    P2.graveyard: [Test Counterspell]
+    stack: []
