@@ -17,11 +17,15 @@ use rayon::prelude::*;
 use serde::Serialize;
 
 /// What to check while games run.
+/// With [`Checks::views`], every seat's view is audited after every this-many
+/// decisions and at game end.
+pub const VIEW_AUDIT_EVERY: u64 = 16;
+
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct Checks {
     /// Check engine invariants after every decision.
     pub invariants: bool,
-    /// Audit every seat's view for hidden-information leaks after every decision.
+    /// Audit every seat's view for hidden-information leaks (sampled: see [`VIEW_AUDIT_EVERY`]).
     pub views: bool,
     /// Re-run every k-th game from its replay log and compare final hashes.
     pub replay_every: Option<u64>,
@@ -195,7 +199,9 @@ pub fn run_game(
             outcome.violation = Some(format!("after decision {}: {e}", outcome.decisions));
             break;
         }
-        if checks.views {
+        // View audits serialize every seat's snapshot, so they are sampled: every
+        // VIEW_AUDIT_EVERY-th decision and the final state.
+        if checks.views && (outcome.decisions.is_multiple_of(VIEW_AUDIT_EVERY) || game.is_over()) {
             for seat in 0..game.player_count() {
                 if let Err(e) = game.audit_view(PlayerId(u8::try_from(seat).unwrap_or(0))) {
                     outcome.violation = Some(format!(

@@ -127,6 +127,11 @@ impl Arena {
         })
     }
 
+    /// Number of slots (live or free); every live id's index is below this.
+    pub fn slot_count(&self) -> usize {
+        self.slots.len()
+    }
+
     pub fn live_count(&self) -> usize {
         self.slots.len() - self.free.len()
     }
