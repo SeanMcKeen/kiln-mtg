@@ -1,6 +1,6 @@
 ---
 type: milestone
-status: review
+status: done
 milestone: M3
 tags: [milestone]
 updated: 2026-10-21
@@ -13,8 +13,8 @@ updated: 2026-10-21
 ## Checklist
 - [x] Run the [[Card Definition Spike Plan]] → [[Card Definition Spike Results]]. **Accepting [[ADR-0007 Card Definition Approach]] is the user's call** (D recommended)
 - [x] IR v1: effects, filters, costs, triggers, statics, replacements (the shape; the engine executes everything except triggers, statics other than "can't be countered", and replacements, which arrive in M4/M5)
-- [ ] Chosen front-end(s) implemented (parser, DSL loader, escape registry). **Waits for ADR-0007.** Today the YAML loader (`cards/defs/`) is the working front-end; the parser and renderer are spike prototypes.
-- [ ] IR → text renderer (lint against Oracle). Spike prototype only; production version waits for ADR-0007.
+- [x] Chosen front-end(s) implemented: card library (`mtg-sim::library`) with YAML overrides, the Oracle-text parser and an escape registry (Phase C)
+- [x] IR → text renderer lint, mandatory for parser output (a line counts only if its rendering matches)
 - [x] Targeting & legality ([[Targeting & Legality]]): target slots, "up to N", spells as targets, hexproof, shroud, CR 608.2b rechecks
 - [x] Evergreen keywords ([[Keywords & Keyword Actions]]): M2's set plus flash, hexproof, shroud, indestructible. **Ward and protection moved to M4** (B-D11)
 - [x] Counters ([[Counters]])
@@ -24,7 +24,7 @@ updated: 2026-10-21
 ## Exit criteria
 ADR-0007 accepted. 100 cards `verified`. A random-policy fuzz over those cards is clean.
 
-**Status (2026-10-21):** 123 cards verified ✅. Fuzz over them clean ✅ (B9 below). **ADR-0007 is still the user's decision**, so M3 is in review rather than done, and the front-end items stay open.
+**Status (2026-10-21): done.** ADR-0007 accepted (hybrid) ✅. 123 cards verified ✅. Fuzz over them clean ✅ (B9), and over all 2,176 supported cards ✅ (C4).
 
 ## Plan
 M3 has two phases with a decision between them. The card-definition approach is **yours to decide** (ADR-0007 is research-first by your request), so Phase A produces the data and stops.
@@ -38,6 +38,14 @@ M3 has two phases with a decision between them. The card-definition approach is 
 | A4 | **IR → English renderer:** diff rendered text against Oracle for every parsed card, and measure how many **injected mis-parses** the lint catches (silent mis-parses are the main risk). | Lint catch rate |
 | A5 | **phase.rs comparison** on the same sample, using its published per-card coverage (ADR-0012 E3; differential oracle Q24). | Comparison table |
 | A6 | **Score** the options with [[Evaluation Criteria]] and write the recommendation into ADR-0007. **Stop for your decision.** | ADR-0007 ready to decide |
+
+### Phase C: the ADR-0007 front-end (plan, 2026-10-21, after acceptance)
+| # | Work | Done when |
+|---|---|---|
+| C1 | **Card library** (`mtg-sim::library`): per card, by ADR-0007's precedence: a YAML override from `cards/defs/` wins; otherwise the Oracle-text parser, accepted only if every line parses, the renderer lint matches each line, and the engine supports the result; otherwise `unsupported`, with each reason (unparsed line, lint mismatch, missing engine feature). Records provenance (`override`/`parser`) and coverage (`verified` from the real-card scenarios, else `parsed`). | Unit tests; counts reported |
+| C2 | **Escape registry** (`mtg-engine`): named Rust implementations, looked up by `Escape::function`. It starts empty; an unknown name keeps the card `unsupported`. | Tests that unknown names fail loudly |
+| C3 | `mtg data coverage` and `mtg deck check` report real per-card coverage from the library. | Kinnan list reports per-card status |
+| C4 | Low-power fuzz over decks that include parser-produced cards. | Fuzz clean |
 
 ### Phase B: the engine executes the IR (plan, 2026-10-21)
 ADR-0007 is still open, but its fixed constraint is that **every option compiles to the same typed IR** (`mtg_cards::ir`). So Phase B teaches the engine to execute that IR, and none of it depends on which front-end you choose. Front-end work (a production parser, a DSL loader, an escape registry) waits for your decision.
@@ -97,6 +105,14 @@ ADR-0007 is still open, but its fixed constraint is that **every option compiles
 | B8 | ✅ 2026-10-21 | **123 real cards verified.** Harness (`mtg-testkit::real`, `mtg dev verify-cards`): characteristics from the local card DB plus IR from `cards/defs/` (143 definitions, no Oracle text), 109 CR-cited scenarios in `tests/scenarios-real/` with `verifies:` lists. Families: 45 mana rocks, rituals, dorks and lands (10 Talismans, 10 Signets, 10 fetch lands, Ancient Tomb, Strip Mine, Wasteland…), 23 removal, 19 counterspells, 13 card draw, 22 tutors. 20 definitions are rejected with the feature they need (triggers, statics, replacements, commander). Real scenarios run where a DB exists; their CR citations are checked in CI (Q25). IR gained `min_mana_value`/`max_mana_value` filters (X counted on the stack, CR 202.3e). |
 
 | B9 | ✅ 2026-10-21 | `mtg dev fuzz --verified`: random two-color decks of verified cards and DB lands, random policy, 2 threads. **65,000 games clean:** 50,000 four-player (~105 M decisions), 10,000 two-player, 5,000 six-player; invariants after every decision, view audits, every 100th game replayed (650/650 identical), 0 violations, 0 panics, 0 turn-limit aborts. 475 games/s with all checks on 2 threads. |
+
+## Progress (Phase C)
+| Phase | Status | Evidence |
+|---|---|---|
+| C1 | ✅ 2026-10-21 | `mtg-sim::library`: override → linted parser → unsupported, with provenance and coverage per card. Over 32,199 Commander-legal cards: **123 verified, 2,053 parsed (from the parser), 30,023 unsupported**. Top reasons: lines with no parser template (44,496 lines), multi-face layouts (847 cards), triggers (462), lint mismatches (291 lines), replacements (201). |
+| C2 | ✅ 2026-10-21 | `mtg-engine::escapes`: a sorted name → function table, empty; unregistered names keep a card unsupported. |
+| C3 | ✅ 2026-10-21 | `mtg data coverage` (with top reasons) and `mtg deck check` use the library. The Kinnan test list: 34 verified, 4 parsed, 62 unsupported. |
+| C4 | ✅ 2026-10-21 | `mtg dev fuzz --library`: 20,000 four-player games over all 2,221 supported cards and tokens, 2 threads, all checks on: 0 violations, 200/200 replays identical, 0 panics. |
 
 Semantics fixed while building B2 (documented in `ir.rs`):
 - A search for "a card" must find one if possible (701.23d); a filter states a quality, so finding nothing is allowed (701.23b).

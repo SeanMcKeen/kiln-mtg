@@ -41,9 +41,11 @@ pub(crate) fn check(def: &CardDef) -> Check {
     let mut spells = 0;
     for a in &def.abilities {
         match a {
+            // CR 702.124a: partner only modifies deck construction; it does nothing in play.
+            Ability::Keyword(mtg_cards::ir::Keyword::Partner) => {}
             Ability::Keyword(k) => match Keywords::of_ir(k) {
                 Some(bit) if IMPLEMENTED_KEYWORDS.contains(&bit) => {}
-                _ => return Err(format!("keyword {k:?} isn't implemented yet")),
+                _ => return Err(keyword_gap(k)),
             },
             Ability::Spell(s) => {
                 spells += 1;
@@ -76,13 +78,32 @@ pub(crate) fn check(def: &CardDef) -> Check {
             }) => {}
             Ability::Static(_) => return Err("static abilities (M5)".into()),
             Ability::Replacement(_) => return Err("replacement effects (M4)".into()),
-            Ability::Escape(e) => return Err(format!("escape function {:?}", e.function)),
+            // Whole-ability escapes need a hook per ability kind; none is needed yet.
+            Ability::Escape(e) => {
+                return Err(format!(
+                    "ability-level escape {:?} (no ability escapes yet)",
+                    e.function
+                ));
+            }
         }
     }
     match (instant_or_sorcery, spells) {
         (true, 1) | (false, 0) => Ok(()),
         (true, _) => Err("an instant or sorcery needs exactly one spell ability".into()),
         (false, _) => Err("only instants and sorceries have spell abilities".into()),
+    }
+}
+
+/// Why a keyword isn't supported, without the IR's internals.
+fn keyword_gap(k: &mtg_cards::ir::Keyword) -> String {
+    use mtg_cards::ir::Keyword as K;
+    match k {
+        K::Ward(_) => "keyword ward (M4: triggered abilities)".into(),
+        K::Protection(_) => "keyword protection (M4: damage prevention)".into(),
+        K::CumulativeUpkeep(_) => "keyword cumulative upkeep (M4: triggered abilities)".into(),
+        // CR 702.124j: "partner with" includes a "when this enters" trigger.
+        K::PartnerWith(_) => "keyword partner with (M4: triggered abilities)".into(),
+        other => format!("keyword {other:?} isn't implemented yet"),
     }
 }
 
@@ -250,7 +271,10 @@ fn effect(e: &Effect) -> Check {
         }
         Effect::Amass { .. } => Err("amass (later)".into()),
         Effect::Delayed { .. } => Err("delayed triggered abilities (M4)".into()),
-        Effect::Escape(x) => Err(format!("escape function {:?}", x.function)),
+        Effect::Escape(x) => match crate::escapes::lookup(&x.function) {
+            Some(_) => Ok(()),
+            None => Err(format!("escape function {:?} isn't registered", x.function)),
+        },
     }
 }
 

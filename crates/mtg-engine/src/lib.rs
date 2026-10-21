@@ -14,6 +14,7 @@ pub mod decision;
 pub mod decks;
 mod effects;
 mod engine;
+pub mod escapes;
 pub mod events;
 mod invariants;
 pub mod mana;

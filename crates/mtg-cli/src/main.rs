@@ -10,9 +10,8 @@ use std::time::Instant;
 
 use anyhow::{Context, Result, bail};
 use clap::{Args, Parser, Subcommand};
-use mtg_cards::CoverageLevel;
 use mtg_data::{BuildInput, CardDb, DEFAULT_CACHE_DIR};
-use mtg_sim::deck::{DeckReport, ValidateOptions, parse_deck, validate};
+use mtg_sim::deck::{DeckReport, ValidateOptions, parse_deck, validate_with};
 use serde::Serialize;
 
 #[derive(Debug, Parser)]
@@ -216,6 +215,10 @@ struct FuzzArgs {
     /// lands from the card DB, in random two-color decks.
     #[arg(long, conflicts_with = "real")]
     verified: bool,
+    /// Use every card the card library supports (verified and parser-produced)
+    /// in random two-color decks.
+    #[arg(long, conflicts_with_all = ["real", "verified"])]
+    library: bool,
     #[command(flatten)]
     db: DbArgs,
     #[arg(long)]
@@ -403,6 +406,12 @@ fn fuzz(a: &FuzzArgs) -> Result<ExitCode> {
             rejected.len()
         );
         (pool, label)
+    } else if a.library {
+        let (db, _) = a.db.load()?;
+        let lib = card_library(&db)?;
+        let (pool, _) = lib.pool();
+        let label = format!("{} ({} supported cards incl. tokens)", db.id(), pool.len());
+        (pool, label)
     } else {
         (CardPool::test_set(), "synthetic M2 test set".to_owned())
     };
@@ -423,7 +432,12 @@ fn fuzz(a: &FuzzArgs) -> Result<ExitCode> {
         },
         threads: a.threads,
     };
-    let (players, deck_size, real, seed) = (a.players, a.deck_size, a.real || a.verified, a.seed);
+    let (players, deck_size, real, seed) = (
+        a.players,
+        a.deck_size,
+        a.real || a.verified || a.library,
+        a.seed,
+    );
     let pool_for_decks = Arc::clone(&pool);
     let decks = move |index: u64| -> Vec<Vec<mtg_engine::DefId>> {
         (0..players)
@@ -648,13 +662,6 @@ fn data_info(args: &DbArgs, json: bool) -> Result<ExitCode> {
     Ok(ExitCode::SUCCESS)
 }
 
-#[derive(Debug, Default, Serialize)]
-struct CoverageCounts {
-    verified: u64,
-    parsed: u64,
-    unsupported: u64,
-}
-
 fn data_coverage(format: &str, deck: Option<&Path>, args: &DbArgs, json: bool) -> Result<ExitCode> {
     let (db, _) = args.load()?;
     if let Some(path) = deck {
@@ -680,30 +687,31 @@ fn data_coverage(format: &str, deck: Option<&Path>, args: &DbArgs, json: bool) -
         }
         return Ok(ExitCode::SUCCESS);
     }
-    let mut counts = CoverageCounts::default();
-    let mut total = 0u64;
-    for c in db
-        .cards()
-        .iter()
-        .filter(|c| c.layout.is_deck_card() && c.legality(format) != mtg_data::Legality::NotLegal)
-    {
-        total += 1;
-        match db.coverage(c).level() {
-            CoverageLevel::Verified => counts.verified += 1,
-            CoverageLevel::Parsed => counts.parsed += 1,
-            CoverageLevel::Unsupported => counts.unsupported += 1,
-        }
-    }
+    let lib = card_library(&db)?;
+    let legal = |c: &mtg_data::CardRecord| {
+        c.layout.is_deck_card() && c.legality(format) != mtg_data::Legality::NotLegal
+    };
+    let counts = lib.counts(&db, legal);
+    let total = counts.verified + counts.parsed + counts.unsupported;
+    let reasons = lib.top_reasons(&db, legal, 15);
     if json {
         print_json(
-            &serde_json::json!({ "format": format, "card_db": db.id(), "cards": total, "coverage": counts }),
+            &serde_json::json!({ "format": format, "card_db": db.id(), "cards": total, "coverage": counts, "top_unsupported_reasons": reasons }),
         )?;
     } else {
         println!("Coverage of {total} {format}-legal cards in {}:", db.id());
         println!(
-            "  verified {} · parsed {} · unsupported {}",
-            counts.verified, counts.parsed, counts.unsupported
+            "  verified {} · parsed {} · unsupported {}  (supported from overrides {}, from the parser {})",
+            counts.verified,
+            counts.parsed,
+            counts.unsupported,
+            counts.from_overrides,
+            counts.from_parser
         );
+        println!("Most common reasons a card is unsupported:");
+        for (r, n) in reasons {
+            println!("  {n:>6}  {r}");
+        }
     }
     Ok(ExitCode::SUCCESS)
 }
@@ -721,11 +729,24 @@ fn check_file(
     if parsed.name.is_none() {
         parsed.name = path.file_stem().map(|s| s.to_string_lossy().into_owned());
     }
-    Ok(validate(
+    let lib = card_library(db)?;
+    Ok(validate_with(
         db,
         &parsed,
         &ValidateOptions { format, commanders },
+        &|c| lib.coverage(c.oracle_id),
     ))
+}
+
+/// The card library (ADR-0007): overrides from `cards/defs/`, the parser for
+/// the rest, and `verified` from the real-card scenarios.
+fn card_library(db: &CardDb) -> Result<mtg_sim::library::Library> {
+    let root = mtg_testkit::real::repo_root();
+    let defs = mtg_cards::defs::load_dir(&root.join("cards/defs"))?;
+    let verified: std::collections::BTreeSet<String> = mtg_testkit::real::verify(db)
+        .map(|r| r.verified.into_keys().collect())
+        .unwrap_or_default();
+    Ok(mtg_sim::library::Library::build(db, &defs, &verified))
 }
 
 fn deck_check(

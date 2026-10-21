@@ -21,8 +21,11 @@ use crate::ir::{
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ParsedFace {
     pub abilities: Vec<Ability>,
-    /// One entry per input line: the normalized line and whether it parsed.
+    /// One entry per input line: the normalized line and whether it parsed
+    /// (and, for [`parse_face_checked`], passed the renderer lint).
     pub lines: Vec<(String, bool)>,
+    /// Lines that parsed but whose rendering didn't match (checked parses only).
+    pub lint_failures: Vec<String>,
 }
 
 impl ParsedFace {
@@ -34,6 +37,16 @@ impl ParsedFace {
 /// Parses one face's reminder-stripped text. `is_spell` = instant or sorcery
 /// (its non-ability lines form the spell ability).
 pub fn parse_face(text: &str, name: &str, is_spell: bool) -> ParsedFace {
+    parse_face_with(text, name, is_spell, false)
+}
+
+/// Like [`parse_face`], but a line counts as parsed only if rendering its IR
+/// matches the line (the mandatory renderer lint, ADR-0007).
+pub fn parse_face_checked(text: &str, name: &str, is_spell: bool) -> ParsedFace {
+    parse_face_with(text, name, is_spell, true)
+}
+
+fn parse_face_with(text: &str, name: &str, is_spell: bool, lint: bool) -> ParsedFace {
     let mut out = ParsedFace::default();
     let mut spell: Option<SpellAbility> = None;
     for raw in text.lines() {
@@ -41,7 +54,16 @@ pub fn parse_face(text: &str, name: &str, is_spell: bool) -> ParsedFace {
         if line.is_empty() {
             continue;
         }
-        match parse_line(&line, is_spell) {
+        let parsed = parse_line(&line, is_spell);
+        if lint
+            && let Some(ir) = &parsed
+            && !crate::render::matches(&crate::render::render_line(ir), &line)
+        {
+            out.lint_failures.push(line.clone());
+            out.lines.push((line, false));
+            continue;
+        }
+        match parsed {
             Some(LineIr::Abilities(a)) => {
                 out.abilities.extend(a);
                 out.lines.push((line, true));

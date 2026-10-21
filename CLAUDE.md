@@ -1,7 +1,7 @@
 # CLAUDE.md: orientation for AI sessions
 
 ## Project
-This is a Rust MTG rules engine plus a simulation lab. The headline use case: an AI agent runs "deck X vs Y, Z, C in a cEDH pod" for thousands of games and gets statistics. Commander-first, with N players from day one. **Current phase: M3 in review.** The engine executes card IR v1 (spells, activated and mana abilities, full casting, counters, tokens); 123 real cards are verified. ADR-0007 (front-end choice; D, hybrid, recommended) still awaits the user. M4 (triggers, replacements) is next. Check `docs/09 Roadmap/Roadmap.md` for the active milestone.
+This is a Rust MTG rules engine plus a simulation lab. The headline use case: an AI agent runs "deck X vs Y, Z, C in a cEDH pod" for thousands of games and gets statistics. Commander-first, with N players from day one. **Current phase: M3 done; M4 (triggers, replacements, LKI) next.** The engine executes card IR v1; the card library (ADR-0007 hybrid, accepted) supports 2,176 Commander-legal cards, 123 of them verified. Check `docs/09 Roadmap/Roadmap.md` for the active milestone.
 
 ## Where things are
 - `crates/` is the Cargo workspace (layout in `docs/03 Architecture/Crate Layout.md`). The CLI binary is `mtg` (`crates/mtg-cli`).
@@ -32,7 +32,8 @@ cargo clippy --workspace --all-targets -- -D warnings && cargo fmt --all --check
 ./target/release/mtg dev cr-check      # every `CR x.y` citation in docs/ and crates/ must exist in the CR
 ./target/release/mtg data build --input docs/_external/oracle-cards.jsonl.gz --source-date 2026-10-20
 ./target/release/mtg deck check tests/fixtures/decks/kinnan.txt --json
-./target/release/mtg dev fuzz --games 10000 --invariants --views --replay-every 100   # engine fuzzing (add --verified for real-card decks)
+./target/release/mtg dev fuzz --games 10000 --invariants --views --replay-every 100   # engine fuzzing (--verified / --library for real cards)
+./target/release/mtg data coverage                                                    # card library coverage and top gaps
 ./target/release/mtg dev verify-cards --list                                          # real-card verification (needs the card DB)
 cargo bench -p mtg-engine                                                             # clone / enumeration / game benchmarks
 ```

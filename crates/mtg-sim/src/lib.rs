@@ -4,6 +4,7 @@
 //! runner skeleton ([`runner`]). Experiment specs, metrics and reports arrive in M7.
 
 pub mod deck;
+pub mod library;
 pub mod runner;
 
 pub mod vanilla;

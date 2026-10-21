@@ -932,11 +932,14 @@ impl Game {
                     self.create_tokens(def, p, n);
                 }
             }
+            Effect::Escape(x) => {
+                // `support::check` admits only registered escapes.
+                if let Some(f) = crate::escapes::lookup(&x.function) {
+                    f(self, t);
+                }
+            }
             // `support::check` rejects these until their phase lands.
-            Effect::EntersTapped
-            | Effect::Amass { .. }
-            | Effect::Delayed { .. }
-            | Effect::Escape(_) => {
+            Effect::EntersTapped | Effect::Amass { .. } | Effect::Delayed { .. } => {
                 debug_assert!(false, "unsupported effect reached the interpreter: {e:?}");
             }
         }

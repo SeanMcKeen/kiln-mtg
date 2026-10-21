@@ -123,6 +123,16 @@ struct Resolved<'a> {
 
 /// Resolves and validates a parsed deck.
 pub fn validate(db: &CardDb, deck: &ParsedDeck, opts: &ValidateOptions) -> DeckReport {
+    validate_with(db, deck, opts, &|c| db.coverage(c))
+}
+
+/// [`validate`], with per-card coverage from `coverage` (e.g. the card library).
+pub fn validate_with(
+    db: &CardDb,
+    deck: &ParsedDeck,
+    opts: &ValidateOptions,
+    coverage_of: &dyn Fn(&CardRecord) -> mtg_cards::Coverage,
+) -> DeckReport {
     let mut violations = Vec::new();
     let mut warnings: Vec<Issue> = deck
         .warnings
@@ -137,7 +147,16 @@ pub fn validate(db: &CardDb, deck: &ParsedDeck, opts: &ValidateOptions) -> DeckR
             format!("format {format:?} isn't supported yet; M1 validates `commander` only"),
             vec![],
         ));
-        return report(db, format, deck, &[], violations, warnings, None);
+        return report(
+            db,
+            format,
+            deck,
+            &[],
+            violations,
+            warnings,
+            None,
+            coverage_of,
+        );
     }
 
     // CR 903.5e: no sideboards. Companions and maybeboards are outside the deck too.
@@ -241,7 +260,16 @@ pub fn validate(db: &CardDb, deck: &ParsedDeck, opts: &ValidateOptions) -> DeckR
         .collect();
     let identity = check_commanders(&commanders, &mut violations);
     check_deck(&resolved, identity, &mut violations);
-    report(db, format, deck, &resolved, violations, warnings, identity)
+    report(
+        db,
+        format,
+        deck,
+        &resolved,
+        violations,
+        warnings,
+        identity,
+        coverage_of,
+    )
 }
 
 fn resolves_to(db: &CardDb, name: &str, format: &str, card: &CardRecord) -> bool {
@@ -591,6 +619,7 @@ fn check_deck(resolved: &[Resolved<'_>], identity: Option<Colors>, violations: &
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn report(
     db: &CardDb,
     format: &str,
@@ -599,11 +628,12 @@ fn report(
     violations: Vec<Issue>,
     warnings: Vec<Issue>,
     identity: Option<Colors>,
+    coverage_of: &dyn Fn(&CardRecord) -> mtg_cards::Coverage,
 ) -> DeckReport {
     let mut coverage = CoverageSummary::default();
     let mut cards: Vec<CardLine> = Vec::new();
     for r in resolved {
-        let cov = db.coverage(r.card);
+        let cov = coverage_of(r.card);
         match cov.level() {
             CoverageLevel::Verified => coverage.verified += r.qty,
             CoverageLevel::Parsed => coverage.parsed += r.qty,

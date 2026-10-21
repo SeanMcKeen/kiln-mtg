@@ -10,4 +10,5 @@ pub mod validate;
 pub use parse::{DeckEntry, ParsedDeck, Section, parse_csv, parse_deck, parse_text};
 pub use validate::{
     CardLine, CoverageSummary, DeckRecord, DeckReport, Issue, ValidateOptions, validate,
+    validate_with,
 };
