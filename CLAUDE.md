@@ -1,13 +1,14 @@
 # CLAUDE.md: orientation for AI sessions
 
 ## Project
-This is a Rust MTG rules engine plus a simulation lab. The headline use case: an AI agent runs "deck X vs Y, Z, C in a cEDH pod" for thousands of games and gets statistics. Commander-first, with N players from day one. **Current phase: M2 (core game loop) complete and in review; M3 card-definition spike done — ADR-0007 (D, hybrid, recommended) awaits the user's decision before M3 Phase B.** Check `docs/09 Roadmap/Roadmap.md` for the active milestone.
+This is a Rust MTG rules engine plus a simulation lab. The headline use case: an AI agent runs "deck X vs Y, Z, C in a cEDH pod" for thousands of games and gets statistics. Commander-first, with N players from day one. **Current phase: M3 in review.** The engine executes card IR v1 (spells, activated and mana abilities, full casting, counters, tokens); 123 real cards are verified. ADR-0007 (front-end choice; D, hybrid, recommended) still awaits the user. M4 (triggers, replacements) is next. Check `docs/09 Roadmap/Roadmap.md` for the active milestone.
 
 ## Where things are
 - `crates/` is the Cargo workspace (layout in `docs/03 Architecture/Crate Layout.md`). The CLI binary is `mtg` (`crates/mtg-cli`).
-- The engine (`crates/mtg-engine`) is a decision state machine: `Game::pending()` → `Game::apply(choice)`. Rules procedures are tasks on a stack in the state (`engine.rs`); each rule module (`cast.rs`, `combat.rs`, `sba.rs`, `mana.rs`) adds `impl Game` methods. Card behaviour comes only from `card.rs` (the temporary M2 IR, replaced in M3).
-- `tests/scenarios/*.yaml` are CR-cited rules scenarios (format: `docs/08 Testing/Scenario File Format.md`); `tests/golden/*.json` are golden replays (re-bless with `MTG_BLESS=1 cargo test -p mtg-sim --test golden` and say why).
-- `tests/fixtures/` holds a **synthetic** card fixture (`cards-mini.jsonl`, made-up cards in Scryfall's shape) and decklists. Real card data stays in `data/cache/` (gitignored).
+- The engine (`crates/mtg-engine`) is a decision state machine: `Game::pending()` → `Game::apply(choice)`. Rules procedures are tasks on a stack in the state (`engine.rs`); each rule module (`cast.rs`, `combat.rs`, `sba.rs`, `mana.rs`, `counters.rs`, `targets.rs`) adds `impl Game` methods. Card behaviour comes only from `mtg_cards::ir` abilities on each `CardDef` (`card.rs`), executed by the resumable interpreter in `effects.rs`; `support.rs` rejects IR the engine can't run yet, naming the missing feature.
+- `cards/defs/*.yaml` are card definitions (IR only, never Oracle text). `tests/scenarios-real/*.yaml` verify real cards (`verifies:` lists) and need the local card DB; `mtg dev verify-cards` reports coverage.
+- `tests/scenarios/*.yaml` are CR-cited rules scenarios on synthetic cards (format: `docs/08 Testing/Scenario File Format.md`); `tests/golden/*.json` are golden replays (re-bless with `MTG_BLESS=1 cargo test -p mtg-sim --test golden` and say why).
+- `tests/fixtures/` holds **synthetic** card fixtures (`cards-mini.jsonl` in Scryfall's shape; `synthetic-ir-cards.yaml`, made-up IR cards for engine tests) and decklists. Real card data stays in `data/cache/` (gitignored).
 - `tools/corpus-analysis/` has Python scripts for Oracle-text statistics. Run them with `python3 -I`.
 - `docs/` is an Obsidian vault and the source of truth for scope and design. The hub is `docs/00 Home.md`.
 - Decisions are in `docs/10 Decisions/` (ADRs). **Don't contradict an Accepted ADR. Supersede it with a new ADR instead.**
@@ -31,7 +32,8 @@ cargo clippy --workspace --all-targets -- -D warnings && cargo fmt --all --check
 ./target/release/mtg dev cr-check      # every `CR x.y` citation in docs/ and crates/ must exist in the CR
 ./target/release/mtg data build --input docs/_external/oracle-cards.jsonl.gz --source-date 2026-10-20
 ./target/release/mtg deck check tests/fixtures/decks/kinnan.txt --json
-./target/release/mtg dev fuzz --games 10000 --invariants --views --replay-every 100   # engine fuzzing
+./target/release/mtg dev fuzz --games 10000 --invariants --views --replay-every 100   # engine fuzzing (add --verified for real-card decks)
+./target/release/mtg dev verify-cards --list                                          # real-card verification (needs the card DB)
 cargo bench -p mtg-engine                                                             # clone / enumeration / game benchmarks
 ```
 

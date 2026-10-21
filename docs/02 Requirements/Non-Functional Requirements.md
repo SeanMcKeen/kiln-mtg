@@ -77,6 +77,7 @@ Targets that fall out of this:
 | 2026-10-21 (M1) | NFR-P6 card DB load ≤ 1 s | **~210 ms** | Full Scryfall `oracle_cards` (38,940 objects) |
 | 2026-10-21 (M2) | NFR-P4 ≥ 85% scaling at 8 cores | 13.2× on 18 cores (73%; mix of performance and efficiency cores) | `mtg dev fuzz`, unchecked |
 | 2026-10-21 (M2) | NFR-D1 identical across thread counts | ✅ identical results on 1 and 18 threads | 5,000-game batch |
+| 2026-10-21 (M3) | — (throughput with real cards) | 475 games/s, 4-player, ~2,100 decisions/game | Verified-card decks, random policy, 2 threads, invariants + view audits + replays on (`mtg dev fuzz --verified`) |
 
 M2 numbers use vanilla cards. Re-baseline at M6 with real cEDH decks, where card IR interpretation and layers add cost.
 

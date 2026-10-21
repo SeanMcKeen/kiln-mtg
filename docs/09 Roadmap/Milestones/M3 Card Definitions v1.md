@@ -1,6 +1,6 @@
 ---
 type: milestone
-status: in-progress
+status: review
 milestone: M3
 tags: [milestone]
 updated: 2026-10-21
@@ -12,17 +12,19 @@ updated: 2026-10-21
 
 ## Checklist
 - [x] Run the [[Card Definition Spike Plan]] → [[Card Definition Spike Results]]. **Accepting [[ADR-0007 Card Definition Approach]] is the user's call** (D recommended)
-- [ ] IR v1: effects, filters, costs, triggers, statics, replacements (the shape at least; behaviour arrives in M4/M5)
-- [ ] Chosen front-end(s) implemented (parser, DSL loader, escape registry)
-- [ ] IR → text renderer (lint against Oracle)
-- [ ] Targeting & legality ([[Targeting & Legality]])
-- [ ] Evergreen keywords ([[Keywords & Keyword Actions]]): flying, reach, trample, first and double strike, deathtouch, lifelink, vigilance, haste, menace, defender, flash, hexproof, shroud, indestructible, ward, protection
-- [ ] Counters ([[Counters]])
-- [ ] Greedy baseline policy ([[A - Baseline Policies]])
-- [ ] 100 cards verified (removal, counterspells, card draw, tutors, mana rocks)
+- [x] IR v1: effects, filters, costs, triggers, statics, replacements (the shape; the engine executes everything except triggers, statics other than "can't be countered", and replacements, which arrive in M4/M5)
+- [ ] Chosen front-end(s) implemented (parser, DSL loader, escape registry). **Waits for ADR-0007.** Today the YAML loader (`cards/defs/`) is the working front-end; the parser and renderer are spike prototypes.
+- [ ] IR → text renderer (lint against Oracle). Spike prototype only; production version waits for ADR-0007.
+- [x] Targeting & legality ([[Targeting & Legality]]): target slots, "up to N", spells as targets, hexproof, shroud, CR 608.2b rechecks
+- [x] Evergreen keywords ([[Keywords & Keyword Actions]]): M2's set plus flash, hexproof, shroud, indestructible. **Ward and protection moved to M4** (B-D11)
+- [x] Counters ([[Counters]])
+- [x] Greedy baseline policy ([[A - Baseline Policies]])
+- [x] 100 cards verified (removal, counterspells, card draw, tutors, mana rocks): **123**
 
 ## Exit criteria
 ADR-0007 accepted. 100 cards `verified`. A random-policy fuzz over those cards is clean.
+
+**Status (2026-10-21):** 123 cards verified ✅. Fuzz over them clean ✅ (B9 below). **ADR-0007 is still the user's decision**, so M3 is in review rather than done, and the front-end items stay open.
 
 ## Plan
 M3 has two phases with a decision between them. The card-definition approach is **yours to decide** (ADR-0007 is research-first by your request), so Phase A produces the data and stops.
@@ -93,6 +95,8 @@ ADR-0007 is still open, but its fixed constraint is that **every option compiles
 | B7 | ✅ 2026-10-21 | `GreedyPolicy` (`mtg-policy`, spec `greedy`): one-ply heuristics over the `PlayerView`; classifies effects as harmful or helpful from the IR. **Beats random 850–150 in 1,000 two-player games** on the synthetic M3 cards (seats alternated, invariants checked every decision, no draws or aborts); CI runs 200. |
 
 | B8 | ✅ 2026-10-21 | **123 real cards verified.** Harness (`mtg-testkit::real`, `mtg dev verify-cards`): characteristics from the local card DB plus IR from `cards/defs/` (143 definitions, no Oracle text), 109 CR-cited scenarios in `tests/scenarios-real/` with `verifies:` lists. Families: 45 mana rocks, rituals, dorks and lands (10 Talismans, 10 Signets, 10 fetch lands, Ancient Tomb, Strip Mine, Wasteland…), 23 removal, 19 counterspells, 13 card draw, 22 tutors. 20 definitions are rejected with the feature they need (triggers, statics, replacements, commander). Real scenarios run where a DB exists; their CR citations are checked in CI (Q25). IR gained `min_mana_value`/`max_mana_value` filters (X counted on the stack, CR 202.3e). |
+
+| B9 | ✅ 2026-10-21 | `mtg dev fuzz --verified`: random two-color decks of verified cards and DB lands, random policy, 2 threads. **65,000 games clean:** 50,000 four-player (~105 M decisions), 10,000 two-player, 5,000 six-player; invariants after every decision, view audits, every 100th game replayed (650/650 identical), 0 violations, 0 panics, 0 turn-limit aborts. 475 games/s with all checks on 2 threads. |
 
 Semantics fixed while building B2 (documented in `ir.rs`):
 - A search for "a card" must find one if possible (701.23d); a filter states a quality, so finding nothing is allowed (701.23b).

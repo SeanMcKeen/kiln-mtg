@@ -59,7 +59,15 @@ pub struct Rejected {
 /// The synthetic M3 test set plus real cards: the plain lands and every
 /// supported definition. Returns the pool and the definitions it couldn't use.
 pub fn real_pool(db: &CardDb, defs: &[CardFile]) -> (CardPool, Vec<Rejected>) {
-    let mut pool = CardPool::m3_test_set();
+    add_real_cards(CardPool::m3_test_set(), db, defs)
+}
+
+/// Only real cards: the plain lands and every supported definition (for fuzzing decks of verified cards).
+pub fn real_only_pool(db: &CardDb, defs: &[CardFile]) -> (CardPool, Vec<Rejected>) {
+    add_real_cards(CardPool::new(), db, defs)
+}
+
+fn add_real_cards(mut pool: CardPool, db: &CardDb, defs: &[CardFile]) -> (CardPool, Vec<Rejected>) {
     let mut rejected = Vec::new();
     let record = |name: &str| match db.resolve(name, "commander") {
         NameMatch::Exact(i) => Ok(&db.cards()[i]),

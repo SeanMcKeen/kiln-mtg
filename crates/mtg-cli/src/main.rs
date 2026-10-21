@@ -212,6 +212,10 @@ struct FuzzArgs {
     /// instead of the synthetic test set.
     #[arg(long)]
     real: bool,
+    /// Use the verified real cards (`cards/defs/` the engine supports) and
+    /// lands from the card DB, in random two-color decks.
+    #[arg(long, conflicts_with = "real")]
+    verified: bool,
     #[command(flatten)]
     db: DbArgs,
     #[arg(long)]
@@ -388,6 +392,17 @@ fn fuzz(a: &FuzzArgs) -> Result<ExitCode> {
             pool.len()
         );
         (pool, label)
+    } else if a.verified {
+        let (db, _) = a.db.load()?;
+        let defs = mtg_cards::defs::load_dir(&mtg_testkit::real::repo_root().join("cards/defs"))?;
+        let (pool, rejected) = mtg_testkit::real::real_only_pool(&db, &defs);
+        let label = format!(
+            "{} ({} cards incl. tokens and lands; {} definitions unsupported)",
+            db.id(),
+            pool.len(),
+            rejected.len()
+        );
+        (pool, label)
     } else {
         (CardPool::test_set(), "synthetic M2 test set".to_owned())
     };
@@ -408,7 +423,7 @@ fn fuzz(a: &FuzzArgs) -> Result<ExitCode> {
         },
         threads: a.threads,
     };
-    let (players, deck_size, real, seed) = (a.players, a.deck_size, a.real, a.seed);
+    let (players, deck_size, real, seed) = (a.players, a.deck_size, a.real || a.verified, a.seed);
     let pool_for_decks = Arc::clone(&pool);
     let decks = move |index: u64| -> Vec<Vec<mtg_engine::DefId>> {
         (0..players)
