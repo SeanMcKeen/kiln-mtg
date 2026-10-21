@@ -1,5 +1,5 @@
 # Wizards of the Coast / Scryfall / MTGJSON content is fetched locally, never committed.
-docs/_external/
+docs/_external
 data/cache/
 
 # Obsidian per-user state

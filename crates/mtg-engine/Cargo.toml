@@ -1,0 +1,11 @@
+[package]
+name = "mtg-engine"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Game state, rules procedures, decisions, events, player views and replay."
+
+[lints]
+workspace = true

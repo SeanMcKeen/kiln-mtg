@@ -7,9 +7,21 @@
 
 ## Status
 
-**Design phase (Milestone M0).** There is no code yet. All scope, research, architecture and decisions live in the Obsidian vault under [`docs/`](docs/00%20Home.md).
+**Milestone M1 (Foundations & Data) is in review.** The Rust workspace, core types, the card database pipeline, Commander deck validation, and CR tooling all work. The game engine starts in M2. All scope, research, architecture and decisions live in the Obsidian vault under [`docs/`](docs/00%20Home.md). Start at **[docs/00 Home.md](docs/00%20Home.md)**.
 
-Start at **[docs/00 Home.md](docs/00%20Home.md)**.
+## Quick start
+
+```bash
+cargo build --release
+# Card data is downloaded, never bundled (Scryfall bulk data; cached ≥ 24 h)
+./target/release/mtg data fetch
+./target/release/mtg data build
+# Validate a Commander deck: legality and per-card engine coverage
+./target/release/mtg deck check tests/fixtures/decks/kinnan.txt
+./target/release/mtg deck check my-deck.txt --commander "Kinnan, Bonder Prodigy" --json
+```
+
+Every card currently reports `unsupported` coverage, because card behaviour arrives in M3. The engine refuses to pretend otherwise.
 
 ## What this is
 

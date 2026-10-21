@@ -1,0 +1,11 @@
+[package]
+name = "mtg-playbook"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Sandboxed playbook policies authored by AI agents."
+
+[lints]
+workspace = true

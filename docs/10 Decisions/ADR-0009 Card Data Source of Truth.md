@@ -22,3 +22,13 @@ See [[Card Data Sources]] and [[Ingestion Pipeline]].
 - JSONL bulk downloads are easy to stream.
 
 **Accept by:** M1.
+
+## M1 evidence (2026-10-20)
+`mtg-data` now ingests Scryfall `oracle_cards` end to end (`mtg data fetch|build`), and the evidence supports the proposal:
+- **Oracle ID works as the key.** 38,940 objects, all with an Oracle ID. The DB is content-hashed and rebuilds byte-identically.
+- **Legality data is enough for deck validation.** The four Commander bans (Mana Crypt, Dockside Extortionist, Jeweled Lotus, Hullbreacher) are rejected from data alone, with nothing hard-coded.
+- **Name resolution needs care beyond what this ADR says.** 16 full names map to several deck-eligible objects (mostly Un-card variants). Separately, prepare-card spell faces reuse real card names ("Brainstorm"). A legality → paper → non-joke tie-break plus a two-tier name index handles both ([[Ingestion Pipeline]]).
+- **Scryfall's `color_identity` isn't a pure CR 903.4 value.** It includes basic-land-type colors and is empty for some preview cards whose rules text has mana symbols. Validation uses the union with a recomputed value. That's a small caveat, not a reason to switch sources.
+- **MTGJSON cross-checks haven't been built yet.** They aren't needed for M1's exit criterion.
+
+**Status:** ready to accept. This is the user's call ([[12 Open Questions]] Q2).

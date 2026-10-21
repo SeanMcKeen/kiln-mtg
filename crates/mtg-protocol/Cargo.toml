@@ -1,0 +1,11 @@
+[package]
+name = "mtg-protocol"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Serde JSON schema for decisions, choices, views, specs and reports (plus JSON Schema export)."
+
+[lints]
+workspace = true

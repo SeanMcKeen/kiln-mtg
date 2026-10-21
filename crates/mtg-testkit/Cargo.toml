@@ -1,0 +1,17 @@
+[package]
+name = "mtg-testkit"
+description = "Test tooling: CR rule tree and citation checker; later scenario loader, golden replays and fuzz harness."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+mtg-core.workspace = true
+regex.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

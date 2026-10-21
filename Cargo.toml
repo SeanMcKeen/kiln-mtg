@@ -1,0 +1,57 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[workspace.dependencies]
+# Internal crates
+mtg-core = { path = "crates/mtg-core" }
+mtg-cards = { path = "crates/mtg-cards" }
+mtg-data = { path = "crates/mtg-data" }
+mtg-engine = { path = "crates/mtg-engine" }
+mtg-policy = { path = "crates/mtg-policy" }
+mtg-sim = { path = "crates/mtg-sim" }
+mtg-protocol = { path = "crates/mtg-protocol" }
+mtg-testkit = { path = "crates/mtg-testkit" }
+
+# External
+anyhow = "1"
+clap = { version = "4", features = ["derive", "env"] }
+csv = "1"
+flate2 = "1"
+insta = { version = "1", features = ["json"] }
+postcard = { version = "1", default-features = false, features = ["use-std"] }
+proptest = "1"
+regex = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+smallvec = { version = "1", features = ["serde", "union", "const_generics"] }
+strsim = "0.11"
+thiserror = "2"
+unicode-normalization = "0.1"
+ureq = "3"
+uuid = { version = "1", features = ["serde"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+
+[workspace.lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
+unwrap_used = "warn"
+semicolon_if_nothing_returned = "warn"
+redundant_closure_for_method_calls = "warn"
+explicit_iter_loop = "warn"
+manual_let_else = "warn"
+needless_pass_by_value = "warn"
+
+[profile.release]
+debug = "line-tables-only"

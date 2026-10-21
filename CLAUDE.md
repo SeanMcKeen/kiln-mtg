@@ -1,9 +1,12 @@
 # CLAUDE.md: orientation for AI sessions
 
 ## Project
-This is a Rust MTG rules engine plus a simulation lab. The headline use case: an AI agent runs "deck X vs Y, Z, C in a cEDH pod" for thousands of games and gets statistics. Commander-first, with N players from day one. **Current phase: M0 (design docs only, no code).** Check `docs/09 Roadmap/Roadmap.md` for the active milestone.
+This is a Rust MTG rules engine plus a simulation lab. The headline use case: an AI agent runs "deck X vs Y, Z, C in a cEDH pod" for thousands of games and gets statistics. Commander-first, with N players from day one. **Current phase: M1 (Foundations & Data) in review; M2 (core game loop) is next, pending the ADR-0012 phase.rs decision.** Check `docs/09 Roadmap/Roadmap.md` for the active milestone.
 
 ## Where things are
+- `crates/` is the Cargo workspace (layout in `docs/03 Architecture/Crate Layout.md`). The CLI binary is `mtg` (`crates/mtg-cli`).
+- `tests/fixtures/` holds a **synthetic** card fixture (`cards-mini.jsonl`, made-up cards in Scryfall's shape) and decklists. Real card data stays in `data/cache/` (gitignored).
+- `tools/corpus-analysis/` has Python scripts for Oracle-text statistics. Run them with `python3 -I`.
 - `docs/` is an Obsidian vault and the source of truth for scope and design. The hub is `docs/00 Home.md`.
 - Decisions are in `docs/10 Decisions/` (ADRs). **Don't contradict an Accepted ADR. Supersede it with a new ADR instead.**
 - Open questions are in `docs/12 Open Questions.md`.
@@ -16,6 +19,17 @@ This is a Rust MTG rules engine plus a simulation lab. The headline use case: an
 - Research notes end with a `## Sources` section.
 - Update `docs/12 Open Questions.md` and the relevant milestone checklist whenever you resolve or discover something.
 - Commits only when asked. Branch: `main` (no remote yet).
+- No `HashMap` iteration, wall-clock time or floats in anything that affects output bytes or game logic (ADR-0005). Use `BTreeMap` or sorted `Vec`s.
+
+## Build, test, check
+```bash
+cargo build --release
+cargo nextest run --workspace          # real-data tests skip unless data/cache/current or MTG_CARD_DB exists
+cargo clippy --workspace --all-targets -- -D warnings && cargo fmt --all --check
+./target/release/mtg dev cr-check      # every `CR x.y` citation in docs/ and crates/ must exist in the CR
+./target/release/mtg data build --input docs/_external/oracle-cards.jsonl.gz --source-date 2026-10-20
+./target/release/mtg deck check tests/fixtures/decks/kinnan.txt --json
+```
 
 ## Refreshing local reference data
 ```bash

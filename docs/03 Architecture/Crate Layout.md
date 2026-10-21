@@ -1,6 +1,6 @@
 ---
 type: architecture
-status: proposed
+status: accepted-in-part
 tags: [architecture, rust, crates]
 updated: 2026-10-20
 ---
@@ -48,6 +48,24 @@ mtg-testkit     ← scenario file loader, assertion helpers, golden replay runne
 | `mtg-py` | cdylib | `pyo3`, `maturin` | M12 |
 | `mtg-wasm` | cdylib | `wasm-bindgen`, `tsify` | M12 |
 | `mtg-testkit` | lib (dev) | `proptest`, `insta` | M1 |
+
+## As built (M1, 2026-10-20)
+All crates exist under `crates/`. The ones M1 doesn't implement are stubs whose crate docs point at their design note and milestone.
+
+| Crate | M1 state | Dependencies chosen |
+|---|---|---|
+| `mtg-core` | ids, `Color`/`Colors`, `ManaSymbol`/`ManaCost`, `TypeLine`, `PrintedStat`, `CrRef` | `serde`, `smallvec`, `uuid`, `thiserror` |
+| `mtg-cards` | only the coverage model (`Coverage`, `Provenance`, `CardDefinition` without IR) | `serde` |
+| `mtg-data` | Scryfall fetch, normalization, binary DB, name index | **`postcard`** for the DB (bincode is unmaintained; rkyv deferred until load time matters, since ~210 ms already beats NFR-P6), **`ureq` 3** (blocking, behind the `fetch` feature), `flate2`, `sha2`, `strsim`, `unicode-normalization` |
+| `mtg-sim` | deck import and Commander validation only | `csv`, `sha2` |
+| `mtg-testkit` | CR rule tree and citation checker | `regex` |
+| `mtg-cli` | `mtg data …`, `mtg deck check`, `mtg dev cr-check` | `clap` (derive, env), `anyhow` |
+
+Workspace conventions:
+- edition 2024, toolchain pinned in `rust-toolchain.toml`
+- `unsafe_code = "forbid"`, a small set of clippy lints, and CI runs `-D warnings`
+
+Deck import landed in `mtg-sim` as this note says. If it stays CLI-only through M6, consider moving it to `mtg-data` so the CLI doesn't pull in simulation code.
 
 ## Rules
 - **The engine doesn't know specific card names.** Card behaviour arrives only through the IR. The one exception is rules that name cards: the CR names a few, and some cards reference others by name, which goes through IR filters.

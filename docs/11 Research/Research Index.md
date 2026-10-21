@@ -8,7 +8,7 @@ updated: 2026-10-20
 # Research Index
 
 ## Prior art
-- [[Prior Art - phase.rs]]: the closest analog (Rust, MIT/Apache, Oracle parser). ⭐ Highest leverage.
+- [[Prior Art - phase.rs]]: the closest analog (Rust, MIT/Apache, Oracle parser). ⭐ Highest leverage. M1 hands-on evaluation: [[phase.rs Evaluation]].
 - [[Prior Art - Forge]]: Java, GPL-3.0, card script DSL, AI hints.
 - [[Prior Art - XMage]]: Java, MIT, code per card. Used by MageBench.
 - [[Prior Art - MTG Arena GRE]]: C++/CLIPS, a parser for ~80% of new cards, the whiteboard model.
@@ -30,7 +30,7 @@ updated: 2026-10-20
 - [[AI-Agent Integration Research]] (in 07): MCP, CLI, Python. Tool-design guidance.
 
 ## Research backlog
-- [ ] Read phase.rs source: parser, decision model, AI (M1)
+- [x] Read phase.rs source: parser, decision model, AI (M1) → [[phase.rs Evaluation]]
 - [ ] Read the full Cowling et al. 2012 papers (M9)
 - [ ] Introspect the EDHTop16 GraphQL schema and check usage terms (M11)
 - [ ] Topdeck.gg data availability
