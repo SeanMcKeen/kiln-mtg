@@ -768,3 +768,65 @@
     - triggered:
         trigger: { loses_life: { by: opponent } }
         effect: { gain_life: { who: you, amount: triggering_amount } }
+
+# ---- layers and rule statics (M5 5.2) ----------------------------------------
+
+- name: Test Moon
+  cost: "{2}{R}"
+  types: Enchantment
+  abilities:
+    - static:
+        effect: { land_type: { affected: { types: [land], not_supertypes: [basic] }, land_type: Mountain, replace: true } }
+
+- name: Test Crypt
+  types: Legendary Land
+  abilities:
+    - static:
+        effect: { land_type: { affected: { types: [land] }, land_type: Swamp, replace: false } }
+
+- name: Test Humbler
+  cost: "{2}{W}{W}"
+  types: Enchantment
+  abilities:
+    - static:
+        effect:
+          multi:
+            - lose_all_abilities: { affected: { types: [creature] } }
+            - set_base_pt: { affected: { types: [creature] }, power: { fixed: 1 }, toughness: { fixed: 1 } }
+
+- name: Test Opal
+  cost: "{2}{W}{W}"
+  types: Enchantment
+  abilities:
+    - static:
+        effect:
+          multi:
+            - add_types: { affected: { types: [enchantment], not_subtypes: [Aura], other: true }, types: [creature] }
+            - set_base_pt:
+                affected: { types: [enchantment], not_subtypes: [Aura], other: true }
+                power: mana_value
+                toughness: mana_value
+
+- name: Test Anthem
+  cost: "{1}{W}{W}"
+  types: Enchantment
+  abilities:
+    - static: { effect: { pump: { affected: { types: [creature], controller: you }, power: 1, toughness: 1 } } }
+
+- name: Test Orb
+  cost: "{2}"
+  types: Artifact
+  abilities:
+    - static: { effect: { rule: creatures_entering_dont_trigger } }
+
+- name: Test Abolisher
+  cost: "{W}"
+  types: Creature — Human Cleric
+  pt: [1, 1]
+  abilities:
+    - static:
+        condition: your_turn
+        effect: { cant_cast: { who: opponent, spells: {} } }
+    - static:
+        condition: your_turn
+        effect: { cant_activate: { who: opponent, sources: { types: [artifact, creature, enchantment] } } }

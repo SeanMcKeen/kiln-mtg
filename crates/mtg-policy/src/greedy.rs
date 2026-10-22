@@ -34,7 +34,11 @@ fn harmful(e: &Effect) -> bool {
                 !matches!(who, ir::PlayerRef::You)
             }
             Effect::PutCounters { counter, .. } => *counter == ir::CounterKind::MinusOne,
-            Effect::Pump { power, .. } => *power < 0,
+            Effect::Pump { power, .. } => match power {
+                ir::Quantity::Fixed(n) => *n < 0,
+                ir::Quantity::Expr(ir::QuantityExpr::Neg(_)) => true,
+                ir::Quantity::Expr(_) => false,
+            },
             _ => false,
         };
     });

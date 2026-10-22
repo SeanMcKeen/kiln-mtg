@@ -1,0 +1,15 @@
+scenario: mtg-scenario/1
+name: Gaining a basic land type gives the land that type's mana ability too
+cr: ["305.6", "613.1d"]
+players:
+  - battlefield: [Test Crypt, Test Island]
+  - {}
+script:
+  - check:
+      decision:
+        player: P1
+        kind: priority
+        options_include: ["Tap Test Crypt for {B}", "Tap Test Island for {U}", "Tap Test Island for {B}"]
+  - choose: "Tap Test Island for {B}"
+expect:
+  pool: { P1: "{B}" }

@@ -1,0 +1,10 @@
+scenario: mtg-scenario/1
+name: Layer 7c adds static bonuses, until-end-of-turn pumps and counters together
+cr: ["613.4c", "611.3a", "611.2c"]
+players:
+  - battlefield:
+      - Test Anthem
+      - { card: Test Bear, counters: { +1/+1: 1 } }
+  - battlefield: [Test Bear]
+expect:
+  pt: { Test Bear: [4, 4] }

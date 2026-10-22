@@ -1,0 +1,28 @@
+scenario: mtg-scenario/1
+name: "T54: Toxic Deluge X=3 gives the creatures present -3/-3 until end of turn; a creature that enters later is unaffected"
+cr: ["611.2c", "613.4c", "107.3a", "119.4"]
+verifies: [Toxic Deluge]
+players:
+  - battlefield: [Swamp, Swamp, Swamp, Forest, Forest]
+    hand: [Toxic Deluge, Grizzly Bears]
+  - battlefield:
+      - Grizzly Bears
+      - { card: Tymna the Weaver, counters: { +1/+1: 2 } }
+script:
+  - choose: Cast Toxic Deluge
+  - check:
+      decision: { player: P1, kind: choose_number, options_include: [Choose 0, Choose 3, Choose 19] }
+  - choose: Choose 3
+  - choose: Pay with Swamp, Swamp, Swamp
+  - pass_all
+  - check:
+      life: { P1: 17 }
+      zones: { P2.graveyard: [Grizzly Bears] }
+      pt: { Tymna the Weaver: [1, 1] }
+  - choose: Cast Grizzly Bears
+  - choose: Pay with Forest, Forest
+  - pass_all
+expect:
+  pt: { Grizzly Bears: [2, 2], Tymna the Weaver: [1, 1] }
+  zones:
+    P1.battlefield: [Swamp, Swamp, Swamp, Forest, Forest, Grizzly Bears]

@@ -199,6 +199,16 @@ fn cost_shape(def: &CardDef, ability: Option<u8>, cost: CastCost) -> Option<Cost
     Some(CostShape { symbols, other })
 }
 
+/// Whether non-mana cost parts use X ("pay X life").
+fn cost_uses_x(parts: &[CostPart]) -> bool {
+    parts.iter().any(|p| {
+        matches!(
+            p,
+            CostPart::PayLife(Quantity::Expr(mtg_cards::ir::QuantityExpr::X))
+        )
+    })
+}
+
 fn cast_ctx(
     def_id: DefId,
     def: &CardDef,
@@ -238,6 +248,14 @@ impl Game {
         pays: &[SymbolPay],
         except: Option<ObjectId>,
     ) -> bool {
+        // Non-mana costs that use X are checked with this X.
+        let with_x;
+        let ctx = if ctx.x != x && cost_uses_x(&shape.other) {
+            with_x = EffectCtx { x, ..ctx.clone() };
+            &with_x
+        } else {
+            ctx
+        };
         if !self.can_pay(ctx, p, &shape.other) {
             return false;
         }
@@ -295,7 +313,11 @@ impl Game {
     ) -> u32 {
         let pool = self.player(p).pool.total();
         let sources = u32::try_from(self.mana_sources(p, except).len()).unwrap_or(u32::MAX);
-        let cap = pool.saturating_add(sources.saturating_mul(16)).min(1_000);
+        let cap = if cost_uses_x(&shape.other) {
+            1_000
+        } else {
+            pool.saturating_add(sources.saturating_mul(16)).min(1_000)
+        };
         let mut x = 0;
         while x < cap && self.shape_payable(p, ctx, shape, x + 1, &[], except) {
             x += 1;
@@ -561,7 +583,9 @@ impl Game {
         let def_id = item.source_def;
         let pool = std::sync::Arc::clone(&self.pool);
         let def = pool.get(def_id);
-        let ctx = cast_ctx(def_id, def, item.ability, t.spell, t.caster);
+        let mut ctx = cast_ctx(def_id, def, item.ability, t.spell, t.caster);
+        // CR 107.3a: the announced X applies to every cost that uses it.
+        ctx.x = item.x;
         // A {T}/{Q} cost keeps the source out of the mana that pays the rest.
         let except = taps_source(def, item.ability).then_some(t.spell);
         match t.stage {
@@ -627,10 +651,13 @@ impl Game {
                 let Some(shape) = cost_shape(def, item.ability, item.cost) else {
                     return;
                 };
+                // CR 107.3a: X in the mana cost or in an additional cost
+                // ("As an additional cost to cast this spell, pay X life").
                 if !shape
                     .symbols
                     .iter()
                     .any(|s| matches!(s, ManaSymbol::Variable(_)))
+                    && !cost_uses_x(&shape.other)
                 {
                     return self.advance(t, CastStage::Symbols);
                 }

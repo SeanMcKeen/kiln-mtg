@@ -1,0 +1,14 @@
+scenario: mtg-scenario/1
+name: "Two multi-layer statics: with the 1/1 setter older, the mana-value setter applies last in 7b"
+cr: ["613.6", "613.7", "613.4b", "613.1f"]
+players:
+  - battlefield: [Test Humbler, Test Opal, Test Anthem, Test Bear]
+  - {}
+expect:
+  # Test Humbler (MV 4) and Test Anthem (MV 3) become creatures; Test Anthem
+  # loses its ability in layer 6, so nothing gets +1/+1 in 7c.
+  pt:
+    Test Humbler: [4, 4]
+    Test Anthem: [3, 3]
+    Test Bear: [1, 1]
+    Test Opal: null

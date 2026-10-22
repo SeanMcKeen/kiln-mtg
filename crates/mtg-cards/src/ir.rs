@@ -427,8 +427,8 @@ pub enum Effect {
     /// "[objects] get +N/+M until end of turn" (a layer 7c effect with a duration, CR 611.2).
     Pump {
         what: ObjectSet,
-        power: i32,
-        toughness: i32,
+        power: Quantity,
+        toughness: Quantity,
     },
     /// "[object] enters tapped", as a replacement's modification (CR 614.1c).
     EntersTapped,
@@ -855,6 +855,8 @@ pub enum QuantityExpr {
     },
     /// "That much": the amount from the trigger event (life gained or lost).
     TriggeringAmount,
+    /// The negation of a quantity ("-X/-X").
+    Neg(Box<Quantity>),
 }
 
 /// Conditions (intervening ifs, "if you control …").

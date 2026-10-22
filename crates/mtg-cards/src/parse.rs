@@ -775,8 +775,8 @@ fn clause(c: &mut Cur, ctx: &mut Ctx) -> Option<Effect> {
         *c = probe;
         return Some(Effect::Pump {
             what,
-            power: p,
-            toughness: t,
+            power: Quantity::Fixed(i64::from(p)),
+            toughness: Quantity::Fixed(i64::from(t)),
         });
     }
     // "<player> draws/gains/loses …"

@@ -720,13 +720,17 @@ impl Game {
                     .filter(|id| self.on_battlefield_now(*id))
                     .collect();
                 if !affected.is_empty() {
+                    let clamp = |v: i64| {
+                        i32::try_from(v).unwrap_or(if v < 0 { i32::MIN } else { i32::MAX })
+                    };
+                    let (power, toughness) = (
+                        clamp(self.quantity(&t.ctx, power)),
+                        clamp(self.quantity(&t.ctx, toughness)),
+                    );
                     // CR 611.2a: until end of turn, ending in cleanup (CR 514.2).
                     self.add_effect(
                         affected,
-                        crate::layers::LayerEffect::ModifyPt {
-                            power: *power,
-                            toughness: *toughness,
-                        },
+                        crate::layers::LayerEffect::ModifyPt { power, toughness },
                         crate::layers::Duration::EndOfTurn,
                     );
                 }
@@ -1212,6 +1216,7 @@ impl Game {
                     .map_or(0, |id| i64::from(self.counters_on(id, *counter))),
                 // Rejected by `support::check` until combat history is tracked (M4).
                 QuantityExpr::TriggeringAmount => i64::from(ctx.triggering_amount.unwrap_or(0)),
+                QuantityExpr::Neg(q) => -self.quantity(ctx, q),
                 QuantityExpr::OpponentsDealtCombatDamageThisTurn => {
                     i64::from((self.combat_damaged & !(1u8 << ctx.controller.0)).count_ones())
                 }

@@ -414,10 +414,12 @@ fn effect(e: &Effect, t: &[TargetSpec]) -> String {
             } else {
                 "gets"
             };
-            format!(
-                "{} {v} {power:+}/{toughness:+} until end of turn",
-                objects(what, t)
-            )
+            match (power, toughness) {
+                (Quantity::Fixed(p), Quantity::Fixed(tough)) => {
+                    format!("{} {v} {p:+}/{tough:+} until end of turn", objects(what, t))
+                }
+                _ => format!("<{e:?}>"),
+            }
         }
         other => format!("<{other:?}>"),
     }

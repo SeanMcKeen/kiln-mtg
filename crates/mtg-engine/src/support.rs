@@ -500,7 +500,7 @@ fn quantity(q: &Quantity) -> Check {
             | QuantityExpr::ManaValueOf(o)
             | QuantityExpr::CountersOn { what: o, .. } => object(o),
             QuantityExpr::CardsInLibrary(p) => player(p),
-            QuantityExpr::Plus(q, _) => quantity(q),
+            QuantityExpr::Plus(q, _) | QuantityExpr::Neg(q) => quantity(q),
             QuantityExpr::OpponentsDealtCombatDamageThisTurn
             | QuantityExpr::TriggeringAmount
             | QuantityExpr::X
