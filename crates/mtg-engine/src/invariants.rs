@@ -44,6 +44,10 @@ impl Game {
         for &id in &self.battlefield {
             note(id, ZoneId::Battlefield)?;
         }
+        // Phased-out permanents are still on the battlefield (CR 702.26d).
+        for &(id, _) in &self.phased_out {
+            note(id, ZoneId::Battlefield)?;
+        }
         for &id in &self.exile {
             note(id, ZoneId::Exile)?;
         }

@@ -23,6 +23,7 @@ Each question has an owner note and a target milestone. Move a question to **Res
 |---|---|---|---|
 | Q10 | ~~Persistent vs. arena-clone state~~ **Decided in M2:** plain `Vec` arenas (clone 377 ns, far under the 10 µs target). Revisit only if real cEDH boards change that. | [[Performance & Cheap Cloning]] | done |
 | Q12 | Constraint-aware factoring for attack/block requirements (CR 508.1d / 509.1c). **M2: done for menace** (block options are offered only if a matching keeps every menace attacker satisfiable). Requirements and restrictions ("attacks each combat if able") remain. | [[Combat]], [[Decision & Action Model]] | M4 |
+| Q27 | An Aura put onto the battlefield without being cast (Worldgorger Dragon returning Animate Dead) chooses what it enchants as it enters (CR 303.4f). The effect's batch move would need to stop for that choice. Until then such an Aura has no host and is put into its graveyard (704.5m). | [[Continuous Effects & Layers]] | M6 |
 | Q26 | Detecting loops that move cards between zones (Underworld Breach, Worldgorger Dragon). Each zone change creates a new object id (CR 400.7), so the loop hash never repeats. Options: hash ids by arena index, keeping generation only for liveness; or canonicalize ids per loop. | [[Loops & Shortcuts]] | M5 |
 
 ## Cards

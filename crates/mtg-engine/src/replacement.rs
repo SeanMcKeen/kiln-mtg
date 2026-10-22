@@ -208,7 +208,10 @@ impl Game {
     fn enter_instead(&self, def: DefId) -> Option<u8> {
         self.replacements(def).find_map(|(i, r)| {
             (matches!(&r.event, ReplaceEvent::WouldEnter(f) if f.this)
-                && !matches!(r.instead, Effect::EntersTapped))
+                && !matches!(
+                    r.instead,
+                    Effect::EntersTapped | Effect::EntersWithCounters { .. }
+                ))
             .then_some(i)
         })
     }

@@ -1,0 +1,13 @@
+card: Walking Ballista
+faces:
+  - abilities:
+      - replacement:
+          event: { would_enter: { this: true } }
+          instead: { enters_with_counters: { counter: +1/+1, amount: x } }
+      - activated:
+          cost: [{ mana: "{4}" }]
+          effect: { put_counters: { what: { one: this }, counter: +1/+1, amount: 1 } }
+      - activated:
+          cost: [{ remove_counters: { counter: +1/+1, amount: 1 } }]
+          targets: [{ what: any }]
+          effect: { deal_damage: { to: { target: 0 }, amount: 1 } }

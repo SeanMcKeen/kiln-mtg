@@ -243,7 +243,9 @@ fn layer_of(p: Part<'_>) -> Option<u8> {
             LayerEffect::ModifyPt { .. } => Some(73),
         },
         Part::Static(s) => match s {
-            StaticEffect::LandType { .. } | StaticEffect::AddTypes { .. } => Some(4),
+            StaticEffect::LandType { .. }
+            | StaticEffect::AddTypes { .. }
+            | StaticEffect::RemoveTypes { .. } => Some(4),
             StaticEffect::LoseAllAbilities { .. } | StaticEffect::Grant { .. } => Some(6),
             StaticEffect::SetBasePt { .. } => Some(72),
             StaticEffect::Pump { .. } => Some(73),
@@ -258,6 +260,7 @@ fn filter_of<'a>(p: Part<'a>) -> Option<&'a ObjectFilter> {
         Part::Static(
             StaticEffect::LandType { affected, .. }
             | StaticEffect::AddTypes { affected, .. }
+            | StaticEffect::RemoveTypes { affected, .. }
             | StaticEffect::LoseAllAbilities { affected }
             | StaticEffect::Grant { affected, .. }
             | StaticEffect::SetBasePt { affected, .. }
@@ -885,6 +888,11 @@ impl Game {
                         c.type_line.subtypes.push(Subtype(w.clone()));
                     }
                 }
+            }
+            StaticEffect::RemoveTypes { types, .. } => {
+                c.type_line
+                    .card_types
+                    .retain(|t| !types.iter().any(|w| t.word().eq_ignore_ascii_case(w)));
             }
             StaticEffect::LoseAllAbilities { .. } => {
                 c.abilities.clear();

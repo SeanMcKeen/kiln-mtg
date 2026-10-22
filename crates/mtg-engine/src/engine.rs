@@ -202,6 +202,13 @@ pub struct Game {
     /// from the objects, so not hashed; tokens are only ever created on the
     /// battlefield, so a token elsewhere is always in this list.
     pub(crate) tokens_off_field: Vec<ObjectId>,
+    /// Phased-out permanents and who controlled them as they phased out
+    /// (CR 702.26): kept out of `battlefield`, so the game treats them as
+    /// though they don't exist; their zone is still the battlefield.
+    pub(crate) phased_out: Vec<(ObjectId, PlayerId)>,
+    /// Player rules until a player's next turn: (affected, rule, ends as this
+    /// player's next turn begins).
+    pub(crate) player_rules: Vec<(PlayerId, mtg_cards::ir::PlayerRuleKind, PlayerId)>,
     /// Attachments (CR 303.4, 301.5): (attached object, host, bound to the
     /// object its own effect put onto the battlefield).
     pub(crate) attachments: Vec<(ObjectId, Target, bool)>,
@@ -284,6 +291,8 @@ impl Game {
             loops: crate::loops::LoopTracker::default(),
             tokens_off_field: Vec::new(),
             any_color_spells: Vec::new(),
+            phased_out: Vec::new(),
+            player_rules: Vec::new(),
             attachments: Vec::new(),
             linked: Vec::new(),
             copies: Vec::new(),
@@ -526,6 +535,12 @@ impl Game {
         if !self.attachments.is_empty() {
             self.attachments.hash(&mut h);
         }
+        if !self.phased_out.is_empty() {
+            self.phased_out.hash(&mut h);
+        }
+        if !self.player_rules.is_empty() {
+            self.player_rules.hash(&mut h);
+        }
         if !self.cast_this_turn.is_empty() {
             self.cast_this_turn.hash(&mut h);
         }
@@ -759,7 +774,7 @@ impl Game {
     }
 
     pub(crate) fn lose_life(&mut self, p: PlayerId, amount: u32) {
-        if amount == 0 {
+        if amount == 0 || self.has_player_rule(p, mtg_cards::ir::PlayerRuleKind::LifeCantChange) {
             return;
         }
         self.player_mut(p).life -= i64::from(amount);
@@ -767,7 +782,10 @@ impl Game {
     }
 
     pub(crate) fn gain_life(&mut self, p: PlayerId, amount: u32) {
-        if amount == 0 || !self.in_game(p) {
+        if amount == 0
+            || !self.in_game(p)
+            || self.has_player_rule(p, mtg_cards::ir::PlayerRuleKind::LifeCantChange)
+        {
             return;
         }
         self.player_mut(p).life += i64::from(amount);
@@ -1145,6 +1163,10 @@ impl Game {
         let active = self.turn.active;
         match step {
             Step::Untap => {
+                // "Until your next turn" effects end as the turn begins (CR 611.2a).
+                self.player_rules.retain(|(_, _, until)| *until != active);
+                // CR 502.1: phased-out permanents the active player controlled phase in first.
+                self.phase_in(active);
                 // CR 502.3: untap all permanents the active player controls. No priority (CR 117.3a).
                 if self.active_in_game() {
                     let exempt = self.untap_exempt();
@@ -1540,17 +1562,43 @@ impl Game {
                         return;
                     }
                     // CR 608.3a: a permanent spell becomes a permanent under its controller's control.
-                    if let Some(new) = self.move_object(item.object, ZoneId::Battlefield, true)
-                        && let Some(o) = self.objects.get_mut(new)
-                    {
-                        o.controller = item.controller;
-                        self.bump_layers();
+                    // CR 614.1c: "enters with N counters" (X is the spell's X).
+                    let with_counters = def.abilities.iter().find_map(|a| match a {
+                        ir::Ability::Replacement(r) => match (&r.event, &r.instead) {
+                            (
+                                ir::ReplaceEvent::WouldEnter(f),
+                                ir::Effect::EntersWithCounters { counter, amount },
+                            ) if f.this => Some((*counter, amount.clone())),
+                            _ => None,
+                        },
+                        _ => None,
+                    });
+                    let (controller, x) = (item.controller, item.x);
+                    if let Some(new) =
+                        self.move_object_with(item.object, ZoneId::Battlefield, true, |g, new| {
+                            if let Some(o) = g.objects.get_mut(new) {
+                                o.controller = controller;
+                            }
+                            g.bump_layers();
+                            if let Some((kind, amount)) = &with_counters {
+                                let mut ctx = EffectCtx::new(
+                                    AbilityRef {
+                                        def: def_id,
+                                        ability: 0,
+                                    },
+                                    new,
+                                    controller,
+                                );
+                                ctx.x = x;
+                                let n = g.amount(&ctx, amount);
+                                g.add_counters(new, *kind, n);
+                            }
+                        })
                         // CR 303.4f: an Aura spell enters attached to its target.
-                        if def.enchant.is_some()
-                            && let Some(&host) = item.targets.first()
-                        {
-                            self.attach(new, host, false);
-                        }
+                        && def.enchant.is_some()
+                        && let Some(&host) = item.targets.first()
+                    {
+                        self.attach(new, host, false);
                     }
                     return;
                 }
@@ -1646,6 +1694,16 @@ impl Game {
         match target {
             Target::Player(p) => {
                 if !self.in_game(p) {
+                    return;
+                }
+                // CR 702.16e, 702.16j: protection from everything prevents it.
+                if self.has_player_rule(p, mtg_cards::ir::PlayerRuleKind::ProtectionFromEverything)
+                {
+                    self.log(Event::DamagePrevented {
+                        source,
+                        target,
+                        amount,
+                    });
                     return;
                 }
                 if combat && self.pool.has_triggers() {

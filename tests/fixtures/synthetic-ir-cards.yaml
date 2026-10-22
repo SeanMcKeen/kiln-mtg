@@ -916,3 +916,30 @@
   abilities:
     - static: { effect: { pump: { affected: { attached: true }, power: 2, toughness: 0 } } }
     - keyword: { equip: [{ mana: "{1}" }] }
+
+# ---- phasing, player rules, enters-with-counters (M5 5.6) ----------------------
+
+- name: Test Shelter
+  cost: "{W}"
+  types: Instant
+  abilities:
+    - spell:
+        effect:
+          seq:
+            - player_rule: { who: you, rule: life_cant_change }
+            - player_rule: { who: you, rule: protection_from_everything }
+            - phase_out: { what: { all: { controller: you } } }
+            - exile: { what: { one: this } }
+
+- name: Test Ballista
+  cost: "{X}{X}"
+  types: Artifact Creature — Construct
+  pt: [0, 0]
+  abilities:
+    - replacement:
+        event: { would_enter: { this: true } }
+        instead: { enters_with_counters: { counter: +1/+1, amount: x } }
+    - activated:
+        cost: [{ remove_counters: { counter: +1/+1, amount: 1 } }]
+        targets: [{ what: any }]
+        effect: { deal_damage: { to: { target: 0 }, amount: 1 } }

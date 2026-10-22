@@ -184,4 +184,61 @@ impl Game {
             self.attach(source, Target::Object(new), true);
         }
     }
+
+    // ---- phasing (CR 702.26) -------------------------------------------------
+
+    /// CR 702.26b: `id` phases out, along with what's attached to it
+    /// (CR 702.26g). No zone change happens (CR 702.26d).
+    pub(crate) fn phase_out(&mut self, id: ObjectId) {
+        let Some(o) = self.obj(id).copied() else {
+            return;
+        };
+        if o.zone != ZoneId::Battlefield || !self.battlefield.contains(&id) {
+            return;
+        }
+        self.battlefield.retain(|x| *x != id);
+        self.phased_out.push((id, o.controller));
+        if let Some(c) = &mut self.combat {
+            c.remove(id);
+        }
+        self.bump_layers();
+        let attached: Vec<ObjectId> = self
+            .attachments
+            .iter()
+            .filter(|(_, h, _)| *h == Target::Object(id))
+            .map(|(a, _, _)| *a)
+            .collect();
+        for a in attached {
+            self.phase_out(a);
+        }
+    }
+
+    /// CR 502.1: permanents `p` controlled as they phased out phase in.
+    pub(crate) fn phase_in(&mut self, p: PlayerId) {
+        if self.phased_out.is_empty() {
+            return;
+        }
+        let back: Vec<ObjectId> = self
+            .phased_out
+            .iter()
+            .filter(|(_, c)| *c == p)
+            .map(|(id, _)| *id)
+            .collect();
+        self.phased_out.retain(|(_, c)| *c != p);
+        for id in back {
+            if self.obj(id).is_some_and(|o| o.zone == ZoneId::Battlefield) {
+                self.battlefield.push(id);
+            }
+        }
+        self.bump_layers();
+    }
+
+    /// Whether `p` is under a player rule now.
+    pub(crate) fn has_player_rule(&self, p: PlayerId, rule: mtg_cards::ir::PlayerRuleKind) -> bool {
+        !self.player_rules.is_empty()
+            && self
+                .player_rules
+                .iter()
+                .any(|(q, r, _)| *q == p && *r == rule)
+    }
 }

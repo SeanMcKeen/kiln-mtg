@@ -305,6 +305,8 @@ fn effect(e: &Effect) -> Check {
         Effect::CopySpell { what, .. } => set(what),
         Effect::GainControl { what, .. } => set(what),
         Effect::Attach { to } => object(to),
+        Effect::PhaseOut { what } => set(what),
+        Effect::PlayerRule { who, .. } => player(who),
         Effect::ReturnAttached => Ok(()),
         Effect::GainKeyword { what, keyword } => match Keywords::of_ir(keyword) {
             Some(bit) if IMPLEMENTED_KEYWORDS.contains(&bit) => set(what),
@@ -315,7 +317,9 @@ fn effect(e: &Effect) -> Check {
             without_paying: true,
         } => set(what),
         Effect::Cast { .. } => Err("casting a spell during resolution and paying for it".into()),
-        Effect::EntersTapped => Err("\"enters tapped\" is a replacement effect (M4)".into()),
+        Effect::EntersTapped | Effect::EntersWithCounters { .. } => {
+            Err("\"enters tapped\" is a replacement effect (M4)".into())
+        }
         Effect::CreateToken {
             token,
             count,
@@ -436,6 +440,7 @@ fn layer_static(e: &StaticEffect) -> Check {
             _ => Err(format!("granting {}", keyword_gap(keyword))),
         },
         StaticEffect::LandType { .. }
+        | StaticEffect::RemoveTypes { .. }
         | StaticEffect::LoseAllAbilities { .. }
         | StaticEffect::SetBasePt { .. }
         | StaticEffect::Pump { .. } => Ok(()),
@@ -448,6 +453,11 @@ fn replacement(r: &mtg_cards::ir::ReplacementAbility) -> Check {
     use mtg_cards::ir::ReplaceEvent as R;
     match (&r.event, &r.instead) {
         (R::WouldEnter(_), Effect::EntersTapped) if r.condition.is_none() => Ok(()),
+        (R::WouldEnter(f), Effect::EntersWithCounters { amount, .. })
+            if f.this && r.condition.is_none() =>
+        {
+            quantity(amount)
+        }
         (R::WouldEnter(_), Effect::EntersTapped) => {
             Err("conditional \"enters tapped\" (later in M4)".into())
         }

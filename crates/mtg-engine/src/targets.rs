@@ -130,7 +130,11 @@ impl Game {
             out.extend(
                 self.players
                     .iter()
-                    .filter(|p| p.in_game() && self.player_rel(rel, you, p.id))
+                    .filter(|p| {
+                        p.in_game()
+                            && self.player_rel(rel, you, p.id)
+                            && !self.player_protected(p.id)
+                    })
                     .map(|p| Target::Player(p.id)),
             );
         };
@@ -228,9 +232,9 @@ impl Game {
         src: Option<&CardDef>,
     ) -> bool {
         match (kind, t) {
-            (TargetKind::Any, Target::Player(p)) => self.in_game(p),
+            (TargetKind::Any, Target::Player(p)) => self.in_game(p) && !self.player_protected(p),
             (TargetKind::Player(rel), Target::Player(p)) => {
-                self.in_game(p) && self.player_rel(*rel, you, p)
+                self.in_game(p) && self.player_rel(*rel, you, p) && !self.player_protected(p)
             }
             (TargetKind::Any, Target::Object(id)) => {
                 self.on_battlefield(id)
@@ -255,7 +259,15 @@ impl Game {
     }
 
     pub(crate) fn on_battlefield(&self, id: ObjectId) -> bool {
+        // A phased-out permanent is treated as though it doesn't exist (CR 702.26b).
         self.obj(id).is_some_and(|o| o.zone == ZoneId::Battlefield)
+            && (self.phased_out.is_empty() || self.battlefield.contains(&id))
+    }
+
+    /// CR 702.16b, 702.16j: a player with protection from everything can't
+    /// be targeted.
+    fn player_protected(&self, p: PlayerId) -> bool {
+        self.has_player_rule(p, mtg_cards::ir::PlayerRuleKind::ProtectionFromEverything)
     }
 
     /// CR 115.4: permanents "any target" can choose.

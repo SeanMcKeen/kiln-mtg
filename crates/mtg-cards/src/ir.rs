@@ -304,6 +304,11 @@ pub enum StaticEffect {
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         subtypes: Vec<String>,
     },
+    /// Layer 4: "[objects] aren't [types]" (Heliod: "isn't a creature").
+    RemoveTypes {
+        affected: ObjectFilter,
+        types: Vec<String>,
+    },
     /// Layer 6: "[objects] lose all abilities" (Humility, Dress Down).
     LoseAllAbilities { affected: ObjectFilter },
     /// Layer 7b: "[objects] have base power and toughness N/M" (CR 613.4b).
@@ -371,6 +376,16 @@ pub struct CopyExcept {
     /// "except it isn't legendary".
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub not_legendary: bool,
+}
+
+/// Player-affecting rules an effect can create (CR 613.10).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
+pub enum PlayerRuleKind {
+    /// "your life total can't change".
+    LifeCantChange,
+    /// "you gain protection from everything" (CR 702.16j).
+    ProtectionFromEverything,
 }
 
 /// A base power or toughness set by a static ability (CR 613.4b).
@@ -455,6 +470,12 @@ pub enum Effect {
     },
     /// "[object] enters tapped", as a replacement's modification (CR 614.1c).
     EntersTapped,
+    /// "This enters with N [kind] counters on it" (CR 614.1c, 122.6); X is
+    /// the spell's X (0 if it wasn't cast).
+    EntersWithCounters {
+        counter: CounterKind,
+        amount: Quantity,
+    },
     /// "Reveal cards from the top of [who]'s library until you reveal a card
     /// matching [filter]. Put that card into [found_to] and the rest into [rest_to]."
     RevealUntil {
@@ -559,6 +580,15 @@ pub enum Effect {
     Delayed {
         at: Trigger,
         effect: Box<Effect>,
+    },
+    /// "[objects] phase out" (CR 702.26).
+    PhaseOut {
+        what: ObjectSet,
+    },
+    /// "Until your next turn, [player] ..." (CR 611.2a): a rule for a player.
+    PlayerRule {
+        who: PlayerRef,
+        rule: PlayerRuleKind,
     },
     /// "Attach this to [object]" (CR 701.3).
     Attach {

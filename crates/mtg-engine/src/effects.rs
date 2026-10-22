@@ -1019,6 +1019,18 @@ impl Game {
                     self.win_by_effect(p);
                 }
             }
+            Effect::PhaseOut { what } => {
+                for id in self.set_now(&t.ctx, what) {
+                    self.phase_out(id);
+                }
+            }
+            Effect::PlayerRule { who, rule } => {
+                // "Until your next turn": ends as the controller's next turn begins.
+                if let Some(p) = self.player_ref(&t.ctx, who) {
+                    let until = t.ctx.controller;
+                    self.player_rules.push((p, *rule, until));
+                }
+            }
             Effect::Attach { to } => {
                 if let Some(&host) = self.object_refs(&t.ctx, to).first() {
                     self.attach_source(t.ctx.source, host);
@@ -1183,7 +1195,7 @@ impl Game {
                 }
             }
             // `support::check` rejects these until their phase lands.
-            Effect::EntersTapped => {
+            Effect::EntersTapped | Effect::EntersWithCounters { .. } => {
                 debug_assert!(false, "unsupported effect reached the interpreter: {e:?}");
             }
         }
@@ -1293,7 +1305,7 @@ impl Game {
     }
 
     /// A non-negative amount (CR 107.1b: a negative result counts as 0 for counts).
-    fn amount(&self, ctx: &EffectCtx, q: &Quantity) -> u32 {
+    pub(crate) fn amount(&self, ctx: &EffectCtx, q: &Quantity) -> u32 {
         u32::try_from(self.quantity(ctx, q).max(0)).unwrap_or(u32::MAX)
     }
 
@@ -1491,7 +1503,9 @@ impl Game {
     }
 
     fn on_battlefield_now(&self, id: ObjectId) -> bool {
+        // A phased-out permanent is treated as though it doesn't exist (CR 702.26b).
         self.obj(id).is_some_and(|o| o.zone == ZoneId::Battlefield)
+            && self.battlefield.contains(&id)
     }
 
     /// The top `n` cards of `p`'s library, top first.
@@ -2327,7 +2341,15 @@ impl Game {
                 &self.mana_sources(who, except),
             ),
             // CR 119.4: life can be paid only if the life total is at least the amount.
-            CostPart::PayLife(q) => self.player(who).life >= self.quantity(ctx, q),
+            // CR 119.4b: paying 0 life is always possible; otherwise not if
+            // the life total can't change.
+            CostPart::PayLife(q) => {
+                let n = self.quantity(ctx, q);
+                n <= 0
+                    || (self.player(who).life >= n
+                        && !self
+                            .has_player_rule(who, mtg_cards::ir::PlayerRuleKind::LifeCantChange))
+            }
             CostPart::Tap => self.obj(ctx.source).is_some_and(|o| !o.tapped),
             CostPart::Untap => self.obj(ctx.source).is_some_and(|o| o.tapped),
             CostPart::Sacrifice(set) => match set {

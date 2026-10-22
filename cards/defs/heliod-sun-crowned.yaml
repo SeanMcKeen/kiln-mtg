@@ -1,0 +1,16 @@
+card: Heliod, Sun-Crowned
+faces:
+  - abilities:
+      - keyword: indestructible
+      # Layer 4, with a condition (CR 700.5: devotion).
+      - static:
+          condition: { not: { at_least: [{ devotion: W }, 5] } }
+          effect: { remove_types: { affected: { this: true }, types: [creature] } }
+      - triggered:
+          trigger: { gains_life: { by: you } }
+          targets: [{ what: { object: { types: [creature, enchantment], controller: you } } }]
+          effect: { put_counters: { what: { one: { target: 0 } }, counter: +1/+1, amount: 1 } }
+      - activated:
+          cost: [{ mana: "{1}{W}" }]
+          targets: [{ what: { object: { types: [creature], other: true } } }]
+          effect: { gain_keyword: { what: { one: { target: 0 } }, keyword: lifelink } }

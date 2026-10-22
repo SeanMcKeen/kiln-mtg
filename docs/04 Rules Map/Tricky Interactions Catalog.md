@@ -26,7 +26,7 @@ These seed scenarios become [[CR-Cited Scenario Tests]]. They are weighted towar
 | T09 | Walking Ballista + Heliod, Sun-Crowned | Lifelink ping, gain life, +1/+1 counter. A net-zero loop that drains everyone. | 613.1f, 613.4c, 603 | [[Counters]], [[Loops & Shortcuts]] | ✔ |
 | T10 | Basalt Monolith + Rings of Brighthearth / Power Artifact | Arbitrarily large colorless mana. Rings copies the *untap* ability, which isn't a mana ability. | 605.1a, 707.10 | [[Costs & Mana]] | ✔ |
 | T11 | Food Chain + Eternal Scourge | Arbitrarily large **restricted** mana (creature spells only). Tests conditional mana. | 106.6 | [[Costs & Mana]] | ⚠ |
-| T12 | Worldgorger Dragon + Animate Dead, no other creature cards in any graveyard and no other actions | A **mandatory loop**, so the game is a draw. If any player can take an optional action that breaks the loop (another legal Animate Dead target, an instant), it isn't a draw. | 104.4b, 732.4–732.5 | [[Loops & Shortcuts]] (mandatory-loop draws exist since M4 4.7; detecting this zone-changing loop waits for Q26, M5) | ⚠ |
+| T12 | Worldgorger Dragon + Animate Dead, no other creature cards in any graveyard and no other actions | A **mandatory loop**, so the game is a draw. If any player can take an optional action that breaks the loop (another legal Animate Dead target, an instant), it isn't a draw. Deferred past M5: needs loop identity across zone changes ([[12 Open Questions]] Q26) and the Aura-entering host choice (CR 303.4f). | 104.4b, 732.4–732.5, 303.4f | [[Loops & Shortcuts]] | ⚠ |
 | T13 | Ad Nauseam + Angel's Grace | Reveal-and-lose-life repeats as a *choice* each iteration. At ≤ 0 life, Angel's Grace prevents the loss. | 104.3b, 101.2 | [[Resolution]] | ✔ |
 | T14 | Bolas's Citadel + Sensei's Divining Top | Pay life to cast Top from the top of the library, tap it to draw and put it back. Repeat. | 601.2f | [[Casting & Activating]] | ✔ |
 
@@ -75,7 +75,7 @@ These seed scenarios become [[CR-Cited Scenario Tests]]. They are weighted towar
 | T52 | Blood Moon + Dryad Arbor | Arbor is nonbasic, so it becomes a Mountain (losing Forest) and taps for {R}; it stays a green Dryad creature (rulings 2011-09-22, 2021-03-19). | 613.1d, 305.7 | [[Continuous Effects & Layers]] | ✔ |
 | T53 | Phantasmal Image copying a creature, then targeted | It's sacrificed via its copied-plus-added trigger (707.9a). | 707.9a | [[Copy Effects]] | ✔ |
 | T54 | Toxic Deluge X = 3 | -3/-3 locked in on the creatures present on resolution (611.2c). New creatures are unaffected. | 611.2c, 613.4c | [[Continuous Effects & Layers]] | ✔ |
-| T55 | Teferi's Protection | Life total can't change, protection from everything, phases out all permanents. Attacks against the player are impossible, and the trigger interactions are checked. | 702.26, 702.16 | [[Keywords & Keyword Actions]] | ✔ |
+| T55 | Teferi's Protection | Until the caster's next turn their life total can't change and they have protection from everything: they can't be targeted, and damage to them is prevented. Attacks against them are still legal (no rule forbids them; the damage is prevented). All their permanents phase out (treated as though they don't exist) and phase in during their next untap step (rulings 2017-08-25). | 702.26, 702.16j, 502.1 | [[Keywords & Keyword Actions]] | ✔ |
 
 ## Randomness & hidden information
 | ID | Cards | Situation → expected | CR | Subsystems | Conf. |

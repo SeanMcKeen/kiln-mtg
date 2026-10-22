@@ -232,6 +232,8 @@ impl GameBuilder {
             loops: crate::loops::LoopTracker::default(),
             tokens_off_field: Vec::new(),
             any_color_spells: Vec::new(),
+            phased_out: Vec::new(),
+            player_rules: Vec::new(),
             attachments: Vec::new(),
             linked: Vec::new(),
             copies: Vec::new(),
