@@ -1,0 +1,31 @@
+scenario: mtg-scenario/1
+name: "Kiki-Jiki: a hasty token copy whose ETB triggers; it's sacrificed at the beginning of the next end step"
+cr: ["707.9a", "603.6a", "603.7a", "111.10"]
+verifies: ["Kiki-Jiki, Mirror Breaker"]
+players:
+  - battlefield: ["Kiki-Jiki, Mirror Breaker", Orcish Bowmasters]
+  - {}
+script:
+  - choose: "Activate Kiki-Jiki, Mirror Breaker ability 2"
+  - choose: Target Orcish Bowmasters (P1)
+  - pass_all
+  # The token copy entered: its ETB (copied) triggers.
+  - choose: Target P2
+  - pass_all
+  - check:
+      life: { P2: 19 }
+      zones: { P1.battlefield: ["Kiki-Jiki, Mirror Breaker", Orcish Bowmasters, Orcish Bowmasters, Orc Army Token] }
+  # Main phase, combat steps, second main, then the end step.
+  - pass_all
+  - pass_all
+  - choose: "Orcish Bowmasters doesn't attack"
+  - choose: "Orcish Bowmasters doesn't attack"
+  - pass_all
+  - pass_all
+  - pass_all
+  - check: { step: end }
+  - pass_all
+expect:
+  zones:
+    P1.battlefield: ["Kiki-Jiki, Mirror Breaker", Orcish Bowmasters, Orc Army Token]
+    P1.graveyard: []

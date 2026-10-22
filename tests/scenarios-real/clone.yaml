@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: "Clone entering as a copy of a creature with an ETB: the copy's ETB triggers (it enters already a copy)"
+cr: ["707.2", "614.1c", "614.12a", "603.6a"]
+verifies: [Clone]
+players:
+  - battlefield: [Island, Island, Island, Island]
+    hand: [Clone]
+  - battlefield: [Orcish Bowmasters]
+script:
+  - choose: Cast Clone
+  - choose: Pay with Island, Island, Island, Island
+  - pass_all
+  - choose: Copy Orcish Bowmasters (P2)
+  - choose: Target P2
+  - pass_all
+expect:
+  life: { P2: 19 }
+  pt: { Orc Army Token: [1, 1] }
+  zones:
+    P1.battlefield: [Island, Island, Island, Island, Orcish Bowmasters, Orc Army Token]

@@ -94,7 +94,8 @@ impl Game {
     /// CR 202.3: an object's mana value; on the stack, X is its announced value (CR 202.3e).
     pub(crate) fn mana_value_of(&self, id: ObjectId) -> u32 {
         let Some(o) = self.obj(id) else { return 0 };
-        let def = self.def(o.def);
+        // A copy has the copied mana cost (CR 707.2).
+        let def = self.def(self.chars(id).map_or(o.def, |c| c.def_id()));
         let mut mv = def.mana_value();
         if o.zone == ZoneId::Stack
             && let Some(item) = self.stack.iter().find(|s| s.is_spell() && s.object == id)

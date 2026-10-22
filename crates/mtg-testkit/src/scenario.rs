@@ -292,6 +292,7 @@ pub fn kind_name(k: &DecisionKind) -> &'static str {
         DecisionKind::ChooseMode { .. } => "choose_mode",
         DecisionKind::OrderTriggers { .. } => "order_triggers",
         DecisionKind::ChooseReplacement { .. } => "choose_replacement",
+        DecisionKind::ChangeTarget { .. } => "change_target",
         DecisionKind::ProposeShortcut { .. } => "propose_shortcut",
         DecisionKind::RespondShortcut { .. } => "respond_shortcut",
         DecisionKind::ChooseCost { .. } => "choose_cost",
@@ -507,7 +508,7 @@ fn check_expect(game: &Game, e: &Expect, at: &str) -> Result<(), ScenarioError> 
         };
         let mut actual: Vec<String> = ids
             .iter()
-            .filter_map(|id| game.object_def(*id).map(|d| d.name.clone()))
+            .filter_map(|id| game.object_name(*id).map(str::to_owned))
             .collect();
         let mut want = want.clone();
         actual.sort();
@@ -523,7 +524,7 @@ fn check_expect(game: &Game, e: &Expect, at: &str) -> Result<(), ScenarioError> 
             .iter()
             .rev()
             .take(want.len())
-            .filter_map(|o| game.object_def(*o).map(|d| d.name.clone()))
+            .filter_map(|o| game.object_name(*o).map(str::to_owned))
             .collect();
         if &actual != want {
             return Err(fail(format!(
@@ -550,7 +551,7 @@ fn check_expect(game: &Game, e: &Expect, at: &str) -> Result<(), ScenarioError> 
         let found = game
             .objects_in(ZoneId::Battlefield)
             .into_iter()
-            .find(|id| game.object_def(*id).is_some_and(|d| &d.name == name));
+            .find(|id| game.object_name(*id) == Some(name.as_str()));
         let Some(id) = found else {
             return Err(fail(format!("no permanent named {name:?}")));
         };
@@ -565,7 +566,7 @@ fn check_expect(game: &Game, e: &Expect, at: &str) -> Result<(), ScenarioError> 
         let found = game
             .objects_in(ZoneId::Battlefield)
             .into_iter()
-            .find(|id| game.object_def(*id).is_some_and(|d| &d.name == name));
+            .find(|id| game.object_name(*id) == Some(name.as_str()));
         let Some(id) = found else {
             return Err(fail(format!("no permanent named {name:?}")));
         };
@@ -592,7 +593,7 @@ fn check_expect(game: &Game, e: &Expect, at: &str) -> Result<(), ScenarioError> 
         let found = game
             .objects_in(ZoneId::Battlefield)
             .into_iter()
-            .find(|id| game.object_def(*id).is_some_and(|d| &d.name == name));
+            .find(|id| game.object_name(*id) == Some(name.as_str()));
         let Some(id) = found else {
             return Err(fail(format!("no permanent named {name:?}")));
         };

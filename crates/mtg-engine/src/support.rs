@@ -283,6 +283,22 @@ fn effect(e: &Effect) -> Check {
         },
         Effect::WinGame(who) => player(who),
         Effect::CopyCard { what, .. } => set(what),
+        // Only as the instead-effect of "if this would enter" (checked there).
+        Effect::EnterAsCopy { except, .. } | Effect::CreateTokenCopy { except, .. } => {
+            for w in &except.types {
+                if !CardType::ALL
+                    .iter()
+                    .any(|t| t.word().eq_ignore_ascii_case(w))
+                {
+                    return Err(format!("unknown card type {w}"));
+                }
+            }
+            if let Effect::CreateTokenCopy { of, .. } = e {
+                set(of)?;
+            }
+            Ok(())
+        }
+        Effect::CopySpell { what, .. } => set(what),
         Effect::Cast {
             what,
             without_paying: true,

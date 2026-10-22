@@ -374,6 +374,7 @@ impl Policy for GreedyPolicy {
             | DecisionKind::ChooseSymbolPay { .. }
             | DecisionKind::OrderTriggers { .. }
             | DecisionKind::ChooseReplacement { .. }
+            | DecisionKind::ChangeTarget { .. }
             // Accept shortcuts others propose.
             | DecisionKind::RespondShortcut { .. } => 0,
             // Take the longest shortcut on offer.

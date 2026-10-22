@@ -1,0 +1,44 @@
+scenario: mtg-scenario/1
+name: "T07: Dualcaster Mage copies Heat Shimmer; the copy retargets the Mage, making a hasty token Mage whose ETB copies it again"
+cr: ["707.10", "707.10c", "707.9a", "111.10"]
+verifies: [Dualcaster Mage, Heat Shimmer]
+players:
+  - battlefield: [Grizzly Bears, Mountain, Mountain, Mountain, Mountain, Mountain, Mountain]
+    hand: [Heat Shimmer, Dualcaster Mage]
+  - {}
+script:
+  - choose: Cast Heat Shimmer
+  - choose: Target Grizzly Bears (P1)
+  - choose: Pay with Mountain, Mountain, Mountain
+  - choose: Cast Dualcaster Mage
+  - choose: Pay with Mountain, Mountain, Mountain
+  - pass_all
+  - choose: Target Heat Shimmer
+  - pass_all
+  # CR 707.10c: the copy may get a new target.
+  - choose: New target Dualcaster Mage (P1)
+  # The copy resolves: a hasty token Dualcaster Mage enters; its ETB triggers.
+  - pass_all
+  - choose: Target Heat Shimmer
+  - pass_all
+  # This time the copy keeps its target: a hasty Grizzly Bears token.
+  - choose: Keep target Grizzly Bears (P1)
+  - pass_all
+  # Then the original Heat Shimmer resolves: a second Grizzly Bears token.
+  - pass_all
+expect:
+  zones:
+    P1.battlefield:
+      - Grizzly Bears
+      - Grizzly Bears
+      - Grizzly Bears
+      - Dualcaster Mage
+      - Dualcaster Mage
+      - Mountain
+      - Mountain
+      - Mountain
+      - Mountain
+      - Mountain
+      - Mountain
+    P1.graveyard: [Heat Shimmer]
+  pt: { Dualcaster Mage: [2, 2] }

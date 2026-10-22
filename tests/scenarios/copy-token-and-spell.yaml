@@ -1,0 +1,34 @@
+scenario: mtg-scenario/1
+name: A copied spell isn't cast and may get a new target; its token copy has haste and is a token
+cr: ["707.10", "707.10c", "707.9a", "111.10", "704.5d"]
+players:
+  - battlefield: [Test Bear, Test Mountain, Test Mountain, Test Mountain, Test Mountain, Test Mountain, Test Mountain]
+    hand: [Test Reflection, Test Echo Mage]
+  - {}
+script:
+  - choose: Cast Test Reflection
+  - choose: Target Test Bear (P1)
+  - choose: Pay with Test Mountain, Test Mountain, Test Mountain
+  - choose: Cast Test Echo Mage
+  - choose: Pay with Test Mountain, Test Mountain, Test Mountain
+  - pass_all
+  - choose: Target Test Reflection
+  - pass_all
+  - check:
+      decision:
+        player: P1
+        kind: change_target
+        options: ["Keep target Test Bear (P1)", "New target Test Echo Mage (P1)"]
+  - choose: New target Test Echo Mage (P1)
+  - pass_all
+  # The token Echo Mage's own ETB: this time, keep the target.
+  - choose: Target Test Reflection
+  - pass_all
+  - choose: Keep target Test Bear (P1)
+  - pass_all
+  - pass_all
+expect:
+  zones:
+    P1.battlefield:
+      [Test Bear, Test Bear, Test Bear, Test Echo Mage, Test Echo Mage, Test Mountain, Test Mountain, Test Mountain, Test Mountain, Test Mountain, Test Mountain]
+    P1.graveyard: [Test Reflection]

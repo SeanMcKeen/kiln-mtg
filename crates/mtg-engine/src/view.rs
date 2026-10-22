@@ -141,8 +141,9 @@ impl Game {
     }
 
     fn name_of(&self, id: ObjectId) -> String {
-        self.obj_def(id)
-            .map_or_else(|| format!("{id}"), |d| d.name.clone())
+        // Its current name (a copy has the copied name, CR 707.2).
+        self.object_name(id)
+            .map_or_else(|| format!("{id}"), str::to_owned)
     }
 
     /// A short label for option `i` of the pending decision, used by scenario
@@ -259,6 +260,7 @@ impl Game {
                         CardPurpose::PutOntoBattlefield => "Put onto the battlefield",
                         CardPurpose::PutIntoGraveyard => "Put into graveyard",
                         CardPurpose::PutCounters => "Put counters on",
+                        CardPurpose::Copy => "Copy",
                     };
                     format!("{verb} {}", who(id))
                 }
@@ -297,6 +299,18 @@ impl Game {
                 (0, None) => "Let the loop continue".into(),
                 _ if stops[i - 1] == 0 => "Act before the next iteration".into(),
                 _ => format!("Stop after {} iterations", stops[i - 1]),
+            },
+            DecisionKind::ChangeTarget {
+                current, options, ..
+            } => match i {
+                0 => match current {
+                    Target::Player(p) => format!("Keep target {p}"),
+                    Target::Object(id) => format!("Keep target {}", who(*id)),
+                },
+                _ => match options[i - 1] {
+                    Target::Player(p) => format!("New target {p}"),
+                    Target::Object(id) => format!("New target {}", who(id)),
+                },
             },
             DecisionKind::ChooseReplacement { options } => {
                 let (_, def, ability) = options[i];
@@ -394,11 +408,13 @@ impl<'g> PlayerView<'g> {
             return None;
         }
         let o = self.game.obj(id)?;
-        let def = self.game.def(o.def);
+        // What it is now (a copy shows what it copies, CR 707.2).
+        let def_id = self.game.chars(id).map_or(o.def, |c| c.def_id());
+        let def = self.game.def(def_id);
         let combat = self.game.combat.as_ref();
         Some(VisibleObject {
             id,
-            def: o.def,
+            def: def_id,
             name: def.name.clone(),
             owner: o.owner,
             controller: o.controller,

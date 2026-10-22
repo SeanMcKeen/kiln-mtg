@@ -350,6 +350,25 @@ pub enum RuleMod {
     CreaturesEnteringDontTrigger,
 }
 
+/// The exceptions to a copy effect (CR 707.9). They become part of the
+/// copy's copiable values.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CopyExcept {
+    /// Card types added ("except it's an artifact in addition").
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub types: Vec<String>,
+    /// Subtypes added ("except it's an Illusion in addition", CR 707.9b).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub subtypes: Vec<String>,
+    /// Abilities the copy gains (CR 707.9a), e.g. haste.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub abilities: Vec<Ability>,
+    /// "except it isn't legendary".
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub not_legendary: bool,
+}
+
 /// A base power or toughness set by a static ability (CR 613.4b).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
@@ -536,6 +555,26 @@ pub enum Effect {
     Delayed {
         at: Trigger,
         effect: Box<Effect>,
+    },
+    /// "You may have this enter as a copy of [object] on the battlefield,
+    /// except ..." (CR 707.9, 614.1c): the instead-effect of a self-replacement.
+    EnterAsCopy {
+        of: ObjectFilter,
+        except: CopyExcept,
+    },
+    /// "Create a token that's a copy of [object], except ..." (CR 707.9, 111.10).
+    CreateTokenCopy {
+        of: ObjectSet,
+        #[serde(default)]
+        except: CopyExcept,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        remember: Option<String>,
+    },
+    /// "Copy [spell]. You may choose new targets for the copy" (CR 707.10, 707.10c).
+    CopySpell {
+        what: ObjectSet,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        new_targets: bool,
     },
     /// "Copy [object]": a copy of a card, created in the zone the card is in
     /// (CR 707.12), named `remember` for the rest of the effect.

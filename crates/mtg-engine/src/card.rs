@@ -301,6 +301,11 @@ pub struct CardDef {
     pub mode_slots: SmallVec<[u32; 4]>,
     /// A token's definition (CR 111): never in a deck, never a nameable card (CR 201.4).
     pub token: bool,
+    /// Abilities from this index on aren't printed: they're the abilities
+    /// its copy effects grant (CR 707.9a), stored here so they can be
+    /// referenced. `None`: all abilities are printed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hidden_from: Option<u16>,
 }
 
 /// Bitmask of the target slots an effect refers to.
@@ -366,6 +371,12 @@ impl CardDef {
             })
             .collect();
         abilities.extend(wards.into_iter().map(ward));
+        // CR 707.9a: abilities a copy effect grants, kept after the printed ones.
+        let printed = abilities.len();
+        let granted = copy_exception_abilities(&abilities);
+        let hidden_from = (!granted.is_empty())
+            .then(|| u16::try_from(printed).map_err(|_| unsupported("too many abilities".into())))
+            .transpose()?;
         let mut keywords = Keywords::default();
         let mut mana_abilities = SmallVec::new();
         for (i, a) in abilities.iter().enumerate() {
@@ -387,8 +398,9 @@ impl CardDef {
                 _ => {}
             }
         }
+        abilities.extend(granted);
         let mut mode_slots = SmallVec::new();
-        for a in &abilities {
+        for a in abilities.iter().take(printed) {
             if let Ability::Spell(s) = a
                 && let ir::Effect::Modal { modes, .. } = &s.effect
             {
@@ -408,6 +420,7 @@ impl CardDef {
             mana_abilities,
             mode_slots,
             token: false,
+            hidden_from,
         };
         crate::support::check(&def).map_err(|reason| Unsupported {
             name: def.name.clone(),
@@ -721,6 +734,66 @@ pub struct CardPool {
     /// (CR 305.6), for lands that gain the type (Blood Moon, Urborg).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     intrinsics: BTreeMap<String, DefId>,
+    /// A hidden token definition for token copies: its copy effect supplies
+    /// every characteristic (CR 707.2), the definition only makes it a token.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    copy_token: Option<DefId>,
+}
+
+/// Whether these abilities create token copies.
+fn creates_token_copies(abilities: &[Ability]) -> bool {
+    let mut found = false;
+    for a in abilities {
+        let root = match a {
+            Ability::Spell(s) => &s.effect,
+            Ability::Activated(x) => &x.effect,
+            Ability::Triggered(t) => &t.effect,
+            Ability::Replacement(r) => &r.instead,
+            _ => continue,
+        };
+        root.walk(&mut |e| found |= matches!(e, ir::Effect::CreateTokenCopy { .. }));
+    }
+    found
+}
+
+/// The abilities copy effects in these abilities grant (CR 707.9a).
+fn copy_exception_abilities(abilities: &[Ability]) -> Vec<Ability> {
+    let mut out = Vec::new();
+    for a in abilities {
+        let root = match a {
+            Ability::Spell(s) => &s.effect,
+            Ability::Activated(x) => &x.effect,
+            Ability::Triggered(t) => &t.effect,
+            Ability::Replacement(r) => &r.instead,
+            _ => continue,
+        };
+        root.walk(&mut |e| match e {
+            ir::Effect::EnterAsCopy { except, .. } | ir::Effect::CreateTokenCopy { except, .. } => {
+                out.extend(except.abilities.iter().cloned());
+            }
+            _ => {}
+        });
+    }
+    out
+}
+
+impl CardDef {
+    /// The abilities printed on the card (without copy-granted ones).
+    pub fn printed_abilities(&self) -> &[Ability] {
+        match self.hidden_from {
+            Some(n) => &self.abilities[..usize::from(n)],
+            None => &self.abilities,
+        }
+    }
+
+    /// The index of a copy-granted ability equal to `a` (CR 707.9a).
+    pub(crate) fn granted_index(&self, a: &Ability) -> Option<u8> {
+        let from = usize::from(self.hidden_from?);
+        self.abilities[from..]
+            .iter()
+            .position(|x| x == a)
+            .and_then(|i| u8::try_from(from + i).ok())
+    }
 }
 
 /// Land types a definition's static abilities give lands (CR 305.6, 305.7).
@@ -959,6 +1032,12 @@ impl CardPool {
             let tid = self.push(t);
             self.tokens.insert(key, tid);
         }
+        if self.copy_token.is_none() && creates_token_copies(&self.defs[id.0 as usize].abilities) {
+            let ch = synthetic("Copy token", None, "Creature", Some((0, 0)));
+            let mut d = CardDef::new(ch, Vec::new())?;
+            d.token = true;
+            self.copy_token = Some(self.push(d));
+        }
         for land_type in granted {
             if !self.intrinsics.contains_key(&land_type) {
                 let ch = synthetic(
@@ -1019,6 +1098,11 @@ impl CardPool {
     /// Whether any definition has a rule static the engine checks; see the field.
     pub fn has_rule_statics(&self) -> bool {
         self.has_rule_statics
+    }
+
+    /// The token definition token copies use.
+    pub(crate) fn copy_token(&self) -> Option<DefId> {
+        self.copy_token
     }
 
     /// The intrinsic mana ability of a land type (CR 305.6), if it has one.

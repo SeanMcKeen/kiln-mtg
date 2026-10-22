@@ -32,8 +32,22 @@ use crate::state::ZoneId;
 /// What a stored continuous effect does, by layer (CR 613.1).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub(crate) enum LayerEffect {
+    /// Layer 1a: the object's copiable values become these (CR 707.2, 613.2a).
+    Copy(Box<CopyValues>),
     /// Layer 7c: "+N/+M" (CR 613.4c).
     ModifyPt { power: i32, toughness: i32 },
+}
+
+/// Copiable values (CR 707.2): a definition plus the exceptions copy effects
+/// added to it (CR 707.9), which are themselves copiable.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub(crate) struct CopyValues {
+    pub def: DefId,
+    pub types: SmallVec<[CardType; 1]>,
+    pub subtypes: SmallVec<[Subtype; 1]>,
+    /// Abilities granted by copy exceptions (CR 707.9a).
+    pub abilities: SmallVec<[AbilityRef; 2]>,
+    pub not_legendary: bool,
 }
 
 /// How long an effect lasts (CR 611.2a–b).
@@ -41,6 +55,8 @@ pub(crate) enum LayerEffect {
 pub(crate) enum Duration {
     /// "Until end of turn": ends in the cleanup step (CR 514.2).
     EndOfTurn,
+    /// For as long as the affected object exists (a copy effect, CR 707.2).
+    Permanent,
 }
 
 /// A continuous effect from a resolved spell or ability (CR 611.2).
@@ -121,6 +137,14 @@ pub(crate) enum Chars<'g> {
 }
 
 impl Chars<'_> {
+    /// The definition supplying the object's copiable values (CR 707.2).
+    pub fn def_id(&self) -> DefId {
+        match self {
+            Chars::Printed { def_id, .. } => *def_id,
+            Chars::Computed(s, i) => s.changed[*i].1.def,
+        }
+    }
+
     fn computed(&self) -> Option<&Characteristics> {
         match self {
             Chars::Printed { .. } => None,
@@ -205,6 +229,7 @@ enum Part<'a> {
 fn layer_of(p: Part<'_>) -> Option<u8> {
     match p {
         Part::Stored(e) => match e.effect {
+            LayerEffect::Copy(_) => Some(1),
             LayerEffect::ModifyPt { .. } => Some(73),
         },
         Part::Static(s) => match s {
@@ -370,13 +395,7 @@ impl Game {
             def: o.def,
             type_line: def.type_line.clone(),
             colors: def.colors,
-            abilities: (0..def.abilities.len())
-                .filter_map(|i| u8::try_from(i).ok())
-                .map(|ability| AbilityRef {
-                    def: o.def,
-                    ability,
-                })
-                .collect(),
+            abilities: printed_refs(o.def, def),
             keywords: def.keywords,
             power: def.power,
             toughness: def.toughness,
@@ -384,17 +403,86 @@ impl Game {
         })
     }
 
+    /// Layer 1a (CR 613.2a, 707.2): the object takes on copiable values.
+    fn apply_copy(&self, c: &mut Characteristics, cv: &CopyValues) {
+        let def = self.def(cv.def);
+        c.def = cv.def;
+        c.type_line = def.type_line.clone();
+        for t in &cv.types {
+            if !c.type_line.card_types.contains(t) {
+                c.type_line.card_types.push(*t);
+            }
+        }
+        for st in &cv.subtypes {
+            if !c.type_line.subtypes.contains(st) {
+                c.type_line.subtypes.push(st.clone());
+            }
+        }
+        if cv.not_legendary {
+            c.type_line
+                .supertypes
+                .retain(|s| *s != Supertype::Legendary);
+        }
+        c.colors = def.colors;
+        c.abilities = printed_refs(cv.def, def);
+        c.keywords = def.keywords;
+        for r in &cv.abilities {
+            c.abilities.push(*r);
+            if let Some(Ability::Keyword(k)) = self.ability_at(*r)
+                && let Some(bit) = Keywords::of_ir(k)
+            {
+                c.keywords = c.keywords.with(bit);
+            }
+        }
+        c.power = def.power;
+        c.toughness = def.toughness;
+    }
+
+    /// The copiable values of `id` (CR 707.2): its definition, or what its
+    /// latest copy effect made it, exceptions included (CR 707.9b).
+    pub(crate) fn copiable_values(&self, id: ObjectId) -> Option<CopyValues> {
+        let o = self.obj(id)?;
+        let latest = self
+            .effects
+            .iter()
+            .filter(|e| e.affected.contains(&id))
+            .filter_map(|e| match &e.effect {
+                LayerEffect::Copy(cv) => Some((e.timestamp, cv)),
+                LayerEffect::ModifyPt { .. } => None,
+            })
+            .max_by_key(|(t, _)| *t);
+        Some(match latest {
+            Some((_, cv)) => (**cv).clone(),
+            None => CopyValues {
+                def: o.def,
+                types: SmallVec::new(),
+                subtypes: SmallVec::new(),
+                abilities: SmallVec::new(),
+                not_legendary: false,
+            },
+        })
+    }
+
+    /// A copy effect on `id` for as long as it exists (CR 707.2).
+    pub(crate) fn add_copy_effect(&mut self, id: ObjectId, cv: CopyValues) {
+        self.add_effect(
+            SmallVec::from_elem(id, 1),
+            LayerEffect::Copy(Box::new(cv)),
+            Duration::Permanent,
+        );
+    }
+
     /// Applies the layers to the whole battlefield (CR 613.1–613.8).
     fn compute_layers(&self) -> LayerState {
-        let mut live = self.live_effects();
-        // Nothing to apply: every permanent has its printed values (counters
-        // are added on the printed path).
-        if live.is_empty() {
-            return LayerState {
-                epoch: self.layer_epoch,
-                changed: Vec::new(),
-                rules: self.compute_rules(&[]),
-            };
+        let empty = || LayerState {
+            epoch: self.layer_epoch,
+            changed: Vec::new(),
+            rules: self.compute_rules(&[]),
+        };
+        // Nothing can apply: every permanent has its printed values
+        // (counters are added on the printed path).
+        if self.effects.is_empty() && !self.pool.has_layer_statics() {
+            return empty();
         }
         let ids: Vec<ObjectId> = self.battlefield.clone();
         let chars: Vec<Characteristics> = ids
@@ -407,6 +495,29 @@ impl Game {
             chars,
             touched: vec![false; n],
         };
+        // Layer 1a: copy effects, in timestamp order (CR 613.2a, 613.7).
+        let mut copies: SmallVec<[&ContinuousEffect; 4]> = self
+            .effects
+            .iter()
+            .filter(|e| matches!(e.effect, LayerEffect::Copy(_)))
+            .collect();
+        copies.sort_by_key(|e| e.timestamp);
+        for e in &copies {
+            let LayerEffect::Copy(cv) = &e.effect else {
+                continue;
+            };
+            for id in &e.affected {
+                if let Some(i) = board.ids.iter().position(|x| x == id) {
+                    self.apply_copy(&mut board.chars[i], cv);
+                    board.touched[i] = true;
+                }
+            }
+        }
+        // Static abilities come from what the objects are after layer 1.
+        let mut live = self.live_effects(&board);
+        if live.is_empty() && copies.is_empty() {
+            return empty();
+        }
         // Layers in order; 7c also holds counters (CR 613.4c).
         for layer in [4u8, 6, 72, 73] {
             let mut done: SmallVec<[usize; 8]> = SmallVec::new();
@@ -474,7 +585,7 @@ impl Game {
                 .map(|i| &changed[i].1);
             let refs: SmallVec<[AbilityRef; 6]> = match computed {
                 Some(c) => c.abilities.clone(),
-                None => (0..self.def(o.def).abilities.len())
+                None => (0..self.def(o.def).printed_abilities().len())
                     .filter_map(|i| u8::try_from(i).ok())
                     .map(|ability| AbilityRef {
                         def: o.def,
@@ -515,9 +626,12 @@ impl Game {
 
     /// Every continuous effect: stored ones and the static abilities of
     /// permanents (CR 611.3), in timestamp order (CR 613.7).
-    fn live_effects(&self) -> Vec<Live<'_>> {
+    fn live_effects(&self, board: &Board) -> Vec<Live<'_>> {
         let mut out: Vec<Live<'_>> = Vec::new();
         for e in &self.effects {
+            if matches!(e.effect, LayerEffect::Copy(_)) {
+                continue;
+            }
             out.push(Live {
                 timestamp: e.timestamp,
                 source: None,
@@ -528,11 +642,13 @@ impl Game {
             });
         }
         if self.pool.has_layer_statics() {
-            for &id in &self.battlefield {
+            for (i, &id) in board.ids.iter().enumerate() {
                 let Some(o) = self.obj(id) else { continue };
-                let def = self.def(o.def);
-                for (i, a) in def.abilities.iter().enumerate() {
-                    let Ability::Static(s) = a else { continue };
+                let c = &board.chars[i];
+                for &r in &c.abilities {
+                    let Some(Ability::Static(s)) = self.ability_at(r) else {
+                        continue;
+                    };
                     if !is_layer_static(&s.effect) {
                         continue;
                     }
@@ -540,19 +656,10 @@ impl Game {
                         StaticEffect::Multi(v) => v.iter().map(Part::Static).collect(),
                         e => SmallVec::from_elem(Part::Static(e), 1),
                     };
-                    let Ok(ability) = u8::try_from(i) else {
-                        continue;
-                    };
                     out.push(Live {
                         timestamp: o.timestamp,
-                        source: Some((
-                            id,
-                            AbilityRef {
-                                def: o.def,
-                                ability,
-                            },
-                        )),
-                        controller: o.controller,
+                        source: Some((id, r)),
+                        controller: c.controller,
                         condition: s.condition.as_ref(),
                         parts,
                         set: None,
@@ -639,7 +746,8 @@ impl Game {
                     .any(|col| c.colors.contains(col))
             })
             && self.player_rel(f.controller, you, c.controller)
-            && f.token.is_none_or(|tok| tok == def.token)
+            // Token status isn't copiable (CR 707.2): the object's own.
+            && f.token.is_none_or(|tok| self.obj(id).is_some_and(|o| self.def(o.def).token == tok))
             && f.min_mana_value.is_none_or(|m| def.mana_value() >= m)
             && f.max_mana_value.is_none_or(|m| def.mana_value() <= m)
     }
@@ -693,6 +801,7 @@ impl Game {
                 let c = &mut board.chars[i];
                 match *part {
                     Part::Stored(e) => match e.effect {
+                        LayerEffect::Copy(_) => {}
                         LayerEffect::ModifyPt { power, toughness } => {
                             c.power = c.power.map(|p| p + power);
                             c.toughness = c.toughness.map(|t| t + toughness);
@@ -798,7 +907,12 @@ impl Game {
     /// CR 514.2: "until end of turn" effects end in the cleanup step.
     pub(crate) fn end_turn_effects(&mut self) {
         let before = self.effects.len();
-        self.effects.retain(|e| e.duration != Duration::EndOfTurn);
+        // Also drop effects whose objects no longer exist.
+        let objects = &self.objects;
+        self.effects.retain(|e| {
+            e.duration != Duration::EndOfTurn
+                && e.affected.iter().any(|id| objects.get(*id).is_some())
+        });
         if self.effects.len() != before {
             self.bump_layers();
         }
@@ -814,7 +928,7 @@ impl Game {
         match self.chars(id) {
             None => SmallVec::new(),
             Some(Chars::Printed { def_id, def, .. }) => def
-                .abilities
+                .printed_abilities()
                 .iter()
                 .enumerate()
                 .filter_map(|(i, a)| {
@@ -884,4 +998,15 @@ impl Game {
         }
         self.chars(id).is_some_and(|c| c.is(CardType::Creature))
     }
+}
+
+/// References to a definition's printed abilities.
+fn printed_refs(def_id: DefId, def: &CardDef) -> SmallVec<[AbilityRef; 6]> {
+    (0..def.printed_abilities().len())
+        .filter_map(|i| u8::try_from(i).ok())
+        .map(|ability| AbilityRef {
+            def: def_id,
+            ability,
+        })
+        .collect()
 }

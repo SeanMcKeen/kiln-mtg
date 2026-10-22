@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: Entering as a copy takes the copiable values plus the exceptions; the copy's ETB triggers
+cr: ["707.2", "707.9a", "707.9b", "614.12a", "603.6a"]
+players:
+  - battlefield: [Test Island, Test Island]
+    hand: [Test Mimic]
+  - battlefield: [Test Herald]
+script:
+  - choose: Cast Test Mimic
+  - choose: Pay with Test Island, Test Island
+  - pass_all
+  - choose: Copy Test Herald (P2)
+  # The copied ETB: "target opponent loses 2 life" (one opponent: P2).
+  - choose: Target P2
+  - pass_all
+expect:
+  life: { P2: 18 }
+  pt: { Test Herald: [2, 2] }
+  zones: { P1.battlefield: [Test Island, Test Island, Test Herald] }

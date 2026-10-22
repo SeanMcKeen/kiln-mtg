@@ -1,0 +1,17 @@
+card: Kiki-Jiki, Mirror Breaker
+faces:
+  - abilities:
+      - keyword: haste
+      - activated:
+          cost: [tap]
+          targets: [{ what: { object: { types: [creature], not_supertypes: [legendary], controller: you } } }]
+          effect:
+            seq:
+              - create_token_copy:
+                  of: { one: { target: 0 } }
+                  except: { abilities: [{ keyword: haste }] }
+                  remember: token
+              # CR 603.7: "at the beginning of the next end step".
+              - delayed:
+                  at: { beginning_of: { step: end, whose: any } }
+                  effect: { sacrifice: { who: you, what: { one: { remembered: token } } } }

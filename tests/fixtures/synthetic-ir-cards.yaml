@@ -830,3 +830,44 @@
     - static:
         condition: your_turn
         effect: { cant_activate: { who: opponent, sources: { types: [artifact, creature, enchantment] } } }
+
+# ---- copy effects (M5 5.3) -----------------------------------------------------
+
+- name: Test Mimic
+  cost: "{1}{U}"
+  types: Creature — Shapeshifter
+  pt: [0, 0]
+  abilities:
+    - replacement:
+        event: { would_enter: { this: true } }
+        instead:
+          enter_as_copy:
+            of: { types: [creature] }
+            except:
+              subtypes: [Illusion]
+              abilities:
+                - triggered:
+                    trigger: { becomes_target: { by: any, what: { this: true } } }
+                    effect: { sacrifice: { who: you, what: { one: this } } }
+
+- name: Test Reflection
+  cost: "{2}{R}"
+  types: Sorcery
+  abilities:
+    - spell:
+        targets: [{ what: { object: { types: [creature] } } }]
+        effect:
+          create_token_copy:
+            of: { one: { target: 0 } }
+            except: { abilities: [{ keyword: haste }] }
+
+- name: Test Echo Mage
+  cost: "{1}{R}{R}"
+  types: Creature — Human Wizard
+  pt: [2, 2]
+  abilities:
+    - keyword: flash
+    - triggered:
+        trigger: { enters: { this: true } }
+        targets: [{ what: { spell: { types: [instant, sorcery] } } }]
+        effect: { copy_spell: { what: { one: { target: 0 } }, new_targets: true } }

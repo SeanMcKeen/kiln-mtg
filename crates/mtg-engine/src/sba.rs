@@ -53,12 +53,11 @@ impl Game {
     fn legend_groups(&self) -> Vec<(PlayerId, Vec<ObjectId>)> {
         let mut by: BTreeMap<(PlayerId, &str), Vec<ObjectId>> = BTreeMap::new();
         for &id in &self.battlefield {
-            let Some(o) = self.obj(id) else { continue };
-            let def = self.def(o.def);
-            if def.is_legendary() {
-                by.entry((o.controller, def.name.as_str()))
-                    .or_default()
-                    .push(id);
+            // CR 613: name and supertypes after the layers (a copy, CR 707.2).
+            let Some(c) = self.chars(id) else { continue };
+            if c.type_line().has_supertype(mtg_core::Supertype::Legendary) {
+                let name = self.def(c.def_id()).name.as_str();
+                by.entry((c.controller(), name)).or_default().push(id);
             }
         }
         by.into_iter()

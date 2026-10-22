@@ -386,6 +386,13 @@ impl Game {
         self.obj_def(id)
     }
 
+    /// An object's name now: on the battlefield a copy has the copied name
+    /// (CR 707.2, 613); elsewhere its printed name.
+    pub fn object_name(&self, id: ObjectId) -> Option<&str> {
+        let def = self.chars(id)?.def_id();
+        Some(self.def(def).name.as_str())
+    }
+
     /// Objects in a zone, in zone order (libraries and graveyards: bottom first).
     pub fn objects_in(&self, zone: ZoneId) -> Vec<ObjectId> {
         match zone {
@@ -630,9 +637,24 @@ impl Game {
     /// new object enters `to`. `top` puts it on top of an ordered zone,
     /// otherwise on the bottom. Returns the new id.
     pub(crate) fn move_object(&mut self, id: ObjectId, to: ZoneId, top: bool) -> Option<ObjectId> {
+        self.move_object_with(id, to, top, |_, _| {})
+    }
+
+    /// [`Game::move_object`], running `entering` on the new object before the
+    /// zone change is logged (an "enters as a copy" effect must exist as it
+    /// enters, CR 614.12, so its abilities can trigger).
+    pub(crate) fn move_object_with(
+        &mut self,
+        id: ObjectId,
+        to: ZoneId,
+        top: bool,
+        entering: impl FnOnce(&mut Self, ObjectId),
+    ) -> Option<ObjectId> {
         let old = *self.objects.get(id)?;
-        // Last known information (CR 603.10, 608.2h) before the object leaves.
+        // Last known information (CR 603.10, 608.2h) before the object leaves,
+        // including what it was copying (CR 707.2).
         let (power, toughness) = (self.power(id), self.toughness(id));
+        let lki_def = self.chars(id).map_or(old.def, |c| c.def_id());
         self.detach(id, old.zone);
         if old.zone == ZoneId::Exile && !self.face_down.is_empty() {
             self.face_down.retain(|x| *x != id);
@@ -682,8 +704,9 @@ impl Game {
         if to != ZoneId::Battlefield && self.def(old.def).token {
             self.tokens_off_field.push(new);
         }
+        entering(self, new);
         self.log(Event::ZoneChange {
-            def: old.def,
+            def: lki_def,
             owner: old.owner,
             controller: old.controller,
             power,

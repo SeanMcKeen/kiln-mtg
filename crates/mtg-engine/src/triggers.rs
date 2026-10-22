@@ -146,7 +146,7 @@ impl Game {
     /// The triggered abilities on a definition, by ability index.
     fn triggered(&self, def: DefId) -> SmallVec<[(u8, &TriggeredAbility); 2]> {
         self.def(def)
-            .abilities
+            .printed_abilities()
             .iter()
             .enumerate()
             .filter_map(|(i, a)| match a {
@@ -160,7 +160,7 @@ impl Game {
     fn triggered_of(&self, id: ObjectId) -> SmallVec<[(AbilityRef, &TriggeredAbility); 2]> {
         match self.chars(id) {
             Some(crate::layers::Chars::Printed { def_id, def, .. }) => def
-                .abilities
+                .printed_abilities()
                 .iter()
                 .enumerate()
                 .filter_map(|(i, a)| match a {

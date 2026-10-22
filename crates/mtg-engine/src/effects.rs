@@ -184,6 +184,8 @@ pub(crate) enum Frame {
     Pick(Pick),
     /// `left` more cards for `who` to draw.
     Draws { who: PlayerId, left: u32 },
+    /// Offer to change target `index` of copied spell `spell` (CR 707.10c).
+    ChangeTargets { spell: ObjectId, index: u8 },
     /// Choose which mana to add (`options` has at least two outcomes).
     Mana {
         who: PlayerId,
@@ -238,6 +240,9 @@ pub(crate) enum AfterPick {
     Search { to: Destination, reveal: bool },
     /// Put this many +1/+1 counters on the pick (amass, CR 701.47a).
     PutCounters(u32),
+    /// The ability's source enters the battlefield as a copy of the pick, or
+    /// as itself if none (CR 707.9); `node` is the `EnterAsCopy` effect.
+    EnterAsCopy { node: Path },
     /// Looked-at cards taken `to`; the rest (`rest`) go per `order`.
     Take {
         to: Destination,
@@ -457,6 +462,15 @@ impl Game {
                 let ctx = t.ctx.clone();
                 self.mana_added(&ctx, who, &options[option]);
             }
+            // CR 707.10c: option 0 keeps the target.
+            (Frame::ChangeTargets { spell, index }, DecisionKind::ChangeTarget { options, .. }) => {
+                if option > 0
+                    && let Some(item) = self.stack.iter_mut().rev().find(|s| s.object == spell)
+                    && let Some(t) = item.targets.get_mut(usize::from(index))
+                {
+                    *t = options[option - 1];
+                }
+            }
             (Frame::Choose { who, store, .. }, kind) => {
                 let text = match kind {
                     DecisionKind::ChooseName { names, .. } => {
@@ -493,6 +507,7 @@ impl Game {
     fn exec_frame(&mut self, t: &mut EffectTask, frame: Frame) -> Flow {
         match frame {
             Frame::Draws { who, left } => self.draws(t, who, left),
+            Frame::ChangeTargets { spell, index } => self.change_targets_step(t, spell, index),
             Frame::Run(path) => {
                 let pool = Arc::clone(&self.pool);
                 match node(&pool, t.ctx.ability, &path) {
@@ -988,6 +1003,58 @@ impl Game {
             Effect::WinGame(who) => {
                 if let Some(p) = self.player_ref(&t.ctx, who) {
                     self.win_by_effect(p);
+                }
+            }
+            Effect::EnterAsCopy { of, .. } => {
+                // CR 707.9, 614.12a: choose as it would enter ("you may").
+                let this = t.ctx.source;
+                let you = t.ctx.controller;
+                let candidates: Vec<ObjectId> = self
+                    .battlefield
+                    .iter()
+                    .copied()
+                    .filter(|id| *id != this && self.matches_filter(*id, of, you, Some(this)))
+                    .collect();
+                t.frames.push(Frame::Pick(Pick {
+                    who: you,
+                    purpose: CardPurpose::Copy,
+                    candidates,
+                    picked: Vec::new(),
+                    max: 1,
+                    min: 0,
+                    then: AfterPick::EnterAsCopy { node: path.clone() },
+                }));
+            }
+            Effect::CreateTokenCopy {
+                of,
+                except,
+                remember,
+            } => {
+                let you = t.ctx.controller;
+                let granter = t.ctx.ability.def;
+                let mut made: SmallVec<[ObjectId; 2]> = SmallVec::new();
+                for id in self.set_now(&t.ctx, of) {
+                    if let Some(cv) = self.copy_values_with(id, except, granter)
+                        && let Some(token) = self.create_token_copy(cv, you)
+                    {
+                        made.push(token);
+                    }
+                }
+                if let Some(name) = remember {
+                    t.ctx.remembered.retain(|(k, _)| k != name);
+                    t.ctx.remembered.push((name.clone(), made));
+                }
+            }
+            Effect::CopySpell { what, new_targets } => {
+                for id in self.set_now(&t.ctx, what) {
+                    if let Some(copy) = self.copy_spell(id, t.ctx.controller)
+                        && *new_targets
+                    {
+                        t.frames.push(Frame::ChangeTargets {
+                            spell: copy,
+                            index: 0,
+                        });
+                    }
                 }
             }
             Effect::CopyCard { what, remember } => {
@@ -1647,6 +1714,158 @@ impl Game {
         Some(copy)
     }
 
+    /// The copiable values of `id` plus a copy effect's exceptions (CR 707.9);
+    /// granted abilities come from the granting definition.
+    fn copy_values_with(
+        &self,
+        id: ObjectId,
+        except: &mtg_cards::ir::CopyExcept,
+        granter: DefId,
+    ) -> Option<crate::layers::CopyValues> {
+        let mut cv = self.copiable_values(id)?;
+        for w in &except.types {
+            if let Some(t) = mtg_core::CardType::ALL
+                .iter()
+                .find(|t| t.word().eq_ignore_ascii_case(w))
+                && !cv.types.contains(t)
+            {
+                cv.types.push(*t);
+            }
+        }
+        for w in &except.subtypes {
+            let st = mtg_core::Subtype(w.clone());
+            if !cv.subtypes.contains(&st) {
+                cv.subtypes.push(st);
+            }
+        }
+        let def = self.def(granter);
+        for a in &except.abilities {
+            if let Some(ability) = def.granted_index(a) {
+                cv.abilities.push(AbilityRef {
+                    def: granter,
+                    ability,
+                });
+            }
+        }
+        cv.not_legendary |= except.not_legendary;
+        Some(cv)
+    }
+
+    /// CR 111.10, 707.2: a token that's a copy, under `controller`'s control.
+    fn create_token_copy(
+        &mut self,
+        cv: crate::layers::CopyValues,
+        controller: PlayerId,
+    ) -> Option<ObjectId> {
+        let def = self.pool.copy_token()?;
+        self.bump_layers();
+        let timestamp = self.next_timestamp();
+        let id = self.objects.alloc(crate::state::GameObject {
+            def,
+            owner: controller,
+            controller,
+            zone: ZoneId::Battlefield,
+            tapped: false,
+            damage: 0,
+            deathtouch_damage: false,
+            control_since: self.turn.number,
+            timestamp,
+        });
+        self.battlefield.push(id);
+        // The copy effect exists as the token is created, so its "enters"
+        // abilities trigger (CR 603.6a).
+        self.add_copy_effect(id, cv);
+        self.log(Event::TokenCreated {
+            player: controller,
+            object: id,
+            def,
+        });
+        Some(id)
+    }
+
+    /// CR 707.10: a copy of a spell, put on the stack above it (not cast),
+    /// controlled by `controller`, with the same modes, targets and X.
+    fn copy_spell(&mut self, spell: ObjectId, controller: PlayerId) -> Option<ObjectId> {
+        let o = *self.obj(spell)?;
+        if o.zone != ZoneId::Stack {
+            return None;
+        }
+        let item = self
+            .stack
+            .iter()
+            .rev()
+            .find(|s| s.is_spell() && s.object == spell)?
+            .clone();
+        let timestamp = self.next_timestamp();
+        let copy = self.objects.alloc(crate::state::GameObject {
+            def: o.def,
+            owner: controller,
+            controller,
+            zone: ZoneId::Stack,
+            tapped: false,
+            damage: 0,
+            deathtouch_damage: false,
+            control_since: self.turn.number,
+            timestamp,
+        });
+        self.copies.push(copy);
+        self.stack.push(crate::state::StackItem {
+            object: copy,
+            controller,
+            trigger: None,
+            delayed: None,
+            ..item
+        });
+        self.bump_layers();
+        self.log(Event::CopyCreated {
+            object: copy,
+            of: spell,
+        });
+        Some(copy)
+    }
+
+    /// CR 707.10c: for each target of a copied spell, keep it or choose a
+    /// new legal one.
+    fn change_targets_step(&mut self, t: &mut EffectTask, spell: ObjectId, index: u8) -> Flow {
+        let Some(item) = self.stack.iter().rev().find(|s| s.object == spell).cloned() else {
+            return Flow::Continue;
+        };
+        let Some(&current) = item.targets.get(usize::from(index)) else {
+            return Flow::Continue;
+        };
+        let def = self.def(item.source_def);
+        let spec = def
+            .spell()
+            .and_then(|s| s.targets.get(usize::from(item.slots[usize::from(index)])))
+            .map(|s| s.what.clone());
+        let options: Vec<Target> = spec
+            .map(|what| {
+                self.legal_targets(&what, item.controller, Some(spell), Some(def))
+                    .into_iter()
+                    .filter(|x| *x != current)
+                    .collect()
+            })
+            .unwrap_or_default();
+        t.frames.push(Frame::ChangeTargets {
+            spell,
+            index: index + 1,
+        });
+        if options.is_empty() {
+            return Flow::Continue;
+        }
+        t.frames.push(Frame::ChangeTargets { spell, index });
+        Flow::Decide(
+            item.controller,
+            DecisionKind::ChangeTarget {
+                spell,
+                index,
+                current,
+                options,
+            },
+            "707.10c",
+        )
+    }
+
     /// The mana requirement of a mana cost part.
     pub(crate) fn part_req(&self, ctx: &EffectCtx, part: &CostPart) -> CostReq {
         match part {
@@ -1852,6 +2071,27 @@ impl Game {
                 for id in picked {
                     self.add_counters(id, mtg_cards::ir::CounterKind::PlusOne, n);
                 }
+            }
+            AfterPick::EnterAsCopy { node: at } => {
+                let pool = Arc::clone(&self.pool);
+                let except = match node(&pool, t.ctx.ability, &at) {
+                    Some(Effect::EnterAsCopy { except, .. }) => except.clone(),
+                    _ => mtg_cards::ir::CopyExcept::default(),
+                };
+                let granter = t.ctx.ability.def;
+                let cv = picked
+                    .first()
+                    .and_then(|id| self.copy_values_with(*id, &except, granter));
+                let this = t.ctx.source;
+                let controller = t.ctx.controller;
+                self.move_object_with(this, ZoneId::Battlefield, true, |g, new| {
+                    if let Some(o) = g.objects.get_mut(new) {
+                        o.controller = controller;
+                    }
+                    if let Some(cv) = cv {
+                        g.add_copy_effect(new, cv);
+                    }
+                });
             }
             AfterPick::Exile {
                 remember,

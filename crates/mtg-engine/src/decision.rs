@@ -178,6 +178,14 @@ pub enum DecisionKind {
         proposed: Option<u64>,
         stops: Vec<u64>,
     },
+    /// CR 707.10c: keep a copied spell's target (option 0) or change it to
+    /// `options[i - 1]`.
+    ChangeTarget {
+        spell: ObjectId,
+        index: u8,
+        current: Target,
+        options: Vec<Target>,
+    },
     /// CR 616.1: which replacement effect to apply to the event first
     /// (`(source, definition, ability index)`).
     ChooseReplacement { options: Vec<(ObjectId, DefId, u8)> },
@@ -253,6 +261,8 @@ pub enum CardPurpose {
     PutIntoGraveyard,
     /// Put counters on it (amass, CR 701.47a).
     PutCounters,
+    /// Enter as a copy of it (CR 707.9, 614.1c).
+    Copy,
 }
 
 pub use crate::card::ManaBag;
@@ -293,6 +303,7 @@ impl PendingDecision {
             DecisionKind::ChooseMode { modes, .. } => modes.len(),
             DecisionKind::OrderTriggers { triggers } => triggers.len(),
             DecisionKind::ChooseReplacement { options } => options.len(),
+            DecisionKind::ChangeTarget { options, .. } => options.len() + 1,
             DecisionKind::ProposeShortcut { counts } => counts.len() + 1,
             DecisionKind::RespondShortcut { stops, .. } => stops.len() + 1,
             DecisionKind::ChooseCost { options, .. } => options.len(),

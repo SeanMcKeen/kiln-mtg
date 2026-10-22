@@ -1,0 +1,15 @@
+card: Phantasmal Image
+faces:
+  - abilities:
+      # CR 614.1c, 707.9: an "enters as a copy" self-replacement with exceptions.
+      - replacement:
+          event: { would_enter: { this: true } }
+          instead:
+            enter_as_copy:
+              of: { types: [creature] }
+              except:
+                subtypes: [Illusion]
+                abilities:
+                  - triggered:
+                      trigger: { becomes_target: { by: any, what: { this: true } } }
+                      effect: { sacrifice: { who: you, what: { one: this } } }
