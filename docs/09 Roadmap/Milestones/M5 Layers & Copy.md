@@ -1,6 +1,6 @@
 ---
 type: milestone
-status: planned
+status: in-progress
 milestone: M5
 tags: [milestone]
 updated: 2026-10-22
@@ -19,3 +19,34 @@ updated: 2026-10-22
 
 ## Exit criteria
 The layer torture suite passes. Characteristic computation fits the performance budget.
+
+## Plan (2026-10-22)
+The expected outcomes for the ⚠ catalog entries come from Oracle rulings fetched from Scryfall on 2026-10-22 (paraphrased; see the catalog):
+- **T51:** an older Humility leaves Opalescence's creatures 4/4; an older Opalescence leaves them 1/1. Opalescence keeps applying in later layers after losing its ability (CR 613.6).
+- **T52:** Dryad Arbor under Blood Moon is a green Mountain Dryad creature.
+- **T03:** an Oracle that enters under Dress Down has no abilities, so its ETB doesn't trigger.
+
+### Design decisions
+| # | Decision | Why |
+|---|---|---|
+| L1 | **Characteristics are computed** (`Game::chars(id)`): name, mana value, card types, subtypes, supertypes, colors, abilities, keywords, P/T and controller. The printed values (the copiable values, CR 707.2) are transformed by the layers. Every rules read goes through it, or through narrow accessors (`types_of`, `colors_of`, `keywords`, `power`, `abilities_of`). | One source of truth for CR 613. Today about 80 call sites read card definitions directly. |
+| L2 | **Abilities are referenced by `AbilityRef(def, index)`.** An object's ability list is computed, so it can include copied abilities (another definition's) and granted ones. `Action::Activate`/`ActivateMana` carry the `AbilityRef`. Stack items and triggers already store `(def, index)`. | Copy, grant and remove (Humility, Dress Down) need abilities that don't come from the object's own card. |
+| L3 | **One continuous-effect store plus static abilities.** Effects from resolved spells and abilities are stored, each with a timestamp, duration, layer payload and affected set. Static abilities of permanents generate their effects at computation time, with the permanent's timestamp. The store replaces `pt_effects`. | CR 611.2 vs. 611.3: one-shot-created effects lock in their affected set (611.2c, Toxic Deluge). Static abilities re-evaluate continuously (611.3a). |
+| L4 | **Timestamps** (CR 613.7): every object gets one when it enters a zone, and every effect when it's created, from one game counter. Goldens are re-blessed once, because the state hash gains timestamps. | Humility/Opalescence and Dress Down are decided by timestamp order. |
+| L5 | **Layer order:** 1a copy, 1b face-down, 2 control, 3 text (rejected by `support.rs` for now), 4 type, 5 color, 6 abilities, 7a CDAs, 7b set, 7c modify (counters included), 7d switch. CDAs go first within a layer (613.3). Then dependencies (613.8), found by trial: A depends on B if applying B first changes A's existence, what it applies to, or what it does. Otherwise timestamp order; a dependency loop also falls back to timestamps. An effect that started in an earlier layer keeps applying in later ones (613.6). | The exact CR procedure. Trial application is cheap with the few effects a real board has, and handles Blood Moon + Urborg (T50) without special cases. |
+| L6 | **Performance:** a fast path when no effect exists (characteristics equal printed values, as now). Otherwise a computed cache, refreshed between tasks when something marked it dirty; reads in between compute fresh. Budget: all characteristics of a 60-permanent board with 10 static effects in ≤ 20 µs (fits NFR-P3). Benchmarked. | No `RefCell` in `Game` (it must stay `Sync`-friendly for search). Correct at every read. |
+| L7 | **Copy effects** (layer 1, CR 707): an object's copiable values become another object's copiable values, plus the exceptions in 707.9. Exception abilities come from the copier's definition, flagged as not its own abilities. Covers token copies (Kiki-Jiki, Twinflame) and copies of spells (CR 707.10: put on the stack, not cast; new targets optional per 707.10c). | T07, T08, T53. |
+| L8 | **Control:** layer-2 effects change controllers, and `GameObject.controller` holds the computed result. Controlling a player (CR 723) is decision routing: `PendingDecision.player` is the controlling player, and the controlled player stays the actor. | T08 (Zealous Conscripts), T27 (Opposition Agent). |
+| L9 | **Attachments:** Auras (enchant, CR 303.4) and Equipment (equip, CR 301.5) with `attached_to`, plus SBAs 704.5m–p. | M4 leftovers; Animate Dead for T12. |
+| L10 | **Zone-changing loop detection (Q26):** in the loop hash, an object reference hashes as its arena index plus whether it's alive, so a card re-entering the same slot looks the same. | T12 (Worldgorger) as a mandatory-loop draw. |
+
+### Phases
+| Phase | Content | Evidence |
+|---|---|---|
+| 5.1 | Layer core: L1–L4 and L6. A refactor with no behaviour change: computed characteristics, `AbilityRef` lists, the effect store, timestamps, the fast path and cache, a benchmark. | All tests pass; goldens re-blessed for timestamps only; benchmark recorded |
+| 5.2 | Statics in layers 4–7 (L5): set/add types, lose abilities, set base P/T, anthems; static conditions; dependencies and 613.6. Rule statics (`CantCast`/`CantActivate`, Torpor Orb). Real cards: Blood Moon, Urborg, Humility, Opalescence, Dress Down, Torpor Orb, Toxic Deluge, Grand Abolisher. | T03, T50, T51, T52, T54 |
+| 5.3 | Copy effects (L7): Clone/Phantasmal Image, token copies, copies of spells. | T07, T53 |
+| 5.4 | Control (L8): Zealous Conscripts, Kiki-Jiki; Opposition Agent (CR 723). | T08, T27 |
+| 5.5 | Attachments (L9): Auras, Equipment, Animate Dead; the amass type change. | Scenarios |
+| 5.6 | Teferi's Protection (phasing CR 702.26, protection for players), Walking Ballista + Heliod; zone-changing loops (L10). | T55, T09, T12 |
+| 5.7 | The layer torture suite, cache benchmark, real cards, low-power fuzz → review. | Exit criteria |
