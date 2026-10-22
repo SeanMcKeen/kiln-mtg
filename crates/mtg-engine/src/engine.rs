@@ -176,7 +176,10 @@ pub struct Game {
     pub(crate) events: Vec<Event>,
     pub(crate) event_count: u64,
     /// Until-end-of-turn power/toughness changes (layer 7c, CR 613.4c), ended in cleanup (CR 514.2).
-    pub(crate) pt_effects: Vec<(ObjectId, i32, i32)>,
+    /// Continuous effects from resolved spells and abilities (CR 611.2).
+    pub(crate) effects: Vec<crate::layers::ContinuousEffect>,
+    /// The latest timestamp handed out (CR 613.7).
+    pub(crate) timestamp: u64,
     /// "Activate only once each turn" abilities activated this turn (CR 602.5b).
     pub(crate) activated_this_turn: Vec<(ObjectId, u8)>,
     /// Counters on objects (CR 122), sorted by object and kind.
@@ -191,6 +194,10 @@ pub struct Game {
     /// Objects an ability of a permanent exiled and remembered, linked to
     /// that permanent's other abilities (CR 607.2a): (source, name, objects).
     pub(crate) linked: Vec<(ObjectId, String, SmallVec<[ObjectId; 2]>)>,
+    /// Tokens that have left the battlefield (CR 704.5d candidates). Derived
+    /// from the objects, so not hashed; tokens are only ever created on the
+    /// battlefield, so a token elsewhere is always in this list.
+    pub(crate) tokens_off_field: Vec<ObjectId>,
     /// Copies of cards (CR 707.12); they cease to exist outside the stack and
     /// battlefield (CR 704.5e).
     pub(crate) copies: Vec<ObjectId>,
@@ -256,12 +263,14 @@ impl Game {
             result: None,
             events: Vec::new(),
             event_count: 0,
-            pt_effects: Vec::new(),
+            effects: Vec::new(),
+            timestamp: 0,
             activated_this_turn: Vec::new(),
             counters: Vec::new(),
             pending_triggers: Vec::new(),
             leaving_batch: Vec::new(),
             loops: crate::loops::LoopTracker::default(),
+            tokens_off_field: Vec::new(),
             linked: Vec::new(),
             copies: Vec::new(),
             face_down: Vec::new(),
@@ -287,6 +296,7 @@ impl Game {
                     damage: 0,
                     deathtouch_damage: false,
                     control_since: 0,
+                    timestamp: 0,
                 }));
             }
             game.players.push(Player {
@@ -461,9 +471,10 @@ impl Game {
         self.result.hash(&mut h);
         // State added after M2 is hashed only when present, so states that
         // don't use it keep their M2 hashes (golden replays stay comparable).
-        if !self.pt_effects.is_empty() {
-            self.pt_effects.hash(&mut h);
+        if !self.effects.is_empty() {
+            self.effects.hash(&mut h);
         }
+        self.timestamp.hash(&mut h);
         if !self.activated_this_turn.is_empty() {
             self.activated_this_turn.hash(&mut h);
         }
@@ -543,39 +554,6 @@ impl Game {
             .map(|i| PlayerId(u8::try_from((p.0 as usize + i) % n).unwrap_or(0)))
             .find(|q| self.in_game(*q))
             .unwrap_or(p)
-    }
-
-    /// Effective power and toughness: printed values plus until-end-of-turn
-    /// changes and +1/+1 and -1/-1 counters (all layer 7c, CR 613.4c, which
-    /// commute; M3 has no other layers yet).
-    pub(crate) fn power(&self, id: ObjectId) -> i32 {
-        let base = self.obj_def(id).and_then(|d| d.power).unwrap_or(0);
-        base + self.counter_pt(id)
-            + self
-                .pt_effects
-                .iter()
-                .filter(|(o, _, _)| *o == id)
-                .map(|(_, p, _)| p)
-                .sum::<i32>()
-    }
-
-    pub(crate) fn toughness(&self, id: ObjectId) -> i32 {
-        let base = self.obj_def(id).and_then(|d| d.toughness).unwrap_or(0);
-        base + self.counter_pt(id)
-            + self
-                .pt_effects
-                .iter()
-                .filter(|(o, _, _)| *o == id)
-                .map(|(_, _, t)| t)
-                .sum::<i32>()
-    }
-
-    pub(crate) fn keywords(&self, id: ObjectId) -> Keywords {
-        self.obj_def(id).map(|d| d.keywords).unwrap_or_default()
-    }
-
-    pub(crate) fn is_creature(&self, id: ObjectId) -> bool {
-        self.obj_def(id).is_some_and(|d| d.is(CardType::Creature))
     }
 
     /// CR 302.6: under its controller's control continuously since their most recent turn began.
@@ -671,6 +649,7 @@ impl Game {
         let tapped = to == ZoneId::Battlefield
             && self.pool.has_replacements()
             && self.enters_tapped(old.def, controller);
+        let timestamp = self.next_timestamp();
         let new = self.objects.alloc(GameObject {
             def: old.def,
             owner: old.owner,
@@ -680,6 +659,7 @@ impl Game {
             damage: 0,
             deathtouch_damage: false,
             control_since: self.turn.number,
+            timestamp,
         });
         match to {
             ZoneId::Stack | ZoneId::Command => {}
@@ -691,6 +671,9 @@ impl Game {
         // A copy stays a copy as it moves (it's cast from exile, CR 707.12).
         if was_copy {
             self.copies.push(new);
+        }
+        if to != ZoneId::Battlefield && self.def(old.def).token {
+            self.tokens_off_field.push(new);
         }
         self.log(Event::ZoneChange {
             def: old.def,
@@ -1266,7 +1249,7 @@ impl Game {
                 o.damage = 0;
             }
         }
-        self.pt_effects.clear();
+        self.end_turn_effects();
         // CR 514.3a: if SBAs would be performed, they are, then players get priority and another cleanup follows.
         // CR 514.3a: also when abilities have triggered during cleanup.
         if self.sba_pending() || !self.pending_triggers.is_empty() {

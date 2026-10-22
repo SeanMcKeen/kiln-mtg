@@ -46,6 +46,8 @@ pub struct GameObject {
     pub deathtouch_damage: bool,
     /// Turn number at which this object came under its controller's control (CR 302.6).
     pub control_since: u32,
+    /// CR 613.7d: a new object's timestamp is when it entered its zone.
+    pub timestamp: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -421,6 +423,7 @@ mod tests {
             damage: 0,
             deathtouch_damage: false,
             control_since: 0,
+            timestamp: 0,
         }
     }
 

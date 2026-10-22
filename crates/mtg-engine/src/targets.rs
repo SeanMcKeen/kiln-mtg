@@ -28,8 +28,11 @@ impl Game {
         this: Option<ObjectId>,
     ) -> bool {
         let Some(o) = self.obj(id) else { return false };
-        let def = self.def(o.def);
-        let t = &def.type_line;
+        // CR 613: the object's current characteristics.
+        let Some(c) = self.chars(id) else {
+            return false;
+        };
+        let t = c.type_line();
         if (f.this && this != Some(id)) || (f.other && this == Some(id)) {
             return false;
         }
@@ -66,11 +69,11 @@ impl Game {
             && !letters
                 .chars()
                 .filter_map(Color::from_letter)
-                .any(|c| def.colors.contains(c))
+                .any(|col| c.colors().contains(col))
         {
             return false;
         }
-        if !self.player_rel(f.controller, you, o.controller) {
+        if !self.player_rel(f.controller, you, c.controller()) {
             return false;
         }
         if let Some(z) = f.zone
@@ -188,7 +191,7 @@ impl Game {
         let Some(o) = self.obj(id) else {
             return false;
         };
-        self.def(o.def).abilities.iter().any(|a| {
+        self.abilities_of(id).iter().any(|(_, a)| {
             matches!(a, mtg_cards::ir::Ability::Keyword(mtg_cards::ir::Keyword::Protection(f))
                 if crate::triggers::card_matches(self, src, src_controller, f, o.controller))
         })
@@ -237,8 +240,8 @@ impl Game {
 
     /// CR 115.4: permanents "any target" can choose.
     fn is_any_target_permanent(&self, id: ObjectId) -> bool {
-        self.obj_def(id).is_some_and(|d| {
-            d.is(CardType::Creature) || d.is(CardType::Planeswalker) || d.is(CardType::Battle)
+        self.chars(id).is_some_and(|c| {
+            c.is(CardType::Creature) || c.is(CardType::Planeswalker) || c.is(CardType::Battle)
         })
     }
 }

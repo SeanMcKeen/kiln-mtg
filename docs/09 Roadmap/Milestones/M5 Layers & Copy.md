@@ -50,3 +50,8 @@ The expected outcomes for the ⚠ catalog entries come from Oracle rulings fetch
 | 5.5 | Attachments (L9): Auras, Equipment, Animate Dead; the amass type change. | Scenarios |
 | 5.6 | Teferi's Protection (phasing CR 702.26, protection for players), Walking Ballista + Heliod; zone-changing loops (L10). | T55, T09, T12 |
 | 5.7 | The layer torture suite, cache benchmark, real cards, low-power fuzz → review. | Exit criteria |
+
+## Progress
+| Phase | Status | Evidence |
+|---|---|---|
+| 5.1 | ✅ 2026-10-22 | `layers.rs`, as a refactor:<br>- Computed characteristics (`Chars`: printed fast path, or computed through the layers) and `abilities_of` with `AbilityRef`s.<br>- The continuous-effect store with locked-in sets (CR 611.2c) replaces `pt_effects`; until-end-of-turn effects end in cleanup.<br>- Object and effect timestamps (CR 613.7).<br>- Rerouted through characteristics: `matches_filter`, "any target", protection, trigger matching, replacements and statics.<br>Goldens re-blessed: only `final_hash` changed (timestamps); every choice reproduces.<br>Throughput: an A/B on the same seed against the pre-M5 build found chars and trigger lookup 14% slower. Fixed by a fast path and by replacing the per-SBA scan of all objects for tokens (CR 704.5d) with a list of tokens that left the battlefield. Now 318 vs 314 games/s. Activated and mana abilities still come from the definition; they move to `AbilityRef` in 5.2, when abilities can differ. |

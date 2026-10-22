@@ -141,7 +141,10 @@ impl Game {
         self.combat.hash(&mut h);
         self.rng.draws().hash(&mut h);
         self.tasks.hash(&mut h);
-        self.pt_effects.hash(&mut h);
+        // Effects without their timestamps: a loop may recreate one each time.
+        for e in &self.effects {
+            (&e.affected, &e.effect, e.duration).hash(&mut h);
+        }
         self.activated_this_turn.hash(&mut h);
         self.pending_triggers.hash(&mut h);
         self.delayed.hash(&mut h);

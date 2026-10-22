@@ -156,19 +156,51 @@ impl Game {
             .collect()
     }
 
+    /// The triggered abilities object `id` has now (CR 613, layer 6).
+    fn triggered_of(&self, id: ObjectId) -> SmallVec<[(AbilityRef, &TriggeredAbility); 2]> {
+        match self.chars(id) {
+            Some(crate::layers::Chars::Printed { def_id, def, .. }) => def
+                .abilities
+                .iter()
+                .enumerate()
+                .filter_map(|(i, a)| match a {
+                    Ability::Triggered(t) => Some((
+                        AbilityRef {
+                            def: def_id,
+                            ability: u8::try_from(i).ok()?,
+                        },
+                        t,
+                    )),
+                    _ => None,
+                })
+                .collect(),
+            Some(crate::layers::Chars::Computed(_)) => self
+                .abilities_of(id)
+                .into_iter()
+                .filter_map(|(r, a)| match a {
+                    Ability::Triggered(t) => Some((r, t)),
+                    _ => None,
+                })
+                .collect(),
+            None => SmallVec::new(),
+        }
+    }
+
     /// CR 603.2: queues every triggered ability that `e` triggers.
     pub(crate) fn match_triggers(&mut self, e: &Event) {
         let mut found: Vec<PendingTrigger> = Vec::new();
         // Permanents on the battlefield now.
         for &source in &self.battlefield {
             let Some(o) = self.obj(source) else { continue };
-            for (ability, t) in self.triggered(o.def) {
+            // CR 613: the abilities it has now (layer 6).
+            for (r, t) in self.triggered_of(source) {
+                let (def, ability) = (r.def, r.ability);
                 if let Some(info) = self.trigger_hit(&t.trigger, source, o.controller, e)
-                    && self.intervening_if(t, source, o.def, ability, o.controller, info)
+                    && self.intervening_if(t, source, def, ability, o.controller, info)
                 {
                     found.push(PendingTrigger {
                         source,
-                        source_def: o.def,
+                        source_def: def,
                         ability,
                         controller: o.controller,
                         info,

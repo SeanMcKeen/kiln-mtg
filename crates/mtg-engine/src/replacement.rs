@@ -59,14 +59,13 @@ impl Game {
     fn statics(&self) -> impl Iterator<Item = (ObjectId, PlayerId, &StaticEffect)> {
         self.battlefield
             .iter()
-            .filter_map(|&id| self.obj(id).map(|o| (id, o)))
-            .flat_map(move |(id, o)| {
-                self.def(o.def)
-                    .abilities
-                    .iter()
-                    .filter_map(move |a| match a {
+            .filter_map(|&id| self.obj(id).map(|o| (id, o.controller)))
+            .flat_map(move |(id, controller)| {
+                self.abilities_of(id)
+                    .into_iter()
+                    .filter_map(move |(_, a)| match a {
                         Ability::Static(s) if s.condition.is_none() => {
-                            Some((id, o.controller, &s.effect))
+                            Some((id, controller, &s.effect))
                         }
                         _ => None,
                     })
@@ -111,7 +110,8 @@ impl Game {
             p == self.turn.active && self.turn.step == Step::Draw && !self.drew_in_draw_step;
         for &source in &self.battlefield {
             let Some(o) = self.obj(source) else { continue };
-            for (ability, r) in self.replacements(o.def) {
+            for (aref, a) in self.abilities_of(source) {
+                let Ability::Replacement(r) = a else { continue };
                 let ReplaceEvent::WouldDraw {
                     by,
                     except_first_in_draw_step,
@@ -121,8 +121,8 @@ impl Game {
                 };
                 let rref = ReplacementRef {
                     source,
-                    def: o.def,
-                    ability,
+                    def: aref.def,
+                    ability: aref.ability,
                 };
                 if applied.contains(&rref)
                     || !self.player_rel(*by, o.controller, p)
@@ -194,10 +194,10 @@ impl Game {
             .any(|(_, r)| matches!(&r.event, ReplaceEvent::WouldEnter(f) if f.this) && taps(r))
             || self.battlefield.iter().any(|&s| {
                 self.obj(s).is_some_and(|o| {
-                    self.replacements(o.def).any(|(_, r)| {
-                        taps(r)
+                    self.abilities_of(s).iter().any(|(_, a)| {
+                        matches!(a, Ability::Replacement(r) if taps(r)
                             && matches!(&r.event, ReplaceEvent::WouldEnter(f)
-                                if !f.this && def_matches(self, def, controller, f, o.controller))
+                                if !f.this && def_matches(self, def, controller, f, o.controller)))
                     })
                 })
             })

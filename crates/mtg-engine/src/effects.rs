@@ -713,11 +713,22 @@ impl Game {
                 power,
                 toughness,
             } => {
-                for id in self.set_now(&t.ctx, what) {
-                    if self.on_battlefield_now(id) {
-                        // CR 611.2a: until-end-of-turn effects end in cleanup (CR 514.2).
-                        self.pt_effects.push((id, *power, *toughness));
-                    }
+                // CR 611.2c: the affected set is locked in now.
+                let affected: SmallVec<[ObjectId; 4]> = self
+                    .set_now(&t.ctx, what)
+                    .into_iter()
+                    .filter(|id| self.on_battlefield_now(*id))
+                    .collect();
+                if !affected.is_empty() {
+                    // CR 611.2a: until end of turn, ending in cleanup (CR 514.2).
+                    self.add_effect(
+                        affected,
+                        crate::layers::LayerEffect::ModifyPt {
+                            power: *power,
+                            toughness: *toughness,
+                        },
+                        crate::layers::Duration::EndOfTurn,
+                    );
                 }
             }
             Effect::RevealUntil {
@@ -1606,6 +1617,7 @@ impl Game {
     /// (CR 704.5e).
     fn copy_card(&mut self, id: ObjectId, controller: PlayerId) -> Option<ObjectId> {
         let o = *self.obj(id)?;
+        let timestamp = self.next_timestamp();
         let copy = self.objects.alloc(crate::state::GameObject {
             def: o.def,
             owner: controller,
@@ -1615,6 +1627,7 @@ impl Game {
             damage: 0,
             deathtouch_damage: false,
             control_since: self.turn.number,
+            timestamp,
         });
         match o.zone {
             ZoneId::Stack | ZoneId::Command => {}

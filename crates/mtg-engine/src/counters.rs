@@ -99,6 +99,7 @@ impl Game {
     /// CR 111.2: creates `n` tokens owned and controlled by `owner`, on the battlefield.
     pub(crate) fn create_tokens(&mut self, def: DefId, owner: PlayerId, n: u32) {
         for _ in 0..n {
+            let timestamp = self.next_timestamp();
             let id = self.objects.alloc(GameObject {
                 def,
                 owner,
@@ -108,6 +109,7 @@ impl Game {
                 damage: 0,
                 deathtouch_damage: false,
                 control_since: self.turn.number,
+                timestamp,
             });
             self.battlefield.push(id);
             self.log(Event::TokenCreated {
@@ -122,10 +124,10 @@ impl Game {
     /// Also copies of cards outside the stack and battlefield (CR 704.5e).
     pub(crate) fn tokens_off_battlefield(&self) -> Vec<ObjectId> {
         let mut out: Vec<ObjectId> = self
-            .objects
+            .tokens_off_field
             .iter()
-            .filter(|(_, o)| o.zone != ZoneId::Battlefield && self.def(o.def).token)
-            .map(|(id, _)| id)
+            .copied()
+            .filter(|id| self.obj(*id).is_some_and(|o| o.zone != ZoneId::Battlefield))
             .collect();
         out.extend(self.copies.iter().copied().filter(|id| {
             self.obj(*id)
@@ -142,6 +144,7 @@ impl Game {
         self.detach_object(id, zone);
         self.objects.free(id);
         self.drop_counters(id);
+        self.tokens_off_field.retain(|x| *x != id);
         if !self.copies.is_empty() {
             self.copies.retain(|x| *x != id);
         }

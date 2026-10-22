@@ -125,9 +125,11 @@ impl GameBuilder {
         let mut players = Vec::with_capacity(n);
         let mut battlefield = Vec::new();
         let mut counters = Vec::new();
+        let mut next_ts = 0u64;
         for (i, seat) in self.seats.iter().enumerate() {
             let id = PlayerId(u8::try_from(i).unwrap_or(0));
             let mut make = |def: DefId, zone: ZoneId, opts: &PermanentOpts| {
+                next_ts += 1;
                 objects.alloc(GameObject {
                     def,
                     owner: id,
@@ -137,6 +139,7 @@ impl GameBuilder {
                     damage: opts.damage,
                     deathtouch_damage: false,
                     control_since: if opts.summoning_sick { self.turn } else { 0 },
+                    timestamp: next_ts,
                 })
             };
             // Library vectors keep the top card last.
@@ -218,12 +221,14 @@ impl GameBuilder {
             result: None,
             events: Vec::new(),
             event_count: 0,
-            pt_effects: Vec::new(),
+            effects: Vec::new(),
+            timestamp: next_ts,
             activated_this_turn: Vec::new(),
             counters,
             pending_triggers: Vec::new(),
             leaving_batch: Vec::new(),
             loops: crate::loops::LoopTracker::default(),
+            tokens_off_field: Vec::new(),
             linked: Vec::new(),
             copies: Vec::new(),
             face_down: Vec::new(),
