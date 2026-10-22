@@ -202,6 +202,9 @@ pub struct Game {
     /// from the objects, so not hashed; tokens are only ever created on the
     /// battlefield, so a token elsewhere is always in this list.
     pub(crate) tokens_off_field: Vec<ObjectId>,
+    /// Attachments (CR 303.4, 301.5): (attached object, host, bound to the
+    /// object its own effect put onto the battlefield).
+    pub(crate) attachments: Vec<(ObjectId, Target, bool)>,
     /// Spells being cast with mana spent as though it were any color
     /// (Opposition Agent).
     pub(crate) any_color_spells: Vec<ObjectId>,
@@ -281,6 +284,7 @@ impl Game {
             loops: crate::loops::LoopTracker::default(),
             tokens_off_field: Vec::new(),
             any_color_spells: Vec::new(),
+            attachments: Vec::new(),
             linked: Vec::new(),
             copies: Vec::new(),
             face_down: Vec::new(),
@@ -518,6 +522,9 @@ impl Game {
         }
         if !self.any_color_spells.is_empty() {
             self.any_color_spells.hash(&mut h);
+        }
+        if !self.attachments.is_empty() {
+            self.attachments.hash(&mut h);
         }
         if !self.cast_this_turn.is_empty() {
             self.cast_this_turn.hash(&mut h);
@@ -1290,6 +1297,7 @@ impl Game {
             }
         }
         self.end_turn_effects();
+        self.prune_attachments();
         // CR 514.3a: if SBAs would be performed, they are, then players get priority and another cleanup follows.
         // CR 514.3a: also when abilities have triggered during cleanup.
         if self.sba_pending() || !self.pending_triggers.is_empty() {
@@ -1481,7 +1489,10 @@ impl Game {
                 Some(ir::Ability::Triggered(t)) => &t.targets,
                 _ => &[],
             },
-            None => def.spell().map_or(&[], |s| s.targets.as_slice()),
+            // An Aura spell targets what it will enchant (CR 303.4a).
+            None => def
+                .spell()
+                .map_or_else(|| def.enchant.as_slice(), |s| s.targets.as_slice()),
         };
         let slot_legal = |g: &Game, i: usize, t: Target| {
             slots
@@ -1534,6 +1545,12 @@ impl Game {
                     {
                         o.controller = item.controller;
                         self.bump_layers();
+                        // CR 303.4f: an Aura spell enters attached to its target.
+                        if def.enchant.is_some()
+                            && let Some(&host) = item.targets.first()
+                        {
+                            self.attach(new, host, false);
+                        }
                     }
                     return;
                 }

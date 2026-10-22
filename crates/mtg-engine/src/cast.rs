@@ -126,7 +126,10 @@ fn targets_of(def: &CardDef, ability: Option<u8>) -> &[TargetSpec] {
             Some(Ability::Triggered(t)) => &t.targets,
             _ => &[],
         },
-        None => def.spell().map_or(&[], |s| s.targets.as_slice()),
+        // An Aura spell targets what it will enchant (CR 303.4a).
+        None => def
+            .spell()
+            .map_or_else(|| def.enchant.as_slice(), |s| s.targets.as_slice()),
     }
 }
 
@@ -413,6 +416,11 @@ impl Game {
             } else if !spell.targets.iter().all(|t| self.slot_ok(t, p, None, def)) {
                 return false;
             }
+        }
+        if let Some(spec) = &def.enchant
+            && !self.slot_ok(spec, p, None, def)
+        {
+            return false;
         }
         let ctx = cast_ctx(def_id, def, None, id, p);
         !self.cost_options(def, &ctx, p).is_empty()

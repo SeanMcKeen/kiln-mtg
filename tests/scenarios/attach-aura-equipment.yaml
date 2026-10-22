@@ -1,0 +1,29 @@
+scenario: mtg-scenario/1
+name: When the enchanted and equipped creature dies, the Aura goes to the graveyard and the Equipment stays, unattached
+cr: ["303.4a", "303.4f", "702.6a", "704.5m", "704.5n"]
+players:
+  - battlefield: [Test Sword, Test Plains, Test Plains, Test Bear]
+    hand: [Test Blessing]
+  - battlefield: [Test Mountain, Test Mountain]
+    hand: [Test Bolt, Test Bolt]
+script:
+  - choose: Cast Test Blessing
+  - choose: Target Test Bear (P1)
+  - choose: Pay with Test Plains
+  - pass_all
+  - choose: Activate Test Sword ability 3
+  - choose: Target Test Bear (P1)
+  - choose: Pay with Test Plains
+  - pass_all
+  - check:
+      pt: { Test Bear: [5, 3] }
+  - pass: 1
+  - choose: Cast Test Bolt
+    player: P2
+  - choose: Target Test Bear (P1)
+  - choose: Pay with Test Mountain
+  - pass_all
+expect:
+  zones:
+    P1.battlefield: [Test Sword, Test Plains, Test Plains]
+    P1.graveyard: [Test Bear, Test Blessing]

@@ -37,6 +37,8 @@ pub(crate) enum LayerEffect {
     /// Layer 2: `to` controls it; `from` controlled it before (CR 613.1b).
     /// The current controller is kept on the object itself.
     Control { to: PlayerId, from: PlayerId },
+    /// Layer 4: it's this subtype in addition (amass, CR 701.47a).
+    AddSubtype(String),
     /// Layer 6: it has this keyword (CR 613.1f).
     GrantKeyword(Box<mtg_cards::ir::Keyword>),
     /// Layer 7c: "+N/+M" (CR 613.4c).
@@ -236,6 +238,7 @@ fn layer_of(p: Part<'_>) -> Option<u8> {
         Part::Stored(e) => match e.effect {
             LayerEffect::Copy(_) => Some(1),
             LayerEffect::Control { .. } => Some(2),
+            LayerEffect::AddSubtype(_) => Some(4),
             LayerEffect::GrantKeyword(_) => Some(6),
             LayerEffect::ModifyPt { .. } => Some(73),
         },
@@ -731,6 +734,9 @@ impl Game {
         if (f.this && this != Some(id)) || (f.other && this == Some(id)) {
             return false;
         }
+        if f.attached && !self.is_attached_to(this, id) {
+            return false;
+        }
         let c = &board.chars[i];
         let t = &c.type_line;
         let has_type = |w: &String| {
@@ -814,6 +820,11 @@ impl Game {
                 match *part {
                     Part::Stored(e) => match &e.effect {
                         LayerEffect::Copy(_) | LayerEffect::Control { .. } => {}
+                        LayerEffect::AddSubtype(st) => {
+                            if !c.type_line.subtypes.iter().any(|x| x.0 == *st) {
+                                c.type_line.subtypes.push(Subtype(st.clone()));
+                            }
+                        }
                         LayerEffect::GrantKeyword(k) => {
                             if let Some(bit) = Keywords::of_ir(k) {
                                 c.keywords = c.keywords.with(bit);

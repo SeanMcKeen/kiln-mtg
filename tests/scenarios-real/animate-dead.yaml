@@ -1,0 +1,29 @@
+scenario: mtg-scenario/1
+name: "Animate Dead returns an opponent's creature card under your control, -1/-0; when it leaves, that creature is sacrificed"
+cr: ["303.4a", "303.4f", "603.10a", "704.5m"]
+verifies: [Animate Dead]
+players:
+  - battlefield: [Swamp, Swamp, Plains, Plains]
+    hand: [Animate Dead, Disenchant]
+  - graveyard: [Tymna the Weaver]
+script:
+  - choose: Cast Animate Dead
+  - choose: Target Tymna the Weaver
+  - choose: Pay with Swamp, Swamp
+  # The Aura resolves attached to the card; its ETB returns the card.
+  - pass_all
+  - pass_all
+  - check:
+      zones: { P1.battlefield: [Swamp, Swamp, Plains, Plains, Animate Dead, Tymna the Weaver], P2.graveyard: [] }
+      pt: { Tymna the Weaver: [1, 2] }
+  - choose: Cast Disenchant
+  - choose: Target Animate Dead (P1)
+  - choose: Pay with Plains, Plains
+  - pass_all
+  # Its leaves-the-battlefield trigger: Tymna's controller (P1) sacrifices it.
+  - pass_all
+expect:
+  zones:
+    P1.battlefield: [Swamp, Swamp, Plains, Plains]
+    P1.graveyard: [Animate Dead, Disenchant]
+    P2.graveyard: [Tymna the Weaver]

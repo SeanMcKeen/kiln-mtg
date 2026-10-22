@@ -5,6 +5,7 @@
 //! enumerated, and [`Game::apply`] answers it. Nothing else mutates a game.
 //! See `docs/09 Roadmap/Milestones/M2 Core Game Loop.md` for the M2 scope.
 
+mod attach;
 pub mod builder;
 pub mod card;
 mod cast;

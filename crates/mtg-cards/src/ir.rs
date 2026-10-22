@@ -88,6 +88,10 @@ pub enum Keyword {
     PartnerWith(String),
     /// CR 702.16
     Protection(ObjectFilter),
+    /// "Enchant [object or player]" (CR 702.5): what an Aura can be attached to.
+    Enchant(TargetKind),
+    /// "Equip [cost]" (CR 702.6): attach to target creature you control, as a sorcery.
+    Equip(Vec<CostPart>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -556,6 +560,13 @@ pub enum Effect {
         at: Trigger,
         effect: Box<Effect>,
     },
+    /// "Attach this to [object]" (CR 701.3).
+    Attach {
+        to: ObjectRef,
+    },
+    /// "Return enchanted creature card to the battlefield under your control
+    /// and attach this to it" (Animate Dead).
+    ReturnAttached,
     /// "Gain control of [objects]" (layer 2, CR 613.1b), until end of turn or for good.
     GainControl {
         what: ObjectSet,
@@ -755,6 +766,8 @@ pub enum ObjectRef {
     Triggering,
     /// An object remembered by name ("the exiled card").
     Remembered(String),
+    /// The object or card this is attached to ("enchanted creature", CR 303.4b).
+    AttachedTo,
 }
 
 /// A set of objects an effect acts on.
@@ -833,6 +846,10 @@ pub struct ObjectFilter {
     /// Only this object.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub this: bool,
+    /// The object the source is attached to ("enchanted creature",
+    /// "equipped creature"; CR 303.4b, 301.5a).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub attached: bool,
     /// "other"/"another": not this object.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub other: bool,

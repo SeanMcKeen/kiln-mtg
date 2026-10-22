@@ -900,3 +900,19 @@
         event: { would_find_while_searching: opponent }
         instead: { exile: { what: { one: triggering }, remember: found } }
     - static: { effect: { rule: { may_play_exiled_with_this: { any_color_mana: true } } } }
+
+# ---- attachments (M5 5.5) --------------------------------------------------------
+
+- name: Test Blessing
+  cost: "{W}"
+  types: Enchantment — Aura
+  abilities:
+    - keyword: { enchant: { object: { types: [creature] } } }
+    - static: { effect: { pump: { affected: { attached: true }, power: 1, toughness: 1 } } }
+
+- name: Test Sword
+  cost: "{1}"
+  types: Artifact — Equipment
+  abilities:
+    - static: { effect: { pump: { affected: { attached: true }, power: 2, toughness: 0 } } }
+    - keyword: { equip: [{ mana: "{1}" }] }

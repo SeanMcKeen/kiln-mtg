@@ -306,6 +306,10 @@ pub struct CardDef {
     /// referenced. `None`: all abilities are printed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hidden_from: Option<u16>,
+    /// An Aura's enchant ability as a target slot: Aura spells target what
+    /// they'll enchant (CR 303.4a, 702.5a).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enchant: Option<ir::TargetSpec>,
 }
 
 /// Bitmask of the target slots an effect refers to.
@@ -362,6 +366,22 @@ impl CardDef {
         for cost in upkeeps {
             abilities.push(cumulative_upkeep(&cost).map_err(unsupported)?);
         }
+        // CR 702.6a: equip is an activated ability, as a sorcery.
+        let equips: Vec<Vec<CostPart>> = abilities
+            .iter()
+            .filter_map(|a| match a {
+                Ability::Keyword(ir::Keyword::Equip(c)) => Some(c.clone()),
+                _ => None,
+            })
+            .collect();
+        abilities.extend(equips.into_iter().map(equip));
+        let enchant = abilities.iter().find_map(|a| match a {
+            Ability::Keyword(ir::Keyword::Enchant(k)) => Some(ir::TargetSpec {
+                what: k.clone(),
+                up_to: None,
+            }),
+            _ => None,
+        });
         // CR 702.21a: ward is a triggered ability.
         let wards: Vec<Vec<CostPart>> = abilities
             .iter()
@@ -421,6 +441,7 @@ impl CardDef {
             mode_slots,
             token: false,
             hidden_from,
+            enchant,
         };
         crate::support::check(&def).map_err(|reason| Unsupported {
             name: def.name.clone(),
@@ -725,6 +746,9 @@ pub struct CardPool {
     /// games without one read printed characteristics directly.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     has_layer_statics: bool,
+    /// Whether any definition is an Aura (SBA 704.5m checks).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    has_auras: bool,
     /// Whether any definition has a rule-modifying static ability that the
     /// engine checks while offering actions (can't cast, can't activate,
     /// Torpor Orb; CR 613.11).
@@ -848,6 +872,26 @@ pub fn amass_token(subtype: &str) -> ir::TokenSpec {
         keywords: Vec::new(),
         name: None,
     }
+}
+
+/// CR 702.6a: "[Cost]: Attach to target creature you control. Equip only as a sorcery."
+fn equip(cost: Vec<CostPart>) -> Ability {
+    Ability::Activated(ir::ActivatedAbility {
+        cost,
+        targets: vec![ir::TargetSpec {
+            what: ir::TargetKind::Object(ir::ObjectFilter {
+                types: vec!["creature".into()],
+                controller: ir::PlayerRel::You,
+                ..ir::ObjectFilter::default()
+            }),
+            up_to: None,
+        }],
+        effect: ir::Effect::Attach {
+            to: ir::ObjectRef::Target(0),
+        },
+        timing: ir::Timing::Sorcery,
+        once_per_turn: false,
+    })
 }
 
 /// CR 702.21a: "Whenever this permanent becomes the target of a spell or
@@ -1065,6 +1109,7 @@ impl CardPool {
             .abilities
             .iter()
             .any(|a| matches!(a, Ability::Replacement(_)));
+        self.has_auras |= def.enchant.is_some();
         self.has_layer_statics |= def
             .abilities
             .iter()
@@ -1092,6 +1137,11 @@ impl CardPool {
     /// Whether any definition has a replacement effect; see the field.
     pub fn has_replacements(&self) -> bool {
         self.has_replacements
+    }
+
+    /// Whether any definition is an Aura (an enchant ability, CR 702.5).
+    pub fn has_auras(&self) -> bool {
+        self.has_auras
     }
 
     /// Whether any definition has a static ability the layers apply.
@@ -1504,7 +1554,6 @@ mod tests {
         for (types, why) in [
             ("Legendary Planeswalker — Test", "704.5i"),
             ("Battle — Siege", "704.5v"),
-            ("Enchantment — Aura", "704.5m"),
             ("Enchantment — Saga", "704.5s"),
             ("World Enchantment", "704.5k"),
         ] {

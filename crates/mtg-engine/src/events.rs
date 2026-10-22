@@ -94,6 +94,11 @@ pub enum Event {
     },
     /// An endless loop of mandatory actions: the game is a draw (CR 104.4b).
     LoopDraw,
+    /// An object became attached to another, or to a player (CR 701.3).
+    Attached {
+        object: ObjectId,
+        to: crate::state::Target,
+    },
     /// A copy of a card was created (CR 707.12).
     CopyCreated {
         object: ObjectId,
@@ -272,6 +277,7 @@ impl Event {
             Event::TriggerRemoved { .. } => "603.3d",
             Event::Replaced { .. } => "614.6",
             Event::CopyCreated { .. } => "707.12",
+            Event::Attached { .. } => "701.3a",
             Event::ShortcutTaken { .. } => "732.2c",
             Event::LoopDraw => "104.4b",
             Event::BecameTarget { .. } => "115.1",

@@ -133,6 +133,9 @@ fn keyword(k: &Keyword) -> String {
             "protection from {}",
             color_word(f.color.as_deref().unwrap_or(""))
         ),
+        Keyword::Equip(c) => format!("equip {}", costs(c)),
+        // Rendered only for lint comparison; no parser template yet.
+        Keyword::Enchant(k) => format!("enchant <{k:?}>"),
     }
 }
 

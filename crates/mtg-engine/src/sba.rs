@@ -37,6 +37,10 @@ struct SbaChecks {
     tokens: Vec<ObjectId>,
     /// Permanents with both +1/+1 and -1/-1 counters, and the pairs to remove (CR 704.5q).
     pairs: Vec<(ObjectId, u32)>,
+    /// Auras attached illegally or not attached (CR 704.5m).
+    auras: Vec<ObjectId>,
+    /// Equipment and other objects to unattach (CR 704.5n, 704.5p).
+    unattach: Vec<ObjectId>,
 }
 
 impl SbaChecks {
@@ -45,6 +49,8 @@ impl SbaChecks {
             || !self.dying.is_empty()
             || !self.tokens.is_empty()
             || !self.pairs.is_empty()
+            || !self.auras.is_empty()
+            || !self.unattach.is_empty()
     }
 }
 
@@ -94,11 +100,18 @@ impl Game {
                 dying.push((id, true));
             }
         }
+        let (auras, unattach) = if self.attachments.is_empty() && !self.pool.has_auras() {
+            (Vec::new(), Vec::new())
+        } else {
+            self.attachment_sbas()
+        };
         SbaChecks {
             losers,
             dying,
             tokens: self.tokens_off_battlefield(),
             pairs: self.counter_pairs(),
+            auras,
+            unattach,
         }
     }
 
@@ -129,7 +142,12 @@ impl Game {
             dying,
             tokens,
             pairs,
+            auras,
+            unattach,
         } = checks;
+        for id in unattach {
+            self.unattach(id);
+        }
         for id in tokens {
             self.cease_to_exist(id);
         }
@@ -140,6 +158,7 @@ impl Game {
         // Everything this check puts into graveyards leaves at once (CR 704.3, 603.10a).
         let mut leaving: Vec<ObjectId> = dying.iter().map(|(id, _)| *id).collect();
         leaving.extend(legend_out.iter().copied());
+        leaving.extend(auras.iter().copied());
         self.begin_leaving(&leaving);
         for (id, destroyed) in dying {
             let Some(owner) = self.obj(id).map(|o| o.owner) else {
@@ -150,7 +169,7 @@ impl Game {
             }
             self.move_object(id, ZoneId::Graveyard(owner), true);
         }
-        for id in legend_out {
+        for id in legend_out.into_iter().chain(auras) {
             if let Some(owner) = self.obj(id).map(|o| o.owner) {
                 self.move_object(id, ZoneId::Graveyard(owner), true);
             }

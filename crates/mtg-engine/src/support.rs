@@ -60,6 +60,10 @@ pub(crate) fn check(def: &CardDef) -> Check {
             Ability::Keyword(mtg_cards::ir::Keyword::CumulativeUpkeep(_)) => {}
             // CR 702.21a: added as a triggered ability (checked below).
             Ability::Keyword(mtg_cards::ir::Keyword::Ward(_)) => {}
+            // CR 702.5, 702.6: attachment (equip is added as an activated ability).
+            Ability::Keyword(
+                mtg_cards::ir::Keyword::Enchant(_) | mtg_cards::ir::Keyword::Equip(_),
+            ) => {}
             // CR 702.16: targeting, blocking and damage (Auras and Equipment in M5).
             Ability::Keyword(mtg_cards::ir::Keyword::Protection(_)) => {}
             Ability::Keyword(k) => match Keywords::of_ir(k) {
@@ -300,6 +304,8 @@ fn effect(e: &Effect) -> Check {
         }
         Effect::CopySpell { what, .. } => set(what),
         Effect::GainControl { what, .. } => set(what),
+        Effect::Attach { to } => object(to),
+        Effect::ReturnAttached => Ok(()),
         Effect::GainKeyword { what, keyword } => match Keywords::of_ir(keyword) {
             Some(bit) if IMPLEMENTED_KEYWORDS.contains(&bit) => set(what),
             _ => Err(format!("granting {}", keyword_gap(keyword))),
@@ -355,10 +361,6 @@ fn permanent_kind(def: &CardDef) -> Check {
     // Equipment and Fortifications stay: without an equip ability (not in
     // the IR yet) they are never attached, and unattached ones do nothing.
     for (sub, why) in [
-        (
-            "Aura",
-            "Auras: enchant and attachment (CR 303.4, 704.5m; M5)",
-        ),
         (
             "Saga",
             "Sagas: lore counters and chapters (CR 714.2, 704.5s; M5)",
@@ -491,7 +493,8 @@ fn object(o: &ObjectRef) -> Check {
         ObjectRef::Triggering
         | ObjectRef::This
         | ObjectRef::Target(_)
-        | ObjectRef::Remembered(_) => Ok(()),
+        | ObjectRef::Remembered(_)
+        | ObjectRef::AttachedTo => Ok(()),
     }
 }
 

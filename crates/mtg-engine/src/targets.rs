@@ -36,6 +36,9 @@ impl Game {
         if (f.this && this != Some(id)) || (f.other && this == Some(id)) {
             return false;
         }
+        if f.attached && !self.is_attached_to(this, id) {
+            return false;
+        }
         let has_type = |w: &String| {
             CardType::ALL
                 .iter()
@@ -146,6 +149,15 @@ impl Game {
                 );
             }
             TargetKind::Player(rel) => players(*rel, &mut out),
+            // Cards in graveyards (an Aura's "enchant creature card in a graveyard").
+            TargetKind::Object(f) if f.zone == Some(mtg_cards::ir::ZoneName::Graveyard) => out
+                .extend(
+                    self.players
+                        .iter()
+                        .flat_map(|p| p.graveyard.iter().copied())
+                        .filter(|id| self.matches_filter(*id, f, you, None))
+                        .map(Target::Object),
+                ),
             TargetKind::Object(f) => out.extend(
                 self.battlefield
                     .iter()
@@ -224,6 +236,13 @@ impl Game {
                 self.on_battlefield(id)
                     && self.is_any_target_permanent(id)
                     && self.targetable_by(id, you, src)
+            }
+            (TargetKind::Object(f), Target::Object(id))
+                if f.zone == Some(mtg_cards::ir::ZoneName::Graveyard) =>
+            {
+                self.obj(id)
+                    .is_some_and(|o| matches!(o.zone, ZoneId::Graveyard(_)))
+                    && self.matches_filter(id, f, you, None)
             }
             (TargetKind::Object(f), Target::Object(id)) => {
                 self.on_battlefield(id)

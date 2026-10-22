@@ -1,0 +1,6 @@
+card: Lightning Greaves
+faces:
+  - abilities:
+      - static: { effect: { grant: { affected: { attached: true }, keyword: haste } } }
+      - static: { effect: { grant: { affected: { attached: true }, keyword: shroud } } }
+      - keyword: { equip: [{ mana: "{0}" }] }

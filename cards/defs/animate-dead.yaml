@@ -1,0 +1,14 @@
+card: Animate Dead
+faces:
+  - abilities:
+      - keyword: { enchant: { object: { types: [creature], zone: graveyard } } }
+      # "if it's on the battlefield": the effect does nothing otherwise. After
+      # returning the card, its enchant only allows that creature (bound).
+      - triggered:
+          trigger: { enters: { this: true } }
+          effect: return_attached
+      - triggered:
+          trigger: { leaves_battlefield: { this: true } }
+          effect: { sacrifice: { who: { controller_of: attached_to }, what: { one: attached_to } } }
+      - static:
+          effect: { pump: { affected: { attached: true }, power: -1, toughness: 0 } }

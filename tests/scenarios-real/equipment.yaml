@@ -1,0 +1,35 @@
+scenario: mtg-scenario/1
+name: "Equipment: equip as a sorcery; the equipped creature has haste, shroud and hexproof, so an opponent can't target it, and it attacks the turn it arrived"
+cr: ["702.6a", "301.5a", "702.18a", "702.11b", "702.10a"]
+verifies: [Lightning Greaves, Swiftfoot Boots]
+players:
+  - battlefield: [Lightning Greaves, Swiftfoot Boots, Forest, Forest, Forest]
+    hand: [Grizzly Bears]
+  - battlefield: [Mountain]
+    hand: [Lightning Bolt]
+script:
+  - choose: Cast Grizzly Bears
+  - choose: Pay with Forest, Forest
+  - pass_all
+  # Boots first: once it has shroud, not even its controller can target it.
+  - choose: Activate Swiftfoot Boots ability 4
+  - choose: Target Grizzly Bears (P1)
+  - choose: Pay with Forest
+  - pass_all
+  - choose: Activate Lightning Greaves ability 4
+  - choose: Target Grizzly Bears (P1)
+  - pass_all
+  - pass: 1
+  - choose: Cast Lightning Bolt
+    player: P2
+  - check:
+      decision: { player: P2, kind: choose_target, options: [Target P1, Target P2] }
+  - choose: Target P1
+  - choose: Pay with Mountain
+  - pass_all
+  - pass_all
+  - pass_all
+  - check:
+      decision: { player: P1, kind: declare_attacker, options_include: [Grizzly Bears attacks P2] }
+expect:
+  life: { P1: 17 }

@@ -248,6 +248,8 @@ pub(crate) enum AfterPick {
     },
     /// Put this many +1/+1 counters on the pick (amass, CR 701.47a).
     PutCounters(u32),
+    /// Amass onto the pick: counters, and it becomes the subtype (CR 701.47a).
+    Amass { n: u32, subtype: String },
     /// The ability's source enters the battlefield as a copy of the pick, or
     /// as itself if none (CR 707.9); `node` is the `EnterAsCopy` effect.
     EnterAsCopy { node: Path },
@@ -1017,6 +1019,15 @@ impl Game {
                     self.win_by_effect(p);
                 }
             }
+            Effect::Attach { to } => {
+                if let Some(&host) = self.object_refs(&t.ctx, to).first() {
+                    self.attach_source(t.ctx.source, host);
+                }
+            }
+            Effect::ReturnAttached => {
+                let controller = t.ctx.controller;
+                self.return_attached(t.ctx.source, controller);
+            }
             Effect::GainControl {
                 what,
                 until_end_of_turn,
@@ -1185,6 +1196,11 @@ impl Game {
     fn object_refs(&self, ctx: &EffectCtx, r: &ObjectRef) -> SmallVec<[ObjectId; 2]> {
         match r {
             ObjectRef::This => SmallVec::from_slice(&[ctx.source]),
+            // "Enchanted creature" (CR 303.4b), also after the source left (LKI).
+            ObjectRef::AttachedTo => match self.attached_to(ctx.source) {
+                Some(Target::Object(h)) => SmallVec::from_slice(&[h]),
+                _ => SmallVec::new(),
+            },
             ObjectRef::Target(n) => ctx
                 .targets
                 .get(usize::from(*n))
@@ -1938,6 +1954,22 @@ impl Game {
         }
     }
 
+    /// CR 701.47a: N +1/+1 counters on the Army; if it isn't the subtype, it
+    /// becomes that subtype in addition (layer 4, for as long as it exists).
+    fn amass_onto(&mut self, army: ObjectId, n: u32, subtype: &str) {
+        self.add_counters(army, mtg_cards::ir::CounterKind::PlusOne, n);
+        let has = self
+            .chars(army)
+            .is_some_and(|c| c.type_line().has_subtype(subtype));
+        if !has {
+            self.add_effect(
+                SmallVec::from_elem(army, 1),
+                crate::layers::LayerEffect::AddSubtype(subtype.to_owned()),
+                crate::layers::Duration::Permanent,
+            );
+        }
+    }
+
     /// CR 701.47a: amass.
     fn amass(&mut self, t: &mut EffectTask, subtype: &str, amount: &Quantity) -> Flow {
         let who = t.ctx.controller;
@@ -1956,13 +1988,16 @@ impl Game {
         }
         match armies.as_slice() {
             [] => {}
-            [one] => self.add_counters(*one, mtg_cards::ir::CounterKind::PlusOne, n),
+            [one] => self.amass_onto(*one, n, subtype),
             _ => t.frames.push(Frame::Pick(exact_pick(
                 who,
                 CardPurpose::PutCounters,
                 armies,
                 1,
-                AfterPick::PutCounters(n),
+                AfterPick::Amass {
+                    n,
+                    subtype: subtype.to_owned(),
+                },
             ))),
         }
         Flow::Continue
@@ -2109,6 +2144,11 @@ impl Game {
             }
             AfterPick::Discard => self.discard_all(&mut t.ctx, who, &picked),
             AfterPick::Sacrifice => self.sacrifice_all(&mut t.ctx, &picked),
+            AfterPick::Amass { n, subtype } => {
+                for id in picked {
+                    self.amass_onto(id, n, &subtype);
+                }
+            }
             AfterPick::PutCounters(n) => {
                 for id in picked {
                     self.add_counters(id, mtg_cards::ir::CounterKind::PlusOne, n);
