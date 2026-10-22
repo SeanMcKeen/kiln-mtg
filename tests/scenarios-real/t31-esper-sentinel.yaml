@@ -1,0 +1,31 @@
+scenario: mtg-scenario/1
+name: "Esper Sentinel: only an opponent's first noncreature spell each turn triggers; X is its power"
+cr: ["603.2", "118.12", "107.3"]
+verifies: [Esper Sentinel]
+players:
+  - battlefield: [Mountain, Mountain, Mountain]
+    hand: [Lightning Bolt, Lightning Bolt]
+  - battlefield: [Esper Sentinel]
+script:
+  - choose: Cast Lightning Bolt
+  - choose: Target P2
+  - choose: Pay with Mountain
+  - pass_all
+  - check:
+      decision: { player: P1, kind: optional, options: [Don't pay, Pay] }
+  - choose: Pay
+  - choose: Pay with Mountain
+  - pass_all
+  - check:
+      life: { P2: 17 }
+      zones: { P2.hand: [] }
+  # The second noncreature spell this turn doesn't trigger it.
+  - choose: Cast Lightning Bolt
+  - choose: Target P2
+  - choose: Pay with Mountain
+  - pass_all
+expect:
+  life: { P2: 14 }
+  zones:
+    P2.hand: []
+    P1.graveyard: [Lightning Bolt, Lightning Bolt]

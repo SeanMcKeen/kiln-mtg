@@ -1,0 +1,30 @@
+scenario: mtg-scenario/1
+name: "Pact of Negation: at its controller's next upkeep, pay {3}{U}{U} or lose the game"
+cr: ["603.7a", "603.7c", "104.3e", "118.12"]
+verifies: [Pact of Negation]
+players:
+  - battlefield: [Island, Island, Island, Island]
+    hand: [Pact of Negation]
+  - battlefield: [Mountain]
+    hand: [Lightning Bolt]
+turn: { number: 2, active: P2, step: end }
+script:
+  - choose: Cast Lightning Bolt
+    player: P2
+  - choose: Target P1
+  - choose: Pay with Mountain
+  - pass: 1
+  - choose: Cast Pact of Negation
+  - choose: Target Lightning Bolt
+  - pass_all
+  - check:
+      life: { P1: 20 }
+      zones: { P2.graveyard: [Lightning Bolt] }
+  # End step, cleanup, then P1's turn: the trigger goes on the stack in upkeep.
+  - pass_all
+  - check:
+      step: upkeep
+  # Four Islands can't pay {3}{U}{U}, so there is no choice to offer: P1 loses (CR 104.3e).
+  - pass_all
+expect:
+  result: win P2

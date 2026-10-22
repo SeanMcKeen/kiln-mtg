@@ -202,6 +202,9 @@ pub enum Trigger {
     Cast {
         by: PlayerRel,
         spell: ObjectFilter,
+        /// "their first [spell] each turn".
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        first_each_turn: bool,
     },
     /// "Whenever [player] draws a card".
     Draws {
@@ -238,6 +241,8 @@ pub enum StepName {
     Draw,
     PrecombatMain,
     PostcombatMain,
+    /// Either main phase ("your next main phase").
+    Main,
     BeginningOfCombat,
     End,
 }
@@ -481,6 +486,8 @@ pub enum Effect {
     },
     /// "[who] wins the game" (CR 104.2b).
     WinGame(PlayerRef),
+    /// "[who] loses the game" (CR 104.3e).
+    LoseGame(PlayerRef),
     /// Implemented by a named Rust function.
     Escape(Escape),
 }
@@ -585,6 +592,8 @@ pub enum CounterKind {
     Charge,
     #[serde(rename = "loyalty")]
     Loyalty,
+    #[serde(rename = "age")]
+    Age,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -613,6 +622,8 @@ pub enum ManaSpec {
     ColorOf(ObjectRef),
     /// One mana of any type the triggering permanent produced (Kinnan).
     TypeProducedByTrigger,
+    /// An amount of {C} ("add an amount of {C} equal to ...").
+    Colorless(Quantity),
 }
 
 // ---- references, filters, quantities ----------------------------------------
@@ -823,6 +834,11 @@ pub enum CostPart {
     RemoveCounters {
         counter: CounterKind,
         amount: u32,
+    },
+    /// A mana cost paid `times` times (cumulative upkeep, CR 702.24a).
+    ManaRepeated {
+        mana: String,
+        times: Quantity,
     },
 }
 

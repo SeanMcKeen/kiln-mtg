@@ -182,6 +182,14 @@ pub struct Game {
     /// Permanents leaving the battlefield in the current simultaneous batch
     /// (CR 603.10a look-back). Empty except while a batch moves.
     pub(crate) leaving_batch: Vec<(ObjectId, DefId, PlayerId)>,
+    /// Delayed triggered abilities waiting for their event (CR 603.7).
+    pub(crate) delayed: Vec<crate::triggers::DelayedTrigger>,
+    /// Spells cast this turn, by caster ("first ... each turn"; tracked only
+    /// when the pool has triggers).
+    pub(crate) cast_this_turn: Vec<(PlayerId, DefId)>,
+    /// Bitmask of players dealt combat damage this turn (tracked only when
+    /// the pool has triggers).
+    pub(crate) combat_damaged: u8,
     /// The active player has drawn in this turn's draw step (tracked only
     /// when the pool has triggers; see `draw`).
     pub(crate) drew_in_draw_step: bool,
@@ -239,6 +247,9 @@ impl Game {
             counters: Vec::new(),
             pending_triggers: Vec::new(),
             leaving_batch: Vec::new(),
+            delayed: Vec::new(),
+            cast_this_turn: Vec::new(),
+            combat_damaged: 0,
             drew_in_draw_step: false,
         };
         for (seat, deck) in setup.decks.iter().enumerate() {
@@ -437,6 +448,15 @@ impl Game {
         }
         if self.drew_in_draw_step {
             self.drew_in_draw_step.hash(&mut h);
+        }
+        if !self.delayed.is_empty() {
+            self.delayed.hash(&mut h);
+        }
+        if !self.cast_this_turn.is_empty() {
+            self.cast_this_turn.hash(&mut h);
+        }
+        if self.combat_damaged != 0 {
+            self.combat_damaged.hash(&mut h);
         }
         h.finish()
     }
@@ -1009,6 +1029,8 @@ impl Game {
         }
         self.activated_this_turn.clear();
         self.drew_in_draw_step = false;
+        self.cast_this_turn.clear();
+        self.combat_damaged = 0;
         self.log(Event::TurnBegan {
             number,
             active: next,
@@ -1416,9 +1438,24 @@ impl Game {
             }
             ctx.modes.clone_from(&item.modes);
             ctx.x = item.x;
+            if let Some(d) = &item.delayed {
+                // CR 603.7: a delayed trigger runs its effect in its creator's context.
+                let mut dctx = d.ctx.clone();
+                if let Some(info) = item.trigger {
+                    dctx.triggering_object = info.object;
+                    dctx.triggering_player = info.player;
+                    dctx.triggering_mana = info.mana;
+                }
+                self.tasks.push(Task::Effect(Box::new(EffectTask {
+                    ctx: dctx,
+                    frames: vec![crate::effects::Frame::Run(d.path.clone())],
+                })));
+                return;
+            }
             if let Some(info) = item.trigger {
                 ctx.triggering_object = info.object;
                 ctx.triggering_player = info.player;
+                ctx.triggering_mana = info.mana;
                 ctx.lki.extend(info.lki);
                 // CR 603.4: an intervening "if" is checked again on resolution.
                 if let Some(ir::Ability::Triggered(t)) = def.abilities.get(usize::from(ability))
@@ -1460,6 +1497,9 @@ impl Game {
             Target::Player(p) => {
                 if !self.in_game(p) {
                     return;
+                }
+                if combat && self.pool.has_triggers() {
+                    self.combat_damaged |= 1 << p.0;
                 }
                 self.log(Event::Damage {
                     source,

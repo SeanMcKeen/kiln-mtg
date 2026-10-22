@@ -173,6 +173,12 @@ pub enum Event {
         counter: CounterKind,
         amount: u32,
     },
+    /// A permanent was tapped for mana (CR 106.12); `produced` is the mana it made.
+    TappedForMana {
+        player: PlayerId,
+        source: ObjectId,
+        produced: crate::card::ManaBag,
+    },
     /// A token was created (CR 111.2).
     TokenCreated {
         player: PlayerId,
@@ -228,6 +234,7 @@ impl Event {
             Event::WonByEffect { .. } => "104.2b",
             Event::CountersPut { .. } | Event::CountersRemoved { .. } => "122.1",
             Event::TokenCreated { .. } => "111.2",
+            Event::TappedForMana { .. } => "106.12",
             Event::Triggered { .. } => "603.2",
             Event::TriggerRemoved { .. } => "603.3d",
             Event::PlayerLost { .. } => "104.3",

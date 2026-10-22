@@ -175,6 +175,8 @@ pub enum LossReason {
     Poison,
     /// CR 104.3a
     Conceded,
+    /// An effect says the player loses (CR 104.3e).
+    Effect,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -242,6 +244,8 @@ pub struct StackItem {
     pub pays: SmallVec<[SymbolPay; 1]>,
     /// For a triggered ability: what it saw when it triggered (CR 603.2).
     pub trigger: Option<crate::triggers::TriggerInfo>,
+    /// For a delayed triggered ability: what to do and its creator's context (CR 603.7).
+    pub(crate) delayed: Option<Box<crate::triggers::DelayedTrigger>>,
 }
 
 impl StackItem {
@@ -263,6 +267,7 @@ impl StackItem {
             x: 0,
             pays: SmallVec::new(),
             trigger: None,
+            delayed: None,
         }
     }
 

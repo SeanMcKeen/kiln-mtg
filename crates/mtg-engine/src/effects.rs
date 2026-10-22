@@ -80,6 +80,11 @@ pub(crate) struct EffectCtx {
     /// A triggered ability's triggering object and player ("that card", "that player").
     pub triggering_object: Option<ObjectId>,
     pub triggering_player: Option<PlayerId>,
+    /// The mana the triggering permanent produced (Kinnan, CR 605.1b).
+    pub triggering_mana: Option<ManaBag>,
+    /// This effect is a mana ability whose cost taps its source, so the
+    /// mana it adds is "tapped for mana" (CR 106.12, 605.1b triggers).
+    pub tapped_for_mana: bool,
 }
 
 impl EffectCtx {
@@ -100,6 +105,8 @@ impl EffectCtx {
             forced_mana: None,
             triggering_object: None,
             triggering_player: None,
+            triggering_mana: None,
+            tapped_for_mana: false,
         }
     }
 }
@@ -212,6 +219,8 @@ pub(crate) enum AfterPick {
     Exile { remember: Option<String> },
     /// Search results (CR 701.23): reveal if asked, then put them `to`.
     Search { to: Destination, reveal: bool },
+    /// Put this many +1/+1 counters on the pick (amass, CR 701.47a).
+    PutCounters(u32),
     /// Looked-at cards taken `to`; the rest (`rest`) go per `order`.
     Take {
         to: Destination,
@@ -382,10 +391,10 @@ impl Game {
                     self.execute_plan(who, plan);
                     return;
                 } else {
-                    let remaining = match parts.get(usize::from(next) - 1) {
-                        Some(CostPart::Mana(s)) => mana_req(s),
-                        _ => CostReq::default(),
-                    };
+                    let remaining = parts
+                        .get(usize::from(next) - 1)
+                        .map(|p| self.part_req(&t.ctx, p))
+                        .unwrap_or_default();
                     let spell = t.ctx.source;
                     let except = taps_source(&parts).then_some(spell);
                     t.frames.push(Frame::Pay { who, parts, next });
@@ -419,8 +428,8 @@ impl Game {
                 }
             },
             (Frame::Mana { who, options }, DecisionKind::ChooseMana { .. }) => {
-                let source = t.ctx.source;
-                self.add_mana_bag(who, &options[option], source);
+                let ctx = t.ctx.clone();
+                self.mana_added(&ctx, who, &options[option]);
             }
             (Frame::Choose { who, store, .. }, kind) => {
                 let text = match kind {
@@ -745,16 +754,33 @@ impl Game {
             }
             Effect::AddMana { mana, .. } => {
                 let who = t.ctx.each.unwrap_or(t.ctx.controller);
-                let options = match t.ctx.forced_mana {
-                    Some(bag) => vec![bag],
-                    None => mana_bags(mana),
+                let options = match (t.ctx.forced_mana, mana) {
+                    (Some(bag), _) => vec![bag],
+                    (None, ManaSpec::Colorless(q)) => {
+                        let n = u8::try_from(self.amount(&t.ctx, q)).unwrap_or(u8::MAX);
+                        vec![[0, 0, 0, 0, 0, n]]
+                    }
+                    // One mana of any type the triggering permanent produced.
+                    (None, ManaSpec::TypeProducedByTrigger) => t
+                        .ctx
+                        .triggering_mana
+                        .map(|bag| {
+                            ManaType::ALL
+                                .into_iter()
+                                .filter(|m| bag[m.index()] > 0)
+                                .map(|m| {
+                                    let mut b = [0; 6];
+                                    b[m.index()] = 1;
+                                    b
+                                })
+                                .collect()
+                        })
+                        .unwrap_or_default(),
+                    (None, _) => mana_bags(mana),
                 };
                 match options.as_slice() {
                     [] => {}
-                    [only] => {
-                        let source = t.ctx.source;
-                        self.add_mana_bag(who, only, source);
-                    }
+                    [only] => self.mana_added(&t.ctx, who, only),
                     _ => t.frames.push(Frame::Mana { who, options }),
                 }
             }
@@ -909,6 +935,23 @@ impl Game {
                     self.win_by_effect(p);
                 }
             }
+            Effect::LoseGame(who) => {
+                // CR 104.3e
+                if let Some(p) = self.player_ref(&t.ctx, who) {
+                    self.players_lose(&[(p, crate::state::LossReason::Effect)]);
+                }
+            }
+            Effect::Delayed { at, .. } => {
+                // CR 603.7a: created now, with this effect's context.
+                self.delayed.push(crate::triggers::DelayedTrigger {
+                    trigger: at.clone(),
+                    path: with(path, 0),
+                    ctx: t.ctx.clone(),
+                });
+            }
+            Effect::Amass { subtype, amount } => {
+                return self.amass(t, subtype, amount);
+            }
             Effect::PutCounters {
                 what,
                 counter,
@@ -948,7 +991,7 @@ impl Game {
                 }
             }
             // `support::check` rejects these until their phase lands.
-            Effect::EntersTapped | Effect::Amass { .. } | Effect::Delayed { .. } => {
+            Effect::EntersTapped => {
                 debug_assert!(false, "unsupported effect reached the interpreter: {e:?}");
             }
         }
@@ -1093,7 +1136,9 @@ impl Game {
                     .object_ref(ctx, what)
                     .map_or(0, |id| i64::from(self.counters_on(id, *counter))),
                 // Rejected by `support::check` until combat history is tracked (M4).
-                QuantityExpr::OpponentsDealtCombatDamageThisTurn => 0,
+                QuantityExpr::OpponentsDealtCombatDamageThisTurn => {
+                    i64::from((self.combat_damaged & !(1u8 << ctx.controller.0)).count_ones())
+                }
             },
         }
     }
@@ -1437,6 +1482,66 @@ impl Game {
         }
     }
 
+    /// The mana requirement of a mana cost part.
+    pub(crate) fn part_req(&self, ctx: &EffectCtx, part: &CostPart) -> CostReq {
+        match part {
+            CostPart::Mana(s) => mana_req(s),
+            CostPart::ManaRepeated { mana, times } => {
+                let one = mana_req(mana);
+                let n = self.amount(ctx, times);
+                CostReq {
+                    colored: one.colored.map(|c| c * n),
+                    colorless: one.colorless * n,
+                    generic: one.generic * n,
+                }
+            }
+            _ => CostReq::default(),
+        }
+    }
+
+    /// Adds mana from an effect; a mana ability that taps its source reports
+    /// the permanent as "tapped for mana" (Kinnan, CR 605.1b).
+    fn mana_added(&mut self, ctx: &EffectCtx, who: PlayerId, bag: &ManaBag) {
+        self.add_mana_bag(who, bag, ctx.source);
+        if ctx.tapped_for_mana && self.pool.has_triggers() {
+            self.log(Event::TappedForMana {
+                player: who,
+                source: ctx.source,
+                produced: *bag,
+            });
+        }
+    }
+
+    /// CR 701.47a: amass.
+    fn amass(&mut self, t: &mut EffectTask, subtype: &str, amount: &Quantity) -> Flow {
+        let who = t.ctx.controller;
+        let n = self.amount(&t.ctx, amount);
+        let army = ObjectFilter {
+            types: vec!["creature".into()],
+            subtypes: vec!["Army".into()],
+            ..ObjectFilter::default()
+        };
+        let mut armies = self.own_permanents(&t.ctx, who, &army);
+        if armies.is_empty() {
+            if let Some(def) = self.pool.token(&crate::card::amass_token(subtype)) {
+                self.create_tokens(def, who, 1);
+            }
+            armies = self.own_permanents(&t.ctx, who, &army);
+        }
+        match armies.as_slice() {
+            [] => {}
+            [one] => self.add_counters(*one, mtg_cards::ir::CounterKind::PlusOne, n),
+            _ => t.frames.push(Frame::Pick(exact_pick(
+                who,
+                CardPurpose::PutCounters,
+                armies,
+                1,
+                AfterPick::PutCounters(n),
+            ))),
+        }
+        Flow::Continue
+    }
+
     pub(crate) fn add_mana_bag(&mut self, p: PlayerId, bag: &ManaBag, source: ObjectId) {
         for t in ManaType::ALL {
             for _ in 0..bag[t.index()] {
@@ -1578,6 +1683,11 @@ impl Game {
             }
             AfterPick::Discard => self.discard_all(&mut t.ctx, who, &picked),
             AfterPick::Sacrifice => self.sacrifice_all(&mut t.ctx, &picked),
+            AfterPick::PutCounters(n) => {
+                for id in picked {
+                    self.add_counters(id, mtg_cards::ir::CounterKind::PlusOne, n);
+                }
+            }
             AfterPick::Exile { remember } => self.exile_all(&mut t.ctx, &picked, remember),
             AfterPick::Search { to, reveal } => {
                 self.log(Event::Searched {
@@ -1696,8 +1806,8 @@ impl Game {
     pub(crate) fn can_pay(&self, ctx: &EffectCtx, who: PlayerId, cost: &[CostPart]) -> bool {
         let except = taps_source(cost).then_some(ctx.source);
         cost.iter().all(|part| match part {
-            CostPart::Mana(s) => payable(
-                &mana_req(s),
+            CostPart::Mana(_) | CostPart::ManaRepeated { .. } => payable(
+                &self.part_req(ctx, part),
                 &self.player(who).pool,
                 &self.mana_sources(who, except),
             ),
@@ -1765,8 +1875,8 @@ impl Game {
             next: next + 1,
         });
         match part {
-            CostPart::Mana(s) => {
-                let req = mana_req(&s);
+            CostPart::Mana(_) | CostPart::ManaRepeated { .. } => {
+                let req = self.part_req(&t.ctx, &part);
                 if req.is_paid() {
                     return Flow::Continue;
                 }
@@ -1887,16 +1997,9 @@ fn taps_source(cost: &[CostPart]) -> bool {
 }
 
 fn pay_frame(who: PlayerId, cost: &[CostPart]) -> Frame {
-    let mut parts: Vec<CostPart> = cost
-        .iter()
-        .filter(|p| matches!(p, CostPart::Mana(_)))
-        .cloned()
-        .collect();
-    parts.extend(
-        cost.iter()
-            .filter(|p| !matches!(p, CostPart::Mana(_)))
-            .cloned(),
-    );
+    let is_mana = |p: &&CostPart| matches!(p, CostPart::Mana(_) | CostPart::ManaRepeated { .. });
+    let mut parts: Vec<CostPart> = cost.iter().filter(is_mana).cloned().collect();
+    parts.extend(cost.iter().filter(|p| !is_mana(p)).cloned());
     Frame::Pay {
         who,
         parts,

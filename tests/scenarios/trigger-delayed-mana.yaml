@@ -1,0 +1,28 @@
+scenario: mtg-scenario/1
+name: A delayed trigger uses its creator's context; "that spell" is last known information after it left the stack
+cr: ["603.7a", "603.7c", "608.2h"]
+players:
+  - battlefield: [Test Island]
+    hand: [Test Drain]
+  - battlefield: [Test Mountain]
+    hand: [Test Bolt]
+turn: { number: 2, active: P1, step: upkeep }
+script:
+  - pass: 1
+  - choose: Cast Test Bolt
+    player: P2
+  - choose: Target P1
+  - choose: Pay with Test Mountain
+  - pass: 1
+  - choose: Cast Test Drain
+  - choose: Target Test Bolt
+  - choose: Pay with Test Island
+  - pass_all
+  - pass_all
+  - pass_all
+  - check:
+      step: precombat_main
+  - pass_all
+expect:
+  life: { P1: 20 }
+  pool: { P1: "{C}" }

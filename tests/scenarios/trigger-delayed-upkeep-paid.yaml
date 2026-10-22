@@ -1,0 +1,28 @@
+scenario: mtg-scenario/1
+name: A delayed "next upkeep" trigger fires once at its controller's next upkeep; paying keeps them in the game
+cr: ["603.7a", "603.7c", "118.12"]
+players:
+  - battlefield: [Test Island]
+    hand: [Test Pact]
+  - {}
+turn: { number: 2, active: P2, step: end }
+script:
+  - pass: 1
+  - choose: Cast Test Pact
+  - pass_all
+  - check:
+      zones: { P1.hand: [Test Wastes], P1.graveyard: [Test Pact] }
+  # P2's end step ends; P1's turn begins and the trigger goes on the stack in upkeep.
+  - pass_all
+  - check:
+      step: upkeep
+  - pass_all
+  - choose: Pay
+  - choose: Pay with Test Island
+  - check:
+      step: upkeep
+      decision: { player: P1, kind: priority }
+expect:
+  result: in_progress
+  tapped: { Test Island: true }
+  zones: { stack: [] }

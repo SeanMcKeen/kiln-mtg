@@ -478,7 +478,7 @@ fn trigger(tr: &Trigger) -> String {
             )
         }
         Trigger::Dies(f) => format!("whenever a {} dies", filter_phrase(f, false)),
-        Trigger::Cast { by, spell } => {
+        Trigger::Cast { by, spell, .. } => {
             let adj = filter_phrase(spell, false);
             let adj = adj
                 .strip_suffix("permanent")
@@ -513,6 +513,7 @@ fn trigger(tr: &Trigger) -> String {
                 StepName::End => "end step",
                 StepName::PrecombatMain => "precombat main phase",
                 StepName::PostcombatMain => "postcombat main phase",
+                StepName::Main => "main phase",
                 StepName::BeginningOfCombat => "combat",
             };
             format!("at the beginning of {w} {s}")

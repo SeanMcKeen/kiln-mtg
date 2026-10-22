@@ -1,0 +1,25 @@
+scenario: mtg-scenario/1
+name: "Mystic Remora: with a third age counter, cumulative upkeep {1} costs {3}"
+cr: ["702.24a", "118.12"]
+verifies: [Mystic Remora]
+players:
+  - battlefield:
+      - { card: Mystic Remora, counters: { age: 2 } }
+      - Island
+      - Island
+      - Island
+  - {}
+turn: { number: 6, active: P1, step: upkeep }
+script:
+  - pass_all
+  - check:
+      counters: { Mystic Remora: { age: 3 } }
+      decision: { player: P1, kind: optional, options: [Don't pay, Pay] }
+  - choose: Pay
+  - check:
+      decision: { player: P1, kind: pay_mana, options_include: ["Pay with Island, Island, Island"] }
+  - choose: Pay with Island, Island, Island
+expect:
+  zones:
+    P1.battlefield: [Mystic Remora, Island, Island, Island]
+  counters: { Mystic Remora: { age: 3 } }

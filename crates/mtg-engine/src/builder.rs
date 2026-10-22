@@ -15,12 +15,14 @@ use crate::rng::GameRng;
 use crate::state::{Arena, GameObject, ManaPool, Player, PlayerStatus, Step, TurnState, ZoneId};
 
 /// Options for a permanent placed by the builder.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct PermanentOpts {
     pub tapped: bool,
     pub damage: u32,
     /// Came under its controller's control this turn (CR 302.6).
     pub summoning_sick: bool,
+    /// Counters already on it (CR 122.1).
+    pub counters: Vec<(mtg_cards::ir::CounterKind, u32)>,
 }
 
 #[derive(Debug, Clone)]
@@ -122,9 +124,10 @@ impl GameBuilder {
         let mut objects = Arena::default();
         let mut players = Vec::with_capacity(n);
         let mut battlefield = Vec::new();
+        let mut counters = Vec::new();
         for (i, seat) in self.seats.iter().enumerate() {
             let id = PlayerId(u8::try_from(i).unwrap_or(0));
-            let mut make = |def: DefId, zone: ZoneId, opts: PermanentOpts| {
+            let mut make = |def: DefId, zone: ZoneId, opts: &PermanentOpts| {
                 objects.alloc(GameObject {
                     def,
                     owner: id,
@@ -141,20 +144,27 @@ impl GameBuilder {
                 .library
                 .iter()
                 .rev()
-                .map(|d| make(*d, ZoneId::Library(id), PermanentOpts::default()))
+                .map(|d| make(*d, ZoneId::Library(id), &PermanentOpts::default()))
                 .collect();
             let hand = seat
                 .hand
                 .iter()
-                .map(|d| make(*d, ZoneId::Hand(id), PermanentOpts::default()))
+                .map(|d| make(*d, ZoneId::Hand(id), &PermanentOpts::default()))
                 .collect();
             let graveyard = seat
                 .graveyard
                 .iter()
-                .map(|d| make(*d, ZoneId::Graveyard(id), PermanentOpts::default()))
+                .map(|d| make(*d, ZoneId::Graveyard(id), &PermanentOpts::default()))
                 .collect();
             for (d, opts) in &seat.battlefield {
-                battlefield.push(make(*d, ZoneId::Battlefield, *opts));
+                let obj = make(*d, ZoneId::Battlefield, opts);
+                counters.extend(
+                    opts.counters
+                        .iter()
+                        .filter(|(_, n)| *n > 0)
+                        .map(|(k, n)| (obj, *k, *n)),
+                );
+                battlefield.push(obj);
             }
             // Every player has had a turn already (or is having it), so permanents
             // placed without `summoning_sick` aren't sick (CR 302.6).
@@ -210,9 +220,12 @@ impl GameBuilder {
             event_count: 0,
             pt_effects: Vec::new(),
             activated_this_turn: Vec::new(),
-            counters: Vec::new(),
+            counters,
             pending_triggers: Vec::new(),
             leaving_batch: Vec::new(),
+            delayed: Vec::new(),
+            cast_this_turn: Vec::new(),
+            combat_damaged: 0,
             drew_in_draw_step: false,
         };
         if matches!(

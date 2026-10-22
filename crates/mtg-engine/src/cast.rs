@@ -711,11 +711,16 @@ impl Game {
             CastStage::Done if item.trigger.is_some() => {}
             CastStage::Done => match item.ability {
                 // CR 601.2i: the spell becomes cast.
-                None => self.log(Event::SpellCast {
-                    player: t.caster,
-                    object: t.spell,
-                    def: def_id,
-                }),
+                None => {
+                    if self.pool.has_triggers() {
+                        self.cast_this_turn.push((t.caster, def_id));
+                    }
+                    self.log(Event::SpellCast {
+                        player: t.caster,
+                        object: t.spell,
+                        def: def_id,
+                    });
+                }
                 // CR 602.2b (applying 601.2i): the ability becomes activated.
                 Some(ability) => {
                     if activated(def, ability).is_some_and(|x| x.once_per_turn) {

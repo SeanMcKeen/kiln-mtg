@@ -6,8 +6,9 @@
 //! partially supported.
 
 use mtg_cards::ir::{
-    Ability, ChoiceSpec, Condition, CostPart, DiscardSpec, Effect, ObjectRef, ObjectSet, PlayerRef,
-    Quantity, QuantityExpr, Recipient, RuleMod, SpellAbility, StaticAbility, StaticEffect, Timing,
+    Ability, ChoiceSpec, Condition, CostPart, DiscardSpec, Effect, ManaSpec, ObjectRef, ObjectSet,
+    PlayerRef, Quantity, QuantityExpr, Recipient, RuleMod, SpellAbility, StaticAbility,
+    StaticEffect, Timing,
 };
 use mtg_core::CardType;
 
@@ -42,13 +43,17 @@ pub(crate) fn check(def: &CardDef) -> Check {
     for a in &def.abilities {
         // "That card" / "that player" mean something only in a triggered ability.
         if !matches!(a, Ability::Triggered(_))
-            && serde_json::to_string(a).is_ok_and(|j| j.contains("\"triggering\""))
+            && serde_json::to_string(a).is_ok_and(|j| {
+                j.contains("\"triggering\"") || j.contains("\"type_produced_by_trigger\"")
+            })
         {
             return Err("a reference to a trigger event outside a triggered ability".into());
         }
         match a {
             // CR 702.124a: partner only modifies deck construction; it does nothing in play.
             Ability::Keyword(mtg_cards::ir::Keyword::Partner) => {}
+            // CR 702.24a: `CardDef::new` adds it as a triggered ability (checked below).
+            Ability::Keyword(mtg_cards::ir::Keyword::CumulativeUpkeep(_)) => {}
             Ability::Keyword(k) => match Keywords::of_ir(k) {
                 Some(bit) if IMPLEMENTED_KEYWORDS.contains(&bit) => {}
                 _ => return Err(keyword_gap(k)),
@@ -118,7 +123,6 @@ fn keyword_gap(k: &mtg_cards::ir::Keyword) -> String {
     match k {
         K::Ward(_) => "keyword ward (M4: triggered abilities)".into(),
         K::Protection(_) => "keyword protection (M4: damage prevention)".into(),
-        K::CumulativeUpkeep(_) => "keyword cumulative upkeep (M4: triggered abilities)".into(),
         // CR 702.124j: "partner with" includes a "when this enters" trigger.
         K::PartnerWith(_) => "keyword partner with (M4: triggered abilities)".into(),
         other => format!("keyword {other:?} isn't implemented yet"),
@@ -256,7 +260,12 @@ fn effect(e: &Effect) -> Check {
             if spend_only_on.is_some() {
                 return Err("mana with spending restrictions (M5)".into());
             }
-            crate::card::mana_output(mana).map(|_| ())
+            match mana {
+                // Only meaningful in a triggered ability (checked in `check`).
+                ManaSpec::TypeProducedByTrigger => Ok(()),
+                ManaSpec::Colorless(q) => quantity(q),
+                _ => crate::card::mana_output(mana).map(|_| ()),
+            }
         }
         Effect::Search { who, count, .. } => {
             player(who)?;
@@ -287,8 +296,12 @@ fn effect(e: &Effect) -> Check {
             set(what)?;
             quantity(amount)
         }
-        Effect::Amass { .. } => Err("amass (later)".into()),
-        Effect::Delayed { .. } => Err("delayed triggered abilities (M4)".into()),
+        Effect::Amass { amount, .. } => quantity(amount),
+        Effect::Delayed { at, effect: x } => {
+            trigger(at)?;
+            effect(x)
+        }
+        Effect::LoseGame(who) => player(who),
         Effect::Escape(x) => match crate::escapes::lookup(&x.function) {
             Some(_) => Ok(()),
             None => Err(format!("escape function {:?} isn't registered", x.function)),
@@ -301,8 +314,8 @@ fn trigger(t: &mtg_cards::ir::Trigger) -> Check {
     use mtg_cards::ir::Trigger as T;
     match t {
         T::AnyOf(v) => v.iter().try_for_each(trigger),
-        T::TapsForMana { .. } => Err("mana-ability triggers (later in M4)".into()),
         T::Enters(_)
+        | T::TapsForMana { .. }
         | T::Dies(_)
         | T::LeavesBattlefield(_)
         | T::Cast { .. }
@@ -355,10 +368,8 @@ fn quantity(q: &Quantity) -> Check {
             | QuantityExpr::CountersOn { what: o, .. } => object(o),
             QuantityExpr::CardsInLibrary(p) => player(p),
             QuantityExpr::Plus(q, _) => quantity(q),
-            QuantityExpr::OpponentsDealtCombatDamageThisTurn => {
-                Err("combat damage history (M4)".into())
-            }
-            QuantityExpr::X
+            QuantityExpr::OpponentsDealtCombatDamageThisTurn
+            | QuantityExpr::X
             | QuantityExpr::Count(_)
             | QuantityExpr::Devotion(_)
             | QuantityExpr::MostDiscardedThisWay
@@ -388,9 +399,10 @@ fn discard(d: &DiscardSpec) -> Check {
 
 fn cost(parts: &[CostPart]) -> Check {
     parts.iter().try_for_each(|p| match p {
-        CostPart::Mana(s) if !simple_mana(s) => Err(format!(
-            "mana cost {s} needs hybrid/Phyrexian/X payment (M3 B3)"
-        )),
+        CostPart::Mana(s) | CostPart::ManaRepeated { mana: s, .. } if !simple_mana(s) => Err(
+            format!("mana cost {s} needs hybrid/Phyrexian/X payment (M3 B3)"),
+        ),
+        CostPart::ManaRepeated { times, .. } => quantity(times),
         CostPart::PayLife(q) => quantity(q),
         CostPart::Sacrifice(s) => set(s),
         CostPart::Discard(d) => discard(d),

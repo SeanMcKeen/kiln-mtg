@@ -1,0 +1,33 @@
+scenario: mtg-scenario/1
+name: "Mystic Remora: cumulative upkeep adds an age counter, then asks for {1} per age counter"
+cr: ["702.24a", "118.12", "122.1"]
+verifies: [Mystic Remora]
+players:
+  - battlefield: [Mystic Remora, Island]
+  - battlefield: [Mountain]
+    hand: [Lightning Bolt]
+turn: { number: 2, active: P1, step: upkeep }
+script:
+  - pass_all
+  - check:
+      decision: { player: P1, kind: optional, options: [Don't pay, Pay] }
+  - choose: Pay
+  - choose: Pay with Island
+  - check:
+      counters: { Mystic Remora: { age: 1 } }
+  # An opponent's noncreature spell: P2 can't pay {4}, so P1 may draw.
+  - pass: 1
+  - choose: Cast Lightning Bolt
+    player: P2
+  - choose: Target P1
+  - choose: Pay with Mountain
+  - pass_all
+  - check:
+      decision: { player: P1, kind: optional, options: ["No", "Yes"] }
+  - choose: "Yes"
+  - pass_all
+expect:
+  life: { P1: 17 }
+  zones:
+    P1.hand: [Test Wastes]
+    P1.battlefield: [Mystic Remora, Island]

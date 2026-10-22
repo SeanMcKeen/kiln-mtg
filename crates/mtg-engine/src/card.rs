@@ -346,6 +346,17 @@ impl CardDef {
                 abilities.push(tap_for(ManaType::of_color(color)));
             }
         }
+        // CR 702.24a: cumulative upkeep is a triggered ability.
+        let upkeeps: Vec<Vec<CostPart>> = abilities
+            .iter()
+            .filter_map(|a| match a {
+                Ability::Keyword(ir::Keyword::CumulativeUpkeep(c)) => Some(c.clone()),
+                _ => None,
+            })
+            .collect();
+        for cost in upkeeps {
+            abilities.push(cumulative_upkeep(&cost).map_err(unsupported)?);
+        }
         let mut keywords = Keywords::default();
         let mut mana_abilities = SmallVec::new();
         for (i, a) in abilities.iter().enumerate() {
@@ -531,8 +542,15 @@ pub(crate) fn mana_output(spec: &ManaSpec) -> Result<ManaAlternatives, String> {
                 "mana of the commander's color identity needs the command zone (M6)".into(),
             );
         }
-        ManaSpec::ColorOf(_) | ManaSpec::TypeProducedByTrigger => {
+        ManaSpec::ColorOf(_) => {
             return Err("mana whose type depends on another object (M4)".into());
+        }
+        ManaSpec::TypeProducedByTrigger => {
+            return Err("mana of the triggering permanent's type outside a trigger".into());
+        }
+        ManaSpec::Colorless(q) => {
+            let n = fixed(q).ok_or("variable amount of mana")?;
+            out.push(SmallVec::from_elem(ManaType::Colorless.bit(), n));
         }
     }
     Ok(out)
@@ -694,13 +712,69 @@ fn token_specs(abilities: &[Ability]) -> Vec<ir::TokenSpec> {
             Ability::Triggered(t) => &t.effect,
             _ => continue,
         };
-        e.walk(&mut |e| {
-            if let ir::Effect::CreateToken { token, .. } = e {
-                out.push(token.clone());
-            }
+        e.walk(&mut |e| match e {
+            ir::Effect::CreateToken { token, .. } => out.push(token.clone()),
+            ir::Effect::Amass { subtype, .. } => out.push(amass_token(subtype)),
+            _ => {}
         });
     }
     out
+}
+
+/// The Army token amass creates (CR 701.47a).
+pub fn amass_token(subtype: &str) -> ir::TokenSpec {
+    ir::TokenSpec::Creature {
+        power: 0,
+        toughness: 0,
+        colors: "B".into(),
+        subtypes: vec![subtype.to_owned(), "Army".into()],
+        keywords: Vec::new(),
+        name: None,
+    }
+}
+
+/// CR 702.24a: "At the beginning of your upkeep, if this permanent is on the
+/// battlefield, put an age counter on this permanent. Then you may pay
+/// [cost] for each age counter on it. If you don't, sacrifice it."
+fn cumulative_upkeep(cost: &[CostPart]) -> Result<Ability, String> {
+    let per_counter = ir::Quantity::Expr(ir::QuantityExpr::CountersOn {
+        what: ir::ObjectRef::This,
+        counter: ir::CounterKind::Age,
+    });
+    let cost = cost
+        .iter()
+        .map(|p| match p {
+            CostPart::Mana(m) => Ok(CostPart::ManaRepeated {
+                mana: m.clone(),
+                times: per_counter.clone(),
+            }),
+            _ => Err("cumulative upkeep with a non-mana cost".to_owned()),
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let this = || ir::ObjectSet::One(ir::ObjectRef::This);
+    Ok(Ability::Triggered(ir::TriggeredAbility {
+        trigger: ir::Trigger::BeginningOf {
+            step: ir::StepName::Upkeep,
+            whose: ir::PlayerRel::You,
+        },
+        condition: None,
+        targets: Vec::new(),
+        effect: ir::Effect::Seq(vec![
+            ir::Effect::PutCounters {
+                what: this(),
+                counter: ir::CounterKind::Age,
+                amount: Quantity::Fixed(1),
+            },
+            ir::Effect::Unless {
+                payer: ir::PlayerRef::You,
+                cost,
+                effect: Box::new(ir::Effect::Sacrifice {
+                    who: ir::PlayerRef::You,
+                    what: this(),
+                }),
+            },
+        ]),
+    }))
 }
 
 /// A token's definition (CR 111.4, 111.10).

@@ -236,6 +236,8 @@ pub enum CardPurpose {
     PutOntoBattlefield,
     /// Put it into its owner's graveyard.
     PutIntoGraveyard,
+    /// Put counters on it (amass, CR 701.47a).
+    PutCounters,
 }
 
 pub use crate::card::ManaBag;

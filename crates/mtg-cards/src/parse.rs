@@ -1014,7 +1014,11 @@ fn trigger_phrase(s: &str) -> Option<Trigger> {
                 }
                 f
             };
-            Trigger::Cast { by, spell }
+            Trigger::Cast {
+                by,
+                spell,
+                first_each_turn: false,
+            }
         } else if c.lit("draws a card") || c.lit("draw a card") {
             Trigger::Draws {
                 by,

@@ -259,6 +259,7 @@ impl Game {
                         CardPurpose::ReturnToHand => "Return to hand",
                         CardPurpose::PutOntoBattlefield => "Put onto the battlefield",
                         CardPurpose::PutIntoGraveyard => "Put into graveyard",
+                        CardPurpose::PutCounters => "Put counters on",
                     };
                     format!("{verb} {}", who(id))
                 }

@@ -509,6 +509,10 @@ impl Game {
             o.controller,
         );
         ctx.forced_mana = forced;
+        ctx.tapped_for_mana = x
+            .cost
+            .iter()
+            .any(|c| matches!(c, mtg_cards::ir::CostPart::Tap));
         let mut task = EffectTask::new(ctx);
         // Costs first (they go on top of the effect).
         let cost = x.cost.clone();

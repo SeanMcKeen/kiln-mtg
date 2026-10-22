@@ -82,6 +82,9 @@ pub enum PermSpec {
         damage: u32,
         #[serde(default)]
         sick: bool,
+        /// Counter kind (`+1/+1`, `age`, ...) → count.
+        #[serde(default)]
+        counters: BTreeMap<String, u32>,
     },
 }
 
@@ -339,12 +342,23 @@ pub fn build(s: &Scenario, pool: &Arc<CardPool>) -> Result<Game, ScenarioError> 
                     tapped,
                     damage,
                     sick,
+                    counters,
                 } => (
                     card.as_str(),
                     PermanentOpts {
                         tapped: *tapped,
                         damage: *damage,
                         summoning_sick: *sick,
+                        counters: counters
+                            .iter()
+                            .map(|(k, n)| {
+                                serde_json::from_value(serde_json::Value::String(k.clone()))
+                                    .map(|k| (k, *n))
+                                    .map_err(|_| {
+                                        ScenarioError::Setup(format!("unknown counter kind {k:?}"))
+                                    })
+                            })
+                            .collect::<Result<_, _>>()?,
                     },
                 ),
             };

@@ -14,10 +14,10 @@ use mtg_core::{CardType, Color, ObjectId, PlayerId, Supertype};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
-use crate::card::DefId;
+use crate::card::{DefId, ManaBag};
 use crate::cast::{CastStage, CastTask};
 use crate::decision::DecisionKind;
-use crate::effects::{AbilityRef, EffectCtx, Lki};
+use crate::effects::{AbilityRef, EffectCtx, EffectTask, Lki, Path};
 use crate::engine::{Game, Task};
 use crate::events::Event;
 use crate::state::{StackItem, Step, ZoneId};
@@ -29,6 +29,20 @@ pub struct TriggerInfo {
     pub player: Option<PlayerId>,
     /// Last known information about the triggering object, if it left a zone.
     pub(crate) lki: Option<Lki>,
+    /// The mana a permanent was tapped for (CR 605.1b triggers).
+    pub(crate) mana: Option<ManaBag>,
+}
+
+/// A delayed triggered ability (CR 603.7): created by an effect, it triggers
+/// once on its event and then ceases to exist (CR 603.7c).
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub(crate) struct DelayedTrigger {
+    pub trigger: Trigger,
+    /// Path of the effect to run, inside the creating ability.
+    pub path: Path,
+    /// The creating effect's context (its source, controller, targets and
+    /// last known information; CR 603.7c, 603.7d).
+    pub ctx: EffectCtx,
 }
 
 /// A triggered ability waiting to be put on the stack (CR 603.3).
@@ -41,6 +55,7 @@ pub(crate) struct PendingTrigger {
     /// CR 603.3a: the source's controller when it triggered.
     pub controller: PlayerId,
     pub info: TriggerInfo,
+    pub delayed: Option<Box<DelayedTrigger>>,
 }
 
 /// Putting pending triggers on the stack, player by player in APNAP order.
@@ -102,7 +117,8 @@ fn def_matches(
 fn step_is(s: StepName, step: Step) -> bool {
     matches!(
         (s, step),
-        (StepName::Upkeep, Step::Upkeep)
+        (StepName::Main, Step::PrecombatMain | Step::PostcombatMain)
+            | (StepName::Upkeep, Step::Upkeep)
             | (StepName::Draw, Step::Draw)
             | (StepName::PrecombatMain, Step::PrecombatMain)
             | (StepName::PostcombatMain, Step::PostcombatMain)
@@ -141,6 +157,7 @@ impl Game {
                         ability,
                         controller: o.controller,
                         info,
+                        delayed: None,
                     });
                 }
             }
@@ -178,9 +195,30 @@ impl Game {
                             ability,
                             controller: scontroller,
                             info,
+                            delayed: None,
                         });
                     }
                 }
+            }
+        }
+        // CR 603.7c: a delayed trigger triggers only once.
+        let mut i = 0;
+        while i < self.delayed.len() {
+            let d = &self.delayed[i];
+            match self.trigger_hit(&d.trigger, d.ctx.source, d.ctx.controller, e) {
+                Some(info) => {
+                    let d = self.delayed.remove(i);
+                    found.push(PendingTrigger {
+                        source: d.ctx.source,
+                        source_def: d.ctx.ability.def,
+                        ability: d.ctx.ability.ability,
+                        // CR 603.7d: controlled by the creating ability's controller.
+                        controller: d.ctx.controller,
+                        info,
+                        delayed: Some(Box::new(d)),
+                    });
+                }
+                None => i += 1,
             }
         }
         for p in found {
@@ -190,8 +228,27 @@ impl Game {
                 ability: p.ability,
                 controller: p.controller,
             });
-            self.pending_triggers.push(p);
+            if p.delayed.is_none() && self.is_mana_trigger(p.source_def, p.ability) {
+                // CR 605.4a: a triggered mana ability resolves immediately.
+                let ctx = trigger_ctx(p.source_def, p.ability, p.source, p.controller, p.info);
+                self.tasks
+                    .push(Task::Effect(Box::new(EffectTask::new(ctx))));
+            } else {
+                self.pending_triggers.push(p);
+            }
         }
+    }
+
+    /// CR 605.1b: a triggered ability that triggers from a mana ability and
+    /// could add mana is a mana ability.
+    fn is_mana_trigger(&self, def: DefId, ability: u8) -> bool {
+        matches!(
+            self.def(def).abilities.get(usize::from(ability)),
+            Some(Ability::Triggered(TriggeredAbility {
+                trigger: Trigger::TapsForMana { .. },
+                ..
+            }))
+        )
     }
 
     /// CR 603.4: an intervening "if" must hold when the ability triggers.
@@ -223,6 +280,7 @@ impl Game {
             object,
             player,
             lki: None,
+            mana: None,
         };
         match (trigger, e) {
             (Trigger::AnyOf(v), _) => v.iter().find_map(|t| self.trigger_hit(t, source, you, e)),
@@ -268,6 +326,7 @@ impl Game {
                     (!f.other || *old != source) && def_matches(self, *def, *controller, f, you)
                 };
                 ok.then_some(TriggerInfo {
+                    mana: None,
                     object: Some(*old),
                     player: Some(*controller),
                     lki: Some(Lki {
@@ -281,10 +340,26 @@ impl Game {
                     }),
                 })
             }
-            (Trigger::Cast { by, spell }, Event::SpellCast { player, object, .. }) => (self
-                .player_rel(*by, you, *player)
-                && self.matches_filter(*object, spell, you, Some(source)))
-            .then(|| seen(Some(*object), Some(*player))),
+            (
+                Trigger::Cast {
+                    by,
+                    spell,
+                    first_each_turn,
+                },
+                Event::SpellCast { player, object, .. },
+            ) => {
+                let ok = self.player_rel(*by, you, *player)
+                    && self.matches_filter(*object, spell, you, Some(source))
+                    // "their first [spell] each turn": this is the only match so far.
+                    && (!*first_each_turn
+                        || self
+                            .cast_this_turn
+                            .iter()
+                            .filter(|(p, d)| *p == *player && def_matches(self, *d, *player, spell, you))
+                            .count()
+                            == 1);
+                ok.then(|| seen(Some(*object), Some(*player)))
+            }
             (
                 Trigger::Draws {
                     by,
@@ -331,6 +406,22 @@ impl Game {
                 };
                 ok.then(|| seen(Some(*by), Some(*p)))
             }
+            // CR 605.1b
+            (
+                Trigger::TapsForMana { by, what },
+                Event::TappedForMana {
+                    player,
+                    source: tapped,
+                    produced,
+                },
+            ) => (self.player_rel(*by, you, *player)
+                && self.matches_filter(*tapped, what, you, Some(source)))
+            .then_some(TriggerInfo {
+                object: Some(*tapped),
+                player: Some(*player),
+                lki: None,
+                mana: Some(*produced),
+            }),
             _ => None,
         }
     }
@@ -425,6 +516,15 @@ impl Game {
     /// cast procedure (CR 603.3d). One with an unsatisfiable target is removed.
     fn put_trigger(&mut self, i: usize) {
         let pt = self.pending_triggers.remove(i);
+        if let Some(d) = pt.delayed {
+            // Delayed triggers have no targets of their own (M4 limitation).
+            let mut item =
+                StackItem::new(pt.source, pt.source_def, Some(pt.ability), pt.controller);
+            item.trigger = Some(pt.info);
+            item.delayed = Some(d);
+            self.stack.push(item);
+            return;
+        }
         let Some(Ability::Triggered(ta)) = self
             .def(pt.source_def)
             .abilities
@@ -466,6 +566,7 @@ pub(crate) fn trigger_ctx(
     let mut ctx = EffectCtx::new(AbilityRef { def, ability }, source, controller);
     ctx.triggering_object = info.object;
     ctx.triggering_player = info.player;
+    ctx.triggering_mana = info.mana;
     if let Some(l) = info.lki {
         ctx.lki.push(l);
     }

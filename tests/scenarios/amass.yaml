@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: Amass creates a 0/0 Army token and puts counters on it; the next amass reuses the Army
+cr: ["701.47a", "111.4", "704.5f"]
+players:
+  - battlefield: [Test Swamp, Test Swamp]
+    hand: [Test Muster, Test Muster]
+  - {}
+script:
+  - choose: Cast Test Muster
+  - choose: Pay with Test Swamp
+  - pass_all
+  - check:
+      counters: { Zombie Army Token: { +1/+1: 2 } }
+  - choose: Cast Test Muster
+  - choose: Pay with Test Swamp
+  - pass_all
+expect:
+  counters: { Zombie Army Token: { +1/+1: 4 } }
+  zones:
+    P1.battlefield: [Test Swamp, Test Swamp, Zombie Army Token]

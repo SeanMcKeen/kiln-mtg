@@ -1,0 +1,16 @@
+card: Pact of Negation
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { spell: {} } }]
+          effect:
+            seq:
+              - counter: { one: { target: 0 } }
+              # CR 603.7a: created on resolution; it triggers at the next upkeep only.
+              - delayed:
+                  at: { beginning_of: { step: upkeep, whose: you } }
+                  effect:
+                    unless:
+                      payer: you
+                      cost: [{ mana: "{3}{U}{U}" }]
+                      effect: { lose_game: you }

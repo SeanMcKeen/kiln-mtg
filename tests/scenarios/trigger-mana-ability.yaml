@@ -1,0 +1,21 @@
+scenario: mtg-scenario/1
+name: A triggered mana ability resolves immediately and adds a type the tapped permanent produced
+cr: ["605.1b", "605.4a", "106.12"]
+players:
+  - battlefield: [Test Bonder, Test Rock, Test Signet, Test Forest]
+  - {}
+script:
+  - choose: "Tap Test Rock for {C}{C}"
+  - check:
+      pool: { P1: "{C}{C}{C}" }
+  # The Signet made {W}{U}: the extra mana is either type, the controller's choice.
+  - choose: "Activate Test Signet for {W}{U}"
+  - choose: Pay with 1 from pool
+  - check:
+      decision: { player: P1, kind: choose_mana }
+  - choose: "Add {U}"
+  - check:
+      pool: { P1: "{W}{U}{U}{C}{C}" }
+  - choose: "Tap Test Forest for {G}"
+expect:
+  pool: { P1: "{W}{U}{U}{G}{C}{C}" }
