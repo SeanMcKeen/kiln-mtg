@@ -1,0 +1,15 @@
+scenario: mtg-scenario/1
+name: With a draw thief on each side of a two-player game, the original player still draws (Notion Thief ruling, 2018-03-16)
+cr: ["616.1f", "614.5"]
+players:
+  - battlefield: [Test Thief, Test Island, Test Island]
+    hand: [Test Insight]
+  - battlefield: [Test Thief]
+script:
+  - choose: Cast Test Insight
+  - choose: Pay with Test Island, Test Island
+  - pass_all
+expect:
+  zones:
+    P1.hand: [Test Wastes, Test Wastes]
+    P2.hand: []

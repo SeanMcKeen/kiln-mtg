@@ -1,0 +1,23 @@
+scenario: mtg-scenario/1
+name: "T31: Notion Thief (P1) and a Windfall cast by P2: every opponent's draw becomes P1's"
+cr: ["614.11", "614.11a", "121.6"]
+verifies: [Notion Thief, Windfall]
+players:
+  - battlefield: [Notion Thief]
+    hand: [Island, Island]
+  - battlefield: [Island, Island, Island]
+    hand: [Windfall, Swamp, Swamp, Swamp]
+  - {}
+turn: { number: 2, active: P2, step: precombat_main }
+script:
+  - choose: Cast Windfall
+    player: P2
+  - choose: Pay with Island, Island, Island
+  - pass_all
+expect:
+  zones:
+    P1.graveyard: [Island, Island]
+    P2.graveyard: [Swamp, Swamp, Swamp, Windfall]
+    P2.hand: []
+    P3.hand: []
+    P1.hand: [Test Wastes, Test Wastes, Test Wastes, Test Wastes, Test Wastes, Test Wastes, Test Wastes, Test Wastes, Test Wastes]

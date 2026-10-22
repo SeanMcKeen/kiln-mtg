@@ -1,0 +1,58 @@
+scenario: mtg-scenario/1
+name: "T32: Orcish Bowmasters (P3) triggers on every card P1 draws when Notion Thief takes P2's and P3's Windfall draws"
+cr: ["603.2", "603.3b", "614.11"]
+verifies: [Orcish Bowmasters, Notion Thief, Windfall]
+players:
+  - battlefield: [Notion Thief]
+    hand: [Island, Island]
+  - battlefield: [Island, Island, Island]
+    hand: [Windfall, Swamp, Swamp, Swamp]
+  - battlefield: [Orcish Bowmasters]
+turn: { number: 2, active: P2, step: precombat_main }
+script:
+  - choose: Cast Windfall
+    player: P2
+  - choose: Pay with Island, Island, Island
+  - pass_all
+  - choose: Put Orcish Bowmasters ability 2 on the stack
+    player: P3
+  - choose: Target P1
+  - choose: Put Orcish Bowmasters ability 2 on the stack
+    player: P3
+  - choose: Target P1
+  - choose: Put Orcish Bowmasters ability 2 on the stack
+    player: P3
+  - choose: Target P1
+  - choose: Put Orcish Bowmasters ability 2 on the stack
+    player: P3
+  - choose: Target P1
+  - choose: Put Orcish Bowmasters ability 2 on the stack
+    player: P3
+  - choose: Target P1
+  - choose: Put Orcish Bowmasters ability 2 on the stack
+    player: P3
+  - choose: Target P1
+  - choose: Put Orcish Bowmasters ability 2 on the stack
+    player: P3
+  - choose: Target P1
+  - choose: Put Orcish Bowmasters ability 2 on the stack
+    player: P3
+  - choose: Target P1
+  - choose: Target P1
+  - check:
+      zones: { P1.hand: [Test Wastes, Test Wastes, Test Wastes, Test Wastes, Test Wastes, Test Wastes, Test Wastes, Test Wastes, Test Wastes] }
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+expect:
+  life: { P1: 11 }
+  counters: { Orc Army Token: { +1/+1: 9 } }
+  zones:
+    P2.hand: []
+    P3.hand: []
