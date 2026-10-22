@@ -15,7 +15,7 @@
 - Vault notes need frontmatter with `type`, `status`, `tags`, and `updated`. Link with `[[wikilinks]]`. New notes start from `docs/_templates/`.
 - Research notes end with a `## Sources` section.
 - Update `docs/12 Open Questions.md` and the relevant milestone checklist whenever you resolve or discover something.
-- Commits only when asked. Branch: `main` (no remote yet).
+- Commits only when asked. Branch: `main`, remote `origin` = https://github.com/SeanMcKeen/kiln (public).
 
 ## Refreshing local reference data
 ```bash

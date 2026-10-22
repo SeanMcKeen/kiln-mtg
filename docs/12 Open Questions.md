@@ -13,7 +13,6 @@ Each question has an owner note and a target milestone. Move a question to **Res
 | # | Question | Notes | Target |
 |---|---|---|---|
 | Q2 | Review the proposed ADRs 0004, 0005, 0008, 0009 and 0011: accept or amend? | [[ADR Index]] | M0 |
-| Q3 | Create the GitHub repo (public or private) and `git init`? | [[M0 Groundwork]] | M0 |
 | Q4 | Should deck *optimization* (suggesting swaps from sims) become a goal later? | Currently a non-goal ([[Scope & Non-Goals]]) | post-M9 |
 | Q5 | Arena-only digital mechanics (Alchemy) ever? | Non-goal for now | — |
 
@@ -55,3 +54,4 @@ Each question has an owner note and a target milestone. Move a question to **Res
 | R4 | License | MIT/Apache ([[ADR-0002 Licensing and Card Data Distribution]]) |
 | R5 | Where docs live | `docs/` vault ([[ADR-0003 Docs as Obsidian Vault in Repo]]) |
 | R6 | Project name (was Q1) | Kiln; crate `kiln-mtg`, binary `kiln` ([[ADR-0013 Project Name]]) |
+| R7 | GitHub repo (was Q3) | Public: [SeanMcKeen/kiln](https://github.com/SeanMcKeen/kiln) ([[M0 Groundwork]]) |

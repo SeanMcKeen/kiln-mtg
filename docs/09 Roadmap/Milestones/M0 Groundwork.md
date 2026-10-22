@@ -23,7 +23,7 @@ updated: 2026-10-22
 - [ ] **User review** of the vault and the proposed ADRs (0004, 0005, 0008, 0009, 0011)
 - [x] Decide the project name: Kiln ([[ADR-0013 Project Name]])
 - [x] `git init` and the first commit
-- [ ] Create the GitHub repo and push (user decision: public or private)
+- [x] Create the GitHub repo and push: public at https://github.com/SeanMcKeen/kiln
 
 ## Exit criteria
 The user has reviewed the vault, the proposed ADRs are accepted or amended, and the repo exists.
