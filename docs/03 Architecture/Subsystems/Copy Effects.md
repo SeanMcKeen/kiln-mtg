@@ -2,10 +2,10 @@
 type: subsystem
 status: draft
 cr: ["707"]
-impl_status: not-started
+impl_status: implemented
 milestone: M5
 tags: [subsystem, copy]
-updated: 2026-10-20
+updated: 2026-10-23
 ---
 
 # Copy Effects

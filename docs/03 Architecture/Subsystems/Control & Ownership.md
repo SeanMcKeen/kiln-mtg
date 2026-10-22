@@ -2,10 +2,10 @@
 type: subsystem
 status: draft
 cr: ["108.3", "110.2", "613.1b", "723", "800.4"]
-impl_status: not-started
+impl_status: implemented
 milestone: M5
 tags: [subsystem, control]
-updated: 2026-10-20
+updated: 2026-10-23
 ---
 
 # Control & Ownership

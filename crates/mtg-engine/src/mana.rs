@@ -481,6 +481,36 @@ impl Game {
         }
     }
 
+    /// Mana ability `i` of object `id` (an index into
+    /// [`Game::mana_abilities_of`]), without building the list when the
+    /// object has its printed abilities.
+    pub(crate) fn mana_ability_at(
+        &self,
+        id: ObjectId,
+        i: u8,
+    ) -> Option<(AbilityRef, &crate::card::ManaAbility)> {
+        if !self.layers_live() {
+            let o = self.obj(id)?;
+            let m = self.def(o.def).mana_abilities.get(usize::from(i))?;
+            return Some((
+                AbilityRef {
+                    def: o.def,
+                    ability: m.ability,
+                },
+                m,
+            ));
+        }
+        self.mana_abilities_of(id).get(usize::from(i)).copied()
+    }
+
+    /// How many mana abilities object `id` has now.
+    pub(crate) fn mana_ability_count(&self, id: ObjectId) -> usize {
+        if !self.layers_live() {
+            return self.obj_def(id).map_or(0, |d| d.mana_abilities.len());
+        }
+        self.mana_abilities_of(id).len()
+    }
+
     /// Whether `p` may activate mana ability `ability` (an index into
     /// [`Game::mana_abilities_of`]) of `source` right now (CR 605.3a, 302.6).
     pub(crate) fn can_activate_mana(&self, p: PlayerId, source: ObjectId, ability: u8) -> bool {
@@ -493,8 +523,7 @@ impl Game {
         {
             return false;
         }
-        let list = self.mana_abilities_of(source);
-        let Some(&(r, _)) = list.get(usize::from(ability)) else {
+        let Some((r, _)) = self.mana_ability_at(source, ability) else {
             return false;
         };
         let Some(mtg_cards::ir::Ability::Activated(x)) = self.ability_at(r) else {
@@ -521,7 +550,7 @@ impl Game {
         let Some(o) = self.obj(source).copied() else {
             return;
         };
-        let Some(&(r, _)) = self.mana_abilities_of(source).get(usize::from(ability)) else {
+        let Some((r, _)) = self.mana_ability_at(source, ability) else {
             return;
         };
         let pool = std::sync::Arc::clone(&self.pool);

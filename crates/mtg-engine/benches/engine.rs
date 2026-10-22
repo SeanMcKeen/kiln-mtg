@@ -3,14 +3,59 @@
 //! 1. `GameState` clone at a busy 4-player board (NFR-P2: ≤ 10 µs)
 //! 2. Legal-option enumeration at priority (NFR-P3: ≤ 20 µs)
 //! 3. A complete random 4-player game (NFR-P1: ≤ 5 ms engine time per game)
+//! 4. All characteristics of a 60-permanent board with 10 static abilities,
+//!    recomputed from scratch (M5 plan L6: ≤ 20 µs)
 
 use std::hint::black_box;
 use std::sync::Arc;
 
 use criterion::{Criterion, criterion_group, criterion_main};
+use mtg_core::PlayerId;
 use mtg_engine::decks::test_deck;
 use mtg_engine::rng::GameRng;
-use mtg_engine::{CardPool, DecisionKind, Game, GameRules, GameSetup, ZoneId};
+use mtg_engine::{
+    CardPool, DecisionKind, Game, GameBuilder, GameRules, GameSetup, PermanentOpts, ZoneId,
+};
+
+/// 4 players × 15 permanents: anthems, a land-type setter and adder, a
+/// 613.6 pair, rule statics, creatures (some with counters) and lands.
+fn layered_board() -> Game {
+    let pool = Arc::new(CardPool::m3_test_set());
+    let id = |n: &str| pool.by_name(n).unwrap_or_else(|| panic!("{n}"));
+    let statics = [
+        "Test Anthem",
+        "Test Moon",
+        "Test Crypt",
+        "Test Humbler",
+        "Test Opal",
+        "Test Anthem",
+        "Test Orb",
+        "Test Abolisher",
+        "Test Anthem",
+        "Test Anthem",
+    ];
+    let mut b = GameBuilder::new(Arc::clone(&pool), 4);
+    let mut placed = 0;
+    for p in 0..4u8 {
+        let who = PlayerId(p);
+        for i in 0..15 {
+            let name = if placed < statics.len() && i < 3 {
+                statics[placed]
+            } else if i % 3 == 0 {
+                "Test Confluence"
+            } else if i % 3 == 1 {
+                "Test Bear"
+            } else {
+                "Test Island"
+            };
+            if placed < statics.len() && i < 3 {
+                placed += 1;
+            }
+            b = b.permanent(who, id(name), PermanentOpts::default());
+        }
+    }
+    b.build()
+}
 
 fn setup(seed: u64) -> (Arc<CardPool>, GameSetup) {
     let pool = Arc::new(CardPool::test_set());
@@ -82,6 +127,13 @@ fn benches(c: &mut Criterion) {
     c.bench_function("state hash (mid-game)", |b| {
         b.iter(|| black_box(board.state_hash()));
     });
+
+    let mut layered = layered_board();
+    let n = layered.objects_in(ZoneId::Battlefield).len();
+    c.bench_function(
+        &format!("characteristics, recomputed ({n} permanents, 10 statics)"),
+        |b| b.iter(|| black_box(layered.bench_characteristics())),
+    );
 
     let mut seed = 0u64;
     c.bench_function("random 4p game (synthetic decks)", |b| {

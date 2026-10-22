@@ -1,0 +1,18 @@
+scenario: mtg-scenario/1
+name: "Torture: a stolen creature gets its new controller's anthem (layer 2 before 7c); its owner's anthem stops applying"
+cr: ["613.1b", "613.4c", "611.3a"]
+players:
+  - battlefield: [Test Anthem, Test Mountain, Test Mountain, Test Mountain, Test Mountain, Test Mountain]
+    hand: [Test Usurper]
+  - battlefield: [Test Anthem, Test Bear]
+script:
+  - check:
+      pt: { Test Bear: [3, 3] }
+  - choose: Cast Test Usurper
+  - choose: Pay with Test Mountain, Test Mountain, Test Mountain, Test Mountain, Test Mountain
+  - pass_all
+  - choose: Target Test Bear (P2)
+  - pass_all
+expect:
+  zones: { P2.battlefield: [Test Anthem] }
+  pt: { Test Bear: [3, 3], Test Usurper: [4, 4] }

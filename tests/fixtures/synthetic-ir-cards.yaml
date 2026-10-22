@@ -943,3 +943,12 @@
         cost: [{ remove_counters: { counter: +1/+1, amount: 1 } }]
         targets: [{ what: any }]
         effect: { deal_damage: { to: { target: 0 }, amount: 1 } }
+
+# ---- layer torture suite (M5 5.7) -----------------------------------------------
+
+- name: Test Rally
+  cost: "{R}"
+  types: Sorcery
+  abilities:
+    - spell:
+        effect: { gain_keyword: { what: { all: { types: [creature], controller: you } }, keyword: haste } }

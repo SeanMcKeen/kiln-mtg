@@ -2,10 +2,10 @@
 type: subsystem
 status: draft
 cr: ["604", "611", "612", "613"]
-impl_status: not-started
+impl_status: implemented
 milestone: M5
 tags: [subsystem, layers, continuous-effects]
-updated: 2026-10-20
+updated: 2026-10-23
 ---
 
 # Continuous Effects & Layers

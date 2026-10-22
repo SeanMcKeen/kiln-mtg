@@ -1412,7 +1412,7 @@ impl Game {
             if o.controller != p {
                 continue;
             }
-            for i in 0..self.mana_abilities_of(id).len() {
+            for i in 0..self.mana_ability_count(id) {
                 let ability = u8::try_from(i).unwrap_or(0);
                 if self.can_activate_mana(p, id, ability) {
                     actions.push(Action::ActivateMana {

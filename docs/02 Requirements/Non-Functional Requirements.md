@@ -78,6 +78,13 @@ Targets that fall out of this:
 | 2026-10-21 (M2) | NFR-P4 ≥ 85% scaling at 8 cores | 13.2× on 18 cores (73%; mix of performance and efficiency cores) | `mtg dev fuzz`, unchecked |
 | 2026-10-21 (M2) | NFR-D1 identical across thread counts | ✅ identical results on 1 and 18 threads | 5,000-game batch |
 | 2026-10-21 (M3) | — (throughput with real cards) | 475 games/s, 4-player, ~2,100 decisions/game | Verified-card decks, random policy, 2 threads, invariants + view audits + replays on (`mtg dev fuzz --verified`) |
+| 2026-10-23 (M5) | NFR-P1 ≤ 5 ms per 4-player game | **4.19 ms** per complete random game (pre-M5: 4.11 ms) | Same synthetic decks and policy; triggers, replacements and layers on |
+| 2026-10-23 (M5) | NFR-P2 clone ≤ 10 µs | **665 ns** | Same board |
+| 2026-10-23 (M5) | NFR-P3 priority enumeration ≤ 20 µs | **1.46 µs** (pre-M5: 1.04 µs) | Same board |
+| 2026-10-23 (M5) | Characteristic recomputation ≤ 20 µs (M5 exit) | **19.1 µs** | 60 permanents, 10 layer statics, full recompute (`characteristics, recomputed`) |
+| 2026-10-23 (M5) | — (state hash) | 13.8 µs (pre-M5: 11.1 µs) | Same board |
+
+The M2 → M5 rise in per-game time (1.37 → 4.19 ms) leaves little NFR-P1 headroom; profiling is scheduled for M7.
 
 M2 numbers use vanilla cards. Re-baseline at M6 with real cEDH decks, where card IR interpretation and layers add cost.
 

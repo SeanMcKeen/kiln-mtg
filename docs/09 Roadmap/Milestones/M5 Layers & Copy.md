@@ -1,6 +1,6 @@
 ---
 type: milestone
-status: in-progress
+status: review
 milestone: M5
 tags: [milestone]
 updated: 2026-10-22
@@ -9,13 +9,13 @@ updated: 2026-10-22
 # M5: Layers & Copy
 
 ## Checklist
-- [ ] Layer system with sublayers, CDAs, timestamps, dependencies ([[Continuous Effects & Layers]])
-- [ ] Characteristic caching and invalidation, plus a benchmark
-- [ ] Copy effects: permanents, spells, abilities, cast-a-copy ([[Copy Effects]])
-- [ ] Control change and controlling another player ([[Control & Ownership]])
-- [ ] Tricky catalog: T03, T07, T08, T09, T27, T50–T55 passing (⚠ entries verified first)
+- [x] Layer system with sublayers, CDAs, timestamps, dependencies ([[Continuous Effects & Layers]])
+- [x] Characteristic caching and invalidation, plus a benchmark
+- [x] Copy effects: permanents, spells, abilities, cast-a-copy ([[Copy Effects]])
+- [x] Control change and controlling another player ([[Control & Ownership]])
+- [x] Tricky catalog: T03, T07, T08, T09, T27, T50–T55 passing (⚠ entries verified first)
 - [ ] T12 Worldgorger Dragon mandatory loop (moved from M4): deferred past M5, needs Q26 (loop identity across zone changes) and Q27 (CR 303.4f)
-- [ ] M4 leftovers: Auras and Equipment attachment (CR 303.4, 301.5; SBAs 704.5m–p), the layer-4 type change in amass, "becomes the target" for player targets
+- [x] M4 leftovers: Auras and Equipment attachment (CR 303.4, 301.5; SBAs 704.5m–p), the layer-4 type change in amass, "becomes the target" for player targets
 
 ## Exit criteria
 The layer torture suite passes. Characteristic computation fits the performance budget.
@@ -51,6 +51,14 @@ The expected outcomes for the ⚠ catalog entries come from Oracle rulings fetch
 | 5.6 | Teferi's Protection (phasing CR 702.26, protection for players), Walking Ballista + Heliod; zone-changing loops (L10). | T55, T09, T12 |
 | 5.7 | The layer torture suite, cache benchmark, real cards, low-power fuzz → review. | Exit criteria |
 
+## Review summary (2026-10-23)
+Exit criteria met: the layer torture suite passes, and recomputing characteristics for a 60-permanent board with 10 statics takes 19.1 µs (≤ 20 µs budget, [[Non-Functional Requirements]]). Catalog T03, T07, T08, T09, T27 and T50–T55 pass.
+
+Carried forward:
+- T12 (Worldgorger Dragon) needs Q26 (loop identity across zone changes) and Q27 (CR 303.4f host choice); see [[12 Open Questions]].
+- Performance: a random 4-player game went from 1.37 ms (M2, vanilla) to 4.19 ms. Most of that came in M3–M4 (IR interpretation, triggers, replacements); M5 added ~2%. Still inside NFR-P1 (≤ 5 ms) but with little headroom. Profile in M7.
+- Underworld Breach / LED (T05), Chrome Mox, Food Chain (T11) remain M6 card work.
+
 ## Progress
 | Phase | Status | Evidence |
 |---|---|---|
@@ -60,3 +68,4 @@ The expected outcomes for the ⚠ catalog entries come from Oracle rulings fetch
 | 5.4 | ✅ 2026-10-23 | **Control:**<br>- Layer-2 control effects keep the computed controller on the object. A controller change restarts summoning sickness (CR 302.6), and until-end-of-turn control reverts in cleanup.<br>- `GainControl` and `GainKeyword` (an until-end-of-turn grant in layer 6).<br>- A player who casts or plays another player's card controls it.<br>**Controlling a player** (CR 723): an Opposition Agent's controller makes the choices in an opponent's search (latest Agent wins, per the ruling). Found cards are exiled and linked; the Agent's controller may cast or play them, spending mana as though it were any color (colored symbols become generic).<br>Catalog T08 (Kiki-Jiki + Zealous Conscripts) and T27 pass. Verified: Zealous Conscripts, Opposition Agent (159 total). 2 synthetic scenarios. Fuzz: 500 library games with views plus 500 verified-card games with replays, all clean. |
 | 5.5 | ✅ 2026-10-23 | **Attachments** (`attach.rs`):<br>- `Enchant` and `Equip` keywords; equip is a synthesized sorcery-speed activated ability.<br>- Aura spells target what they'll enchant, including cards in graveyards, and enter attached (CR 303.4a, 303.4f).<br>- The `attached` filter means "enchanted/equipped creature"; `ObjectRef::AttachedTo` still works after the source leaves (last known information).<br>- SBAs: 704.5m (Aura illegal or unattached → graveyard), 704.5n (illegal Equipment → unattached), 704.5p; protection makes an attachment illegal (702.16c).<br>- Animate Dead: `ReturnAttached`, with bound attachments for its changed enchant.<br>- Amass's type change, as a permanent layer-4 effect.<br>Verified: Animate Dead, Lightning Greaves, Swiftfoot Boots (162 total). 1 synthetic scenario. Fuzz: 500 + 500 games, clean. |
 | 5.6 | ✅ 2026-10-23 | **Phasing** (CR 702.26): phased-out permanents leave the battlefield list but keep their zone, and phase in at their controller's untap step (CR 502.1).<br>**Player rules until your next turn:** life can't change (no gain or loss; paying life only if 0, CR 119.4b) and protection from everything (no targeting; damage prevented).<br>**"Enters with X counters"** (CR 614.1c), with X from the cast.<br>**Layer 4 "isn't a [type]"** with a devotion condition (Heliod).<br>Fixed: "enters with counters" was treated as an instead-replacement.<br>Catalog T55 passes (its wording corrected: attacks are allowed, the damage is prevented). T09 passes: the Ballista + Heliod loop is detected and shortcut to the opponent's death.<br>T12 is deferred past M5: it needs loop identity across zone changes (Q26) and the CR 303.4f host choice (Q27).<br>Verified: Teferi's Protection, Walking Ballista, Heliod (165 total). 2 synthetic scenarios. |
+| 5.7 | ✅ 2026-10-23 | **Layer torture suite** (synthetic): 7b before counters and anthems (613.4b–c); a stolen creature gets its new controller's anthem, not its owner's (layer 2 before 7c); a copy takes copiable values only, not counters or anthem bonuses (707.2); an ability granted after a lose-all-abilities effect is kept (613.7 timestamps). All pass.<br>**Benchmark** "characteristics, recomputed (60 permanents, 10 statics)": 31 µs → **19.1 µs** (budget ≤ 20 µs). Fixes: dependency trials without board clones, a slot index on the board (removed O(n²) membership scans), filter type words resolved once, shared `Arc` type lines.<br>Throughput fast paths: tokens off the battlefield, triggered-ability lookup, mana abilities, legend rule.<br>A/B against pre-M5 on one core: random 4-player game 4.11 → 4.19 ms; priority enumeration 1.04 → 1.46 µs; state hash 11.1 → 13.8 µs; clone 665 ns.<br>Final fuzz: 1,000 library games with views plus 1,000 verified-card games with 20 replays: 0 violations, divergences or panics. 165 verified; 2,973 supported Commander-legal cards. |

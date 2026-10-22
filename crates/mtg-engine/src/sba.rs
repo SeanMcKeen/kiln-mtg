@@ -60,11 +60,23 @@ impl Game {
         let mut by: BTreeMap<(PlayerId, &str), Vec<ObjectId>> = BTreeMap::new();
         for &id in &self.battlefield {
             // CR 613: name and supertypes after the layers (a copy, CR 707.2).
-            let Some(c) = self.chars(id) else { continue };
-            if c.type_line().has_supertype(mtg_core::Supertype::Legendary) {
-                let name = self.def(c.def_id()).name.as_str();
-                by.entry((c.controller(), name)).or_default().push(id);
-            }
+            let (def, controller) = if self.layers_live() {
+                let Some(c) = self.chars(id) else { continue };
+                if !c.type_line().has_supertype(mtg_core::Supertype::Legendary) {
+                    continue;
+                }
+                (self.def(c.def_id()), c.controller())
+            } else {
+                let Some(o) = self.obj(id) else { continue };
+                let d = self.def(o.def);
+                if !d.is_legendary() {
+                    continue;
+                }
+                (d, o.controller)
+            };
+            by.entry((controller, def.name.as_str()))
+                .or_default()
+                .push(id);
         }
         by.into_iter()
             .filter(|(_, v)| v.len() > 1)

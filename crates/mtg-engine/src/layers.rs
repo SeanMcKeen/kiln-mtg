@@ -82,7 +82,8 @@ pub(crate) struct ContinuousEffect {
 pub(crate) struct Characteristics {
     /// The definition supplying the copiable values (layer 1, CR 707.2).
     pub def: DefId,
-    pub type_line: TypeLine,
+    /// Shared with the definition until an effect changes it (copy on write).
+    pub type_line: Arc<TypeLine>,
     pub colors: Colors,
     /// Every ability the object has, as references into definitions.
     pub abilities: SmallVec<[AbilityRef; 6]>,
@@ -113,6 +114,8 @@ pub(crate) struct LayerCache {
     computing: AtomicBool,
     /// The epoch whose computation changed nothing (reads then skip the lock).
     empty_at: AtomicU64,
+    /// Printed type lines by definition, shared by every computation.
+    printed: Mutex<Vec<Option<Arc<TypeLine>>>>,
 }
 
 impl Default for LayerCache {
@@ -121,6 +124,7 @@ impl Default for LayerCache {
             state: Mutex::default(),
             computing: AtomicBool::new(false),
             empty_at: AtomicU64::new(u64::MAX),
+            printed: Mutex::default(),
         }
     }
 }
@@ -284,6 +288,16 @@ struct Board {
     ids: Vec<ObjectId>,
     chars: Vec<Characteristics>,
     touched: Vec<bool>,
+    /// Board position by arena slot (`u32::MAX`: not on the board).
+    slot: Vec<u32>,
+}
+
+impl Board {
+    /// The board position of `id`.
+    fn pos(&self, id: ObjectId) -> Option<usize> {
+        let i = *self.slot.get(id.index as usize)? as usize;
+        (self.ids.get(i) == Some(&id)).then_some(i)
+    }
 }
 
 impl Game {
@@ -406,7 +420,7 @@ impl Game {
         let def = self.def(o.def);
         Some(Characteristics {
             def: o.def,
-            type_line: def.type_line.clone(),
+            type_line: self.printed_type_line(o.def),
             colors: def.colors,
             abilities: printed_refs(o.def, def),
             keywords: def.keywords,
@@ -416,23 +430,37 @@ impl Game {
         })
     }
 
+    /// A definition's printed type line, shared (allocated once per game).
+    fn printed_type_line(&self, def: DefId) -> Arc<TypeLine> {
+        let mut cache = self
+            .layer_cache
+            .printed
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let i = def.0 as usize;
+        if cache.len() <= i {
+            cache.resize(i + 1, None);
+        }
+        Arc::clone(cache[i].get_or_insert_with(|| Arc::new(self.def(def).type_line.clone())))
+    }
+
     /// Layer 1a (CR 613.2a, 707.2): the object takes on copiable values.
     fn apply_copy(&self, c: &mut Characteristics, cv: &CopyValues) {
         let def = self.def(cv.def);
         c.def = cv.def;
-        c.type_line = def.type_line.clone();
+        c.type_line = self.printed_type_line(cv.def);
         for t in &cv.types {
             if !c.type_line.card_types.contains(t) {
-                c.type_line.card_types.push(*t);
+                Arc::make_mut(&mut c.type_line).card_types.push(*t);
             }
         }
         for st in &cv.subtypes {
             if !c.type_line.subtypes.contains(st) {
-                c.type_line.subtypes.push(st.clone());
+                Arc::make_mut(&mut c.type_line).subtypes.push(st.clone());
             }
         }
         if cv.not_legendary {
-            c.type_line
+            Arc::make_mut(&mut c.type_line)
                 .supertypes
                 .retain(|s| *s != Supertype::Legendary);
         }
@@ -497,16 +525,24 @@ impl Game {
         if self.effects.is_empty() && !self.pool.has_layer_statics() {
             return empty();
         }
-        let ids: Vec<ObjectId> = self.battlefield.clone();
-        let chars: Vec<Characteristics> = ids
-            .iter()
-            .filter_map(|id| self.printed_chars(*id))
-            .collect();
+        let mut ids: Vec<ObjectId> = Vec::with_capacity(self.battlefield.len());
+        let mut chars: Vec<Characteristics> = Vec::with_capacity(self.battlefield.len());
+        let mut slot = vec![u32::MAX; self.objects.slot_count()];
+        for &id in &self.battlefield {
+            if let Some(c) = self.printed_chars(id) {
+                if let Some(s) = slot.get_mut(id.index as usize) {
+                    *s = u32::try_from(ids.len()).unwrap_or(u32::MAX);
+                }
+                ids.push(id);
+                chars.push(c);
+            }
+        }
         let n = chars.len();
         let mut board = Board {
             ids,
             chars,
             touched: vec![false; n],
+            slot,
         };
         // Layer 1a: copy effects, in timestamp order (CR 613.2a, 613.7).
         let mut copies: SmallVec<[&ContinuousEffect; 4]> = self
@@ -520,7 +556,7 @@ impl Game {
                 continue;
             };
             for id in &e.affected {
-                if let Some(i) = board.ids.iter().position(|x| x == id) {
+                if let Some(i) = board.pos(*id) {
                     self.apply_copy(&mut board.chars[i], cv);
                     board.touched[i] = true;
                 }
@@ -696,9 +732,7 @@ impl Game {
             return true;
         };
         let has = board
-            .ids
-            .iter()
-            .position(|id| *id == source)
+            .pos(source)
             .is_some_and(|i| board.chars[i].abilities.contains(&ability));
         has && l.condition.is_none_or(|c| {
             let ctx = EffectCtx::new(ability, source, l.controller);
@@ -715,58 +749,68 @@ impl Game {
             return SmallVec::new();
         };
         let this = l.source.map(|(s, _)| s);
+        let types = TypeWords::of(f);
         board
             .ids
             .iter()
             .enumerate()
-            .filter(|(i, id)| self.board_matches(board, *i, **id, f, l.controller, this))
+            .filter(|(i, id)| {
+                self.chars_match_with(&board.chars[*i], **id, f, &types, l.controller, this)
+            })
             .map(|(_, id)| *id)
             .collect()
     }
 
-    /// `matches_filter` against the working characteristics.
-    fn board_matches(
+    /// `matches_filter` against working characteristics `c` of object `id`.
+    fn chars_match(
         &self,
-        board: &Board,
-        i: usize,
+        c: &Characteristics,
         id: ObjectId,
         f: &ObjectFilter,
+        you: PlayerId,
+        this: Option<ObjectId>,
+    ) -> bool {
+        self.chars_match_with(c, id, f, &TypeWords::of(f), you, this)
+    }
+
+    /// [`Game::chars_match`] with the filter's type words already resolved;
+    /// cheap checks first.
+    fn chars_match_with(
+        &self,
+        c: &Characteristics,
+        id: ObjectId,
+        f: &ObjectFilter,
+        w: &TypeWords,
         you: PlayerId,
         this: Option<ObjectId>,
     ) -> bool {
         if (f.this && this != Some(id)) || (f.other && this == Some(id)) {
             return false;
         }
+        if !self.player_rel(f.controller, you, c.controller) {
+            return false;
+        }
+        let t = &c.type_line;
+        if (!w.types.is_empty() && !w.types.iter().any(|x| t.card_types.contains(x)))
+            || w.not_types.iter().any(|x| t.card_types.contains(x))
+            || (!w.supertypes.is_empty() && !w.supertypes.iter().any(|x| t.supertypes.contains(x)))
+            || w.not_supertypes.iter().any(|x| t.supertypes.contains(x))
+        {
+            return false;
+        }
         if f.attached && !self.is_attached_to(this, id) {
             return false;
         }
-        let c = &board.chars[i];
-        let t = &c.type_line;
-        let has_type = |w: &String| {
-            CardType::ALL
-                .iter()
-                .any(|ct| ct.word().eq_ignore_ascii_case(w) && t.has_type(*ct))
-        };
         let has_sub = |w: &String| t.subtypes.iter().any(|s| s.0.eq_ignore_ascii_case(w));
-        let has_super = |w: &String| {
-            Supertype::ALL
-                .iter()
-                .any(|st| st.word().eq_ignore_ascii_case(w) && t.has_supertype(*st))
-        };
         let def = self.def(c.def);
-        (f.types.is_empty() || f.types.iter().any(has_type))
-            && !f.not_types.iter().any(has_type)
-            && (f.subtypes.is_empty() || f.subtypes.iter().any(has_sub))
+        (f.subtypes.is_empty() || f.subtypes.iter().any(has_sub))
             && !f.not_subtypes.iter().any(has_sub)
-            && (f.supertypes.is_empty() || f.supertypes.iter().any(has_super))
-            && !f.not_supertypes.iter().any(has_super)
             && f.color.as_ref().is_none_or(|letters| {
                 letters
                     .chars()
                     .filter_map(Color::from_letter)
                     .any(|col| c.colors.contains(col))
             })
-            && self.player_rel(f.controller, you, c.controller)
             // Token status isn't copiable (CR 707.2): the object's own.
             && f.token.is_none_or(|tok| self.obj(id).is_some_and(|o| self.def(o.def).token == tok))
             && f.min_mana_value.is_none_or(|m| def.mana_value() >= m)
@@ -783,26 +827,9 @@ impl Game {
             return cands[0];
         }
         for &a in cands {
-            let before = (
-                self.exists(board, &live[a]),
-                self.affected_set(board, &live[a], layer),
-            );
-            let depends = cands.iter().any(|&b| {
-                if b == a {
-                    return false;
-                }
-                let mut trial = board.clone();
-                let set = live[b]
-                    .set
-                    .clone()
-                    .unwrap_or_else(|| self.affected_set(board, &live[b], layer));
-                self.apply_parts(&mut trial, &live[b], layer, &set);
-                let after = (
-                    self.exists(&trial, &live[a]),
-                    self.affected_set(&trial, &live[a], layer),
-                );
-                after != before
-            });
+            let depends = cands
+                .iter()
+                .any(|&b| b != a && self.depends_on(board, &live[a], &live[b], layer));
             if !depends {
                 return a;
             }
@@ -810,36 +837,86 @@ impl Game {
         cands[0]
     }
 
+    /// CR 613.8a: whether applying `b` (in `layer`) would change whether `a`
+    /// exists or what it applies to. `b` changes only the objects it
+    /// affects, so only those are re-checked.
+    fn depends_on(&self, board: &Board, a: &Live<'_>, b: &Live<'_>, layer: u8) -> bool {
+        // Once started, an effect keeps applying to the same objects (CR 613.6).
+        if a.set.is_some() {
+            return false;
+        }
+        let set_b = b
+            .set
+            .clone()
+            .unwrap_or_else(|| self.affected_set(board, b, layer));
+        let filter_a = a
+            .parts
+            .iter()
+            .find(|p| layer_of(**p) == Some(layer))
+            .and_then(|p| filter_of(*p));
+        let this_a = a.source.map(|(s, _)| s);
+        for id in set_b {
+            let Some(i) = board.pos(id) else {
+                continue;
+            };
+            let before = &board.chars[i];
+            let mut after = before.clone();
+            for part in b.parts.iter().filter(|p| layer_of(**p) == Some(layer)) {
+                self.apply_part(&mut after, *part);
+            }
+            if let Some((source, ability)) = a.source
+                && source == id
+                && before.abilities.contains(&ability) != after.abilities.contains(&ability)
+            {
+                return true;
+            }
+            if let Some(f) = filter_a
+                && self.chars_match(before, id, f, a.controller, this_a)
+                    != self.chars_match(&after, id, f, a.controller, this_a)
+            {
+                return true;
+            }
+        }
+        false
+    }
+
     /// Applies an effect's parts in `layer` to `set`.
     fn apply_parts(&self, board: &mut Board, l: &Live<'_>, layer: u8, set: &[ObjectId]) {
         for part in l.parts.iter().filter(|p| layer_of(**p) == Some(layer)) {
-            for (i, id) in board.ids.clone().iter().enumerate() {
-                if !set.contains(id) {
-                    continue;
+            for id in set {
+                if let Some(i) = board.pos(*id) {
+                    board.touched[i] = true;
+                    self.apply_part(&mut board.chars[i], *part);
                 }
-                board.touched[i] = true;
-                let def_mv = self.def(board.chars[i].def).mana_value();
-                let c = &mut board.chars[i];
-                match *part {
-                    Part::Stored(e) => match &e.effect {
-                        LayerEffect::Copy(_) | LayerEffect::Control { .. } => {}
-                        LayerEffect::AddSubtype(st) => {
-                            if !c.type_line.subtypes.iter().any(|x| x.0 == *st) {
-                                c.type_line.subtypes.push(Subtype(st.clone()));
-                            }
-                        }
-                        LayerEffect::GrantKeyword(k) => {
-                            if let Some(bit) = Keywords::of_ir(k) {
-                                c.keywords = c.keywords.with(bit);
-                            }
-                        }
-                        &LayerEffect::ModifyPt { power, toughness } => {
-                            c.power = c.power.map(|p| p + power);
-                            c.toughness = c.toughness.map(|t| t + toughness);
-                        }
-                    },
-                    Part::Static(s) => self.apply_static(c, s, def_mv),
+            }
+        }
+    }
+
+    /// Applies one effect part to one object's working characteristics.
+    fn apply_part(&self, c: &mut Characteristics, part: Part<'_>) {
+        match part {
+            Part::Stored(e) => match &e.effect {
+                LayerEffect::Copy(_) | LayerEffect::Control { .. } => {}
+                LayerEffect::AddSubtype(st) => {
+                    if !c.type_line.subtypes.iter().any(|x| x.0 == *st) {
+                        Arc::make_mut(&mut c.type_line)
+                            .subtypes
+                            .push(Subtype(st.clone()));
+                    }
                 }
+                LayerEffect::GrantKeyword(k) => {
+                    if let Some(bit) = Keywords::of_ir(k) {
+                        c.keywords = c.keywords.with(bit);
+                    }
+                }
+                &LayerEffect::ModifyPt { power, toughness } => {
+                    c.power = c.power.map(|p| p + power);
+                    c.toughness = c.toughness.map(|t| t + toughness);
+                }
+            },
+            Part::Static(s) => {
+                let mana_value = self.def(c.def).mana_value();
+                self.apply_static(c, s, mana_value);
             }
         }
     }
@@ -856,14 +933,16 @@ impl Game {
                     return;
                 }
                 if *replace {
-                    c.type_line
+                    Arc::make_mut(&mut c.type_line)
                         .subtypes
                         .retain(|s| !LAND_TYPES.contains(&s.0.as_str()));
                     c.abilities.clear();
                     c.keywords = Keywords::default();
                 }
                 if !c.type_line.subtypes.iter().any(|s| s.0 == *land_type) {
-                    c.type_line.subtypes.push(Subtype(land_type.clone()));
+                    Arc::make_mut(&mut c.type_line)
+                        .subtypes
+                        .push(Subtype(land_type.clone()));
                     if let Some(r) = self.pool.intrinsic(land_type) {
                         c.abilities.push(r);
                     }
@@ -880,17 +959,19 @@ impl Game {
                         .find(|ct| ct.word().eq_ignore_ascii_case(w))
                         && !c.type_line.card_types.contains(ct)
                     {
-                        c.type_line.card_types.push(*ct);
+                        Arc::make_mut(&mut c.type_line).card_types.push(*ct);
                     }
                 }
                 for w in subtypes {
                     if !c.type_line.subtypes.iter().any(|s| s.0 == *w) {
-                        c.type_line.subtypes.push(Subtype(w.clone()));
+                        Arc::make_mut(&mut c.type_line)
+                            .subtypes
+                            .push(Subtype(w.clone()));
                     }
                 }
             }
             StaticEffect::RemoveTypes { types, .. } => {
-                c.type_line
+                Arc::make_mut(&mut c.type_line)
                     .card_types
                     .retain(|t| !types.iter().any(|w| t.word().eq_ignore_ascii_case(w)));
             }
@@ -1038,6 +1119,18 @@ impl Game {
         }
     }
 
+    /// Benchmarks: forces a full layer computation (as after any change)
+    /// and reads every permanent's power.
+    #[doc(hidden)]
+    pub fn bench_characteristics(&mut self) -> i64 {
+        self.bump_layers();
+        self.battlefield
+            .clone()
+            .into_iter()
+            .map(|id| i64::from(self.power(id)) + i64::from(self.toughness(id)))
+            .sum()
+    }
+
     /// A creature's current power and toughness (CR 613); `None` for a
     /// noncreature. For judge tools and tests.
     pub fn power_toughness(&self, id: ObjectId) -> Option<(i32, i32)> {
@@ -1097,4 +1190,43 @@ fn printed_refs(def_id: DefId, def: &CardDef) -> SmallVec<[AbilityRef; 6]> {
             ability,
         })
         .collect()
+}
+
+/// A filter's type and supertype words, resolved once per use.
+struct TypeWords {
+    types: SmallVec<[CardType; 2]>,
+    not_types: SmallVec<[CardType; 2]>,
+    supertypes: SmallVec<[Supertype; 1]>,
+    not_supertypes: SmallVec<[Supertype; 1]>,
+}
+
+impl TypeWords {
+    fn of(f: &ObjectFilter) -> Self {
+        let types = |ws: &[String]| {
+            ws.iter()
+                .filter_map(|w| {
+                    CardType::ALL
+                        .iter()
+                        .find(|t| t.word().eq_ignore_ascii_case(w))
+                })
+                .copied()
+                .collect()
+        };
+        let supers = |ws: &[String]| {
+            ws.iter()
+                .filter_map(|w| {
+                    Supertype::ALL
+                        .iter()
+                        .find(|t| t.word().eq_ignore_ascii_case(w))
+                })
+                .copied()
+                .collect()
+        };
+        Self {
+            types: types(&f.types),
+            not_types: types(&f.not_types),
+            supertypes: supers(&f.supertypes),
+            not_supertypes: supers(&f.not_supertypes),
+        }
+    }
 }
