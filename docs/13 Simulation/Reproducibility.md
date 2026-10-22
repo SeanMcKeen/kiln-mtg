@@ -2,7 +2,7 @@
 type: design
 status: proposed
 tags: [simulation, reproducibility]
-updated: 2026-10-20
+updated: 2026-10-22
 ---
 
 # Reproducibility
@@ -18,7 +18,7 @@ Same `(engine version, card DB version, resolved spec, seed)` gives a **bit-iden
 - Every report embeds its versions and the spec hash.
 
 ## Re-running a single game
-`mtg game replay runs/<id>/replays/123.json` reconstructs the exact game. For a game not kept as a replay, `mtg sim rerun <run-id> --game 123` re-simulates it from the seed, if the run is reproducible.
+`kiln game replay runs/<id>/replays/123.json` reconstructs the exact game. For a game not kept as a replay, `kiln sim rerun <run-id> --game 123` re-simulates it from the seed, if the run is reproducible.
 
 ## Related
 [[Determinism & Replay]] · [[Golden Replays]]

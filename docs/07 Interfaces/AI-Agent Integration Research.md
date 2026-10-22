@@ -2,7 +2,7 @@
 type: research
 status: draft
 tags: [interfaces, agents, mcp, research]
-updated: 2026-10-20
+updated: 2026-10-22
 ---
 
 # AI-Agent Integration Research
@@ -29,7 +29,7 @@ updated: 2026-10-20
 ## Lessons from Anthropic's tool-design guidance
 From [Writing effective tools for agents](https://www.anthropic.com/engineering/writing-tools-for-agents):
 - **Few, workflow-shaped tools** beat wrapping every endpoint. Consolidate multi-step operations. Each tool needs a clear, distinct purpose.
-- **Namespace** tools (e.g. `mtg_sim_run`, `mtg_deck_import`).
+- **Namespace** tools (e.g. `kiln_sim_run`, `kiln_deck_import`).
 - **Return meaningful context:** resolve opaque IDs into names (card names, player seats, deck names) and keep the IDs only where a later call needs them.
 - **`response_format: concise | detailed`.** In their example, concise responses used about ⅓ of the tokens.
 - **Paginate, filter and truncate** with sensible defaults. Claude Code caps tool responses at 25k tokens by default. When truncating, tell the agent how to narrow the query.
@@ -49,8 +49,8 @@ From [[LLMs Playing MTG]]:
 
 ## Recommendation (→ ADR-0008)
 **One protocol, several thin front-ends:**
-1. **`mtg-protocol`:** serde types and an exported **JSON Schema** for decks, experiment specs, decisions, choices, views and reports. Every front-end speaks this.
-2. **CLI first (M7):** `mtg sim run spec.yaml --json`, `mtg sim report run-id --format concise`, `mtg deck check`, `mtg game replay`. It's the simplest channel and the best one for coding agents.
+1. **`kiln-protocol`:** serde types and an exported **JSON Schema** for decks, experiment specs, decisions, choices, views and reports. Every front-end speaks this.
+2. **CLI first (M7):** `kiln sim run spec.yaml --json`, `kiln sim report run-id --format concise`, `kiln deck check`, `kiln game replay`. It's the simplest channel and the best one for coding agents.
 3. **MCP server (M8)** with **~8–10 workflow tools** ([[MCP Server Tool Catalog]]):
    - built on the official Rust SDK `rmcp`, with stdio plus Streamable HTTP transports
    - async job pattern for runs
@@ -60,7 +60,7 @@ From [[LLMs Playing MTG]]:
 6. **HTTP service: not planned.** It can be added later over the same protocol, since the MCP Streamable HTTP transport already covers remote use.
 
 ## Open questions
-- Should the MCP server expose a single "run experiment from spec text" tool, or structured parameters? **Leaning: both.** A spec-text tool for power users, plus a structured `mtg_sim_run` whose schema mirrors the spec.
+- Should the MCP server expose a single "run experiment from spec text" tool, or structured parameters? **Leaning: both.** A spec-text tool for power users, plus a structured `kiln_sim_run` whose schema mirrors the spec.
 - Where run artifacts live (a local `runs/` directory vs. a configurable store) and how an MCP client in claude.ai reaches large outputs. Probably summary inline, with artifacts on disk under a path.
 
 ## Sources

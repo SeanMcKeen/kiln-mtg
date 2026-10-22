@@ -2,7 +2,7 @@
 type: architecture
 status: proposed
 tags: [architecture, determinism, replay, reproducibility]
-updated: 2026-10-20
+updated: 2026-10-22
 ---
 
 # Determinism & Replay
@@ -26,7 +26,7 @@ game_result = f(card_db_version, engine_version, rules_config, decklists, seatin
 ## Replay log format (sketch)
 ```json
 {
-  "format": "mtg-replay/1",
+  "format": "kiln-replay/1",
   "engine": "0.3.0", "card_db": "scryfall-2026-10-20#ab12…", "cr": "2026-06-19",
   "rules": { "variant": "commander", "players": 4 },
   "decks": ["deck-hash-1", "deck-hash-2", "deck-hash-3", "deck-hash-4"],

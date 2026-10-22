@@ -2,13 +2,13 @@
 type: design
 status: draft
 tags: [policies, llm, agents]
-updated: 2026-10-20
+updated: 2026-10-22
 ---
 
 # C: LLM Live Decisions
 
 ## Concept
-An LLM answers each decision for a seat. It's an *external* policy driven through the [[MCP Server Tool Catalog]] live toolset (`mtg_live_start` / `mtg_live_decide` / `mtg_live_view`), or a built-in adapter that calls an LLM API directly.
+An LLM answers each decision for a seat. It's an *external* policy driven through the [[MCP Server Tool Catalog]] live toolset (`kiln_live_start` / `kiln_live_decide` / `kiln_live_view`), or a built-in adapter that calls an LLM API directly.
 
 ## Role: spot checks and validation, not bulk runs
 - **Cost and speed:** prior art (MageBench on XMage) reports ≈ **$1+ per game** and slow play. 5,000 games isn't viable. 10–50 games is.

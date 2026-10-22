@@ -2,7 +2,7 @@
 type: design
 status: draft
 tags: [policies, playbooks, agents, scripting]
-updated: 2026-10-20
+updated: 2026-10-22
 ---
 
 # B: AI-Authored Playbooks
@@ -36,7 +36,7 @@ A YAML rule list (conditions → preferred actions) instead of a script. It's sa
 `view.my_hand()`, `view.castable()`, `view.opponents()`, `view.stack()`, `card.name`, `card.tags`, `decision.kind`, `decision.options`, `choose(i)`, `defer()` (to the fallback), `tag("win_attempt")`, plus helpers like `can_assemble(["Thassa's Oracle","Demonic Consultation"])`.
 
 ## Validation workflow (for agents)
-`mtg_playbook_validate` checks syntax, runs 50 games against passive opponents, and reports:
+`kiln_playbook_validate` checks syntax, runs 50 games against passive opponents, and reports:
 - errors with line numbers
 - how often each rule fired
 - decisions deferred to the fallback

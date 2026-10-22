@@ -2,15 +2,15 @@
 type: design
 status: draft
 tags: [interfaces, python]
-updated: 2026-10-20
+updated: 2026-10-22
 ---
 
 # Python Package (M12)
 
-`pip install mtg-engine` (name TBD). PyO3 + maturin wheels for macOS, Linux and Windows.
+`pip install kiln-mtg`, imported as `kiln_mtg` (the bare `kiln` name is taken on PyPI; see [[ADR-0013 Project Name]]). PyO3 + maturin wheels for macOS, Linux and Windows.
 
 ## Use cases
-1. **Run experiments and analyze results** in notebooks: `run = mtg.sim.run("spec.yaml")` → `run.games_df()` (pandas/polars) for per-game and per-card tables. Parquet artifacts load directly.
+1. **Run experiments and analyze results** in notebooks: `run = kiln_mtg.sim.run("spec.yaml")` → `run.games_df()` (pandas/polars) for per-game and per-card tables. Parquet artifacts load directly.
 2. **Custom policies in Python:** implement `decide(view, decision)`. It's slower (GIL and FFI per decision), so it suits research rather than bulk runs. Batched decision APIs can reduce overhead.
 3. **RL research:** a gym-style environment (`reset`/`step`) over `PendingDecision`, with action masking from the legal-option list. Observation encoding is an open design question.
 

@@ -2,31 +2,31 @@
 type: design
 status: draft
 tags: [interfaces, cli]
-updated: 2026-10-20
+updated: 2026-10-22
 ---
 
 # CLI & REPL
 
-A single binary, `mtg`, with subcommands. Every command supports `--json` for machine output. Human output is the default on a TTY.
+A single binary, `kiln`, with subcommands. Every command supports `--json` for machine output. Human output is the default on a TTY.
 
 ## Command sketch
 ```
-mtg data fetch|build|coverage|diff            # see Ingestion Pipeline
-mtg deck check <file|url> [--format commander] [--json]
-mtg sim run <spec.yaml> [--threads N] [--json] [--detach]
-mtg sim status <run-id> [--json]
-mtg sim report <run-id> [--sections win_rates,per_card] [--format concise|detailed|markdown] [--json]
-mtg sim compare <run-a> <run-b> [--metric win_rate]
-mtg game replay <replay-file> [--to-turn 5] [--annotate]
-mtg game inspect <run-id> <game-index>
-mtg judge <scenario.yaml> [--step] [--explain]    # interactive REPL with --step
-mtg playbook check <deck> <playbook>
-mtg mcp serve [--stdio | --http :8080]            # MCP server ([[MCP Server Tool Catalog]])
+kiln data fetch|build|coverage|diff            # see Ingestion Pipeline
+kiln deck check <file|url> [--format commander] [--json]
+kiln sim run <spec.yaml> [--threads N] [--json] [--detach]
+kiln sim status <run-id> [--json]
+kiln sim report <run-id> [--sections win_rates,per_card] [--format concise|detailed|markdown] [--json]
+kiln sim compare <run-a> <run-b> [--metric win_rate]
+kiln game replay <replay-file> [--to-turn 5] [--annotate]
+kiln game inspect <run-id> <game-index>
+kiln judge <scenario.yaml> [--step] [--explain]    # interactive REPL with --step
+kiln playbook check <deck> <playbook>
+kiln mcp serve [--stdio | --http :8080]            # MCP server ([[MCP Server Tool Catalog]])
 ```
 
 ## Judge REPL (interactive)
 ```
-mtg judge scenarios/thoracle-vs-angel.yaml --step
+kiln judge scenarios/thoracle-vs-angel.yaml --step
 [Turn 4 · P1 main 1 · P1 priority]  options:
   0) Cast Thassa's Oracle ({U}{U})        1) Pass priority
 > 0

@@ -2,16 +2,16 @@
 type: design
 status: proposed
 tags: [simulation, spec, schema]
-updated: 2026-10-20
+updated: 2026-10-22
 ---
 
 # Experiment Spec
 
-A declarative, versioned (`mtg-spec/1`) YAML/JSON document. Decision record: [[ADR-0011 Experiment Spec and Report Schema]].
+A declarative, versioned (`kiln-spec/1`) YAML/JSON document. Decision record: [[ADR-0011 Experiment Spec and Report Schema]].
 
 ## Example: the headline cEDH pod (US-1)
 ```yaml
-spec: mtg-spec/1
+spec: kiln-spec/1
 name: kinnan-vs-meta-oct26
 format: commander            # rules variant + deck validation
 mode: pod

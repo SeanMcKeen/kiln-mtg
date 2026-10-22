@@ -2,7 +2,7 @@
 type: architecture
 status: proposed
 tags: [architecture]
-updated: 2026-10-20
+updated: 2026-10-22
 ---
 
 # Architecture Overview
@@ -10,15 +10,15 @@ updated: 2026-10-20
 ## The shape in one picture
 ```
                     ┌──────────────────────── Interfaces ────────────────────────┐
-   AI agent ──MCP──▶│ mtg-mcp   │ mtg-cli (JSON/REPL) │ mtg-py │ mtg-wasm │ protocol│
+   AI agent ──MCP──▶│ kiln-mcp  │ kiln-mtg (JSON/REPL)│ kiln-py│ kiln-wasm│ protocol│
                     └─────┬──────────────┬─────────────────┬──────────────────────┘
                           ▼              ▼                 ▼
-                    ┌───────────── mtg-sim (experiments, runner, metrics, reports) ─────────────┐
+                    ┌───────────── kiln-sim (experiments, runner, metrics, reports) ────────────┐
                     │  spec → seat assignment → per-game seeds → parallel games → aggregate     │
                     └─────┬───────────────────────────────────────────────┬────────────────────┘
                           │ drives                                        │ observes
                           ▼                                               ▼
-   ┌──── mtg-policy ────────────────┐   PendingDecision    ┌────────── mtg-engine ──────────┐
+   ┌──── kiln-policy ───────────────┐   PendingDecision    ┌────────── kiln-engine ─────────┐
    │ Policy trait, composition       │◀────────────────────│ GameState + rules procedures    │
    │ baselines │ playbook │ search │ │────────────────────▶│ (turns, priority, stack, SBAs,  │
    │ llm-bridge                     │      Choice          │  triggers, replacements, layers)│
@@ -26,12 +26,12 @@ updated: 2026-10-20
                                                            └───────────┬────────────────────┘
                                                                        │ reads
                                                            ┌───────────▼────────────────────┐
-                                                           │ mtg-cards: compiled card IR     │
+                                                           │ kiln-cards: compiled card IR    │
                                                            │ (from DSL / parser / escapes)   │
                                                            └───────────┬────────────────────┘
                                                                        │ built from
                                                            ┌───────────▼────────────────────┐
-                                                           │ mtg-data: Scryfall/MTGJSON      │
+                                                           │ kiln-data: Scryfall/MTGJSON     │
                                                            │ ingestion → versioned card DB   │
                                                            └────────────────────────────────┘
 ```

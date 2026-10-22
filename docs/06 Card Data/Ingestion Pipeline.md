@@ -2,7 +2,7 @@
 type: design
 status: draft
 tags: [card-data, pipeline]
-updated: 2026-10-20
+updated: 2026-10-22
 ---
 
 # Ingestion Pipeline
@@ -34,10 +34,10 @@ fetch (Scryfall bulk index → oracle_cards.jsonl.gz, rulings, oracle_tags)
 
 ## CLI (planned)
 ```
-mtg data fetch [--source scryfall|mtgjson] [--date latest]
-mtg data build [--overrides cards/overrides/]
-mtg data coverage [--format commander] [--deck path]
-mtg data diff <old-db> <new-db>
+kiln data fetch [--source scryfall|mtgjson] [--date latest]
+kiln data build [--overrides cards/overrides/]
+kiln data coverage [--format commander] [--deck path]
+kiln data diff <old-db> <new-db>
 ```
 
 ## Related

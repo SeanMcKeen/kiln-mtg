@@ -3,7 +3,7 @@ type: milestone
 status: in-progress
 milestone: M0
 tags: [milestone]
-updated: 2026-10-20
+updated: 2026-10-22
 ---
 
 # M0: Groundwork
@@ -21,7 +21,7 @@ updated: 2026-10-20
 - [x] ADRs 0001–0012 written. Accepted: 0001, 0002, 0003, 0006, 0010
 - [x] Roadmap and milestones
 - [ ] **User review** of the vault and the proposed ADRs (0004, 0005, 0008, 0009, 0011)
-- [ ] Decide the project name ([[12 Open Questions]])
+- [x] Decide the project name: Kiln ([[ADR-0013 Project Name]])
 - [x] `git init` and the first commit
 - [ ] Create the GitHub repo and push (user decision: public or private)
 

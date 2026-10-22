@@ -1,7 +1,7 @@
 # CLAUDE.md: orientation for AI sessions
 
 ## Project
-This is a Rust MTG rules engine plus a simulation lab. The headline use case: an AI agent runs "deck X vs Y, Z, C in a cEDH pod" for thousands of games and gets statistics. Commander-first, with N players from day one. **Current phase: M0 (design docs only, no code).** Check `docs/09 Roadmap/Roadmap.md` for the active milestone.
+**Kiln** (crate `kiln-mtg`, CLI binary `kiln`) is a Rust MTG rules engine plus a simulation lab. Crates use the `kiln-` prefix, MCP tools the `kiln_` prefix (see `docs/10 Decisions/ADR-0013 Project Name.md`). The headline use case: an AI agent runs "deck X vs Y, Z, C in a cEDH pod" for thousands of games and gets statistics. Commander-first, with N players from day one. **Current phase: M0 (design docs only, no code).** Check `docs/09 Roadmap/Roadmap.md` for the active milestone.
 
 ## Where things are
 - `docs/` is an Obsidian vault and the source of truth for scope and design. The hub is `docs/00 Home.md`.

@@ -2,10 +2,10 @@
 type: hub
 status: living
 tags: [hub, moc]
-updated: 2026-10-20
+updated: 2026-10-22
 ---
 
-# MTG Rules Engine: Home
+# Kiln: Home
 
 > [!abstract] One sentence
 > A **rules-exact Magic: The Gathering engine in Rust** that powers a **simulation lab your AI can drive**. Ask "how does deck X do in a cEDH pod against Y, Z and C?" and get thousands of seeded games and statistically honest answers.
@@ -32,7 +32,7 @@ updated: 2026-10-20
 | Players & policies | [[Policy Interface]] | [[A - Baseline Policies]], [[B - Playbooks]], [[C - LLM Live Decisions]], [[D - Search AI]], [[Policy Composition]], [[Measuring Play Quality]] |
 | Testing | [[Testing Strategy]] | [[CR-Cited Scenario Tests]], [[Scenario File Format]], [[Golden Replays]], [[Invariants & Property Tests]], [[Fuzzing via Random Play]] |
 | Roadmap | [[Roadmap]] | Milestones M0–M12, [[Curated cEDH Core Pool]] |
-| Decisions | [[ADR Index]] | ADR-0001 … ADR-0012 |
+| Decisions | [[ADR Index]] | ADR-0001 … ADR-0013 |
 | Research | [[Research Index]] | Prior art, search AI, LLM play, statistics, Rust ecosystem |
 | Open questions | [[12 Open Questions]] | Everything not yet decided |
 
@@ -43,6 +43,7 @@ updated: 2026-10-20
   - docs-as-vault ([[ADR-0003 Docs as Obsidian Vault in Repo]])
   - all four policy kinds ([[ADR-0006 Pluggable Decision-Makers]])
   - Commander-first ([[ADR-0010 Commander-First N-Player Core]])
+  - project name Kiln, crate `kiln-mtg` ([[ADR-0013 Project Name]])
 - **Proposed (recommended):**
   - pure decision state machine ([[ADR-0004 Engine as Decision State Machine]])
   - determinism ([[ADR-0005 Determinism and Replay]])

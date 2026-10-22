@@ -2,7 +2,7 @@
 type: index
 status: living
 tags: [open-questions]
-updated: 2026-10-20
+updated: 2026-10-22
 ---
 
 # Open Questions
@@ -12,7 +12,6 @@ Each question has an owner note and a target milestone. Move a question to **Res
 ## Needs the user
 | # | Question | Notes | Target |
 |---|---|---|---|
-| Q1 | **Project name?** "mtg-rules-engine" is a working title. | Avoid WotC trademarks in the name (e.g. "Magic"). | M0 |
 | Q2 | Review the proposed ADRs 0004, 0005, 0008, 0009 and 0011: accept or amend? | [[ADR Index]] | M0 |
 | Q3 | Create the GitHub repo (public or private) and `git init`? | [[M0 Groundwork]] | M0 |
 | Q4 | Should deck *optimization* (suggesting swaps from sims) become a goal later? | Currently a non-goal ([[Scope & Non-Goals]]) | post-M9 |
@@ -55,3 +54,4 @@ Each question has an owner note and a target milestone. Move a question to **Res
 | R3 | Primary format | Commander-first ([[ADR-0010 Commander-First N-Player Core]]) |
 | R4 | License | MIT/Apache ([[ADR-0002 Licensing and Card Data Distribution]]) |
 | R5 | Where docs live | `docs/` vault ([[ADR-0003 Docs as Obsidian Vault in Repo]]) |
+| R6 | Project name (was Q1) | Kiln; crate `kiln-mtg`, binary `kiln` ([[ADR-0013 Project Name]]) |

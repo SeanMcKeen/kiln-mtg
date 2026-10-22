@@ -14,7 +14,7 @@ updated: {{date}}
 ## Expected outcome (with CR / ruling citation)
 ## Scenario file
 ```yaml
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: …
 cr: []
 players: []

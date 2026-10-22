@@ -2,7 +2,7 @@
 type: design
 status: draft
 tags: [testing, cr]
-updated: 2026-10-20
+updated: 2026-10-22
 ---
 
 # CR-Cited Scenario Tests
@@ -19,7 +19,7 @@ Each test is a [[Scenario File Format]] file with:
 - `expect_result`: win, loss, draw, with the reason.
 
 ## Coverage report
-`mtg testkit coverage` produces:
+`kiln testkit coverage` produces:
 - the rules with at least one test vs. all rules in owned sections (by subsystem)
 - cards `verified` vs. in the pool
 

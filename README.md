@@ -1,9 +1,11 @@
-# mtg-rules-engine *(working title)*
+# Kiln
 
 **A Magic: The Gathering rules engine and simulation lab that your AI can drive.**
 
 > "Evaluate deck X in a cEDH pod against Y, Z and C."
 > → thousands of seeded, rules-exact games → win rates with confidence intervals, game-shape stats, per-card analytics, and replayable logs.
+
+Crate and packages: `kiln-mtg` (crates.io, PyPI, npm). CLI binary: `kiln`.
 
 ## Status
 

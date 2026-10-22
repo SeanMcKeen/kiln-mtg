@@ -2,7 +2,7 @@
 type: plan
 status: draft
 tags: [interfaces, docs, agents]
-updated: 2026-10-20
+updated: 2026-10-22
 ---
 
 # Agent-Facing Docs Plan (M8)
@@ -14,9 +14,9 @@ updated: 2026-10-20
 |---|---|---|
 | `docs/agents/AGENT_GUIDE.md` | Any agent | Concepts (deck, experiment, policy, metrics), a worked US-1 walkthrough, the spec reference, interpreting CIs, common pitfalls (unverified cards, seat bias, low sample size) |
 | `llms.txt` at the repo or site root | LLM crawlers and agents | A short index of the agent docs, following the llms.txt convention |
-| Claude Code skill `mtg-sim` | Claude Code users | When to run sims, how to write specs, how to read reports. It wraps the CLI |
+| Claude Code skill `kiln-sim` | Claude Code users | When to run sims, how to write specs, how to read reports. It wraps the CLI |
 | MCP tool descriptions | MCP clients | Written as onboarding docs, evaluated per [[MCP Server Tool Catalog]] |
-| JSON Schemas | Agents writing specs | `mtg-spec/1.schema.json` and others, exported from `mtg-protocol` |
+| JSON Schemas | Agents writing specs | `kiln-spec/1.schema.json` and others, exported from `kiln-protocol` |
 | Example specs | Everyone | `examples/specs/cedh-pod.yaml`, `goldfish.yaml`, `ab-test.yaml`, `mulligan-only.yaml` |
 
 ## Principles

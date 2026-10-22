@@ -2,7 +2,7 @@
 type: design
 status: proposed
 tags: [simulation, report, schema, agents]
-updated: 2026-10-20
+updated: 2026-10-22
 ---
 
 # Output Formats & Report Schema
@@ -11,19 +11,19 @@ updated: 2026-10-20
 ```
 runs/<run-id>/
   spec.resolved.yaml        # with defaults filled in; hash recorded
-  report.json               # mtg-report/1 (full)
+  report.json               # kiln-report/1 (full)
   report.md                 # human summary
   games.parquet             # one row per game (or games.jsonl)
   cards.parquet             # per-card aggregates (if per_card)
   events/…                  # raw events (if raw_events)
-  replays/<game-index>.json # mtg-replay/1 (per replays policy)
+  replays/<game-index>.json # kiln-replay/1 (per replays policy)
   progress.jsonl            # checkpoint log
 ```
 
 ## Concise report (agent-facing, ≈ ≤ 2k tokens)
 ```json
 {
-  "report": "mtg-report/1", "run_id": "kinnan-vs-meta-oct26", "games": 5000, "capped": 31,
+  "report": "kiln-report/1", "run_id": "kinnan-vs-meta-oct26", "games": 5000, "capped": 31,
   "versions": { "engine": "0.7.0", "card_db": "scryfall-2026-10-20#ab12", "cr": "2026-06-19", "spec_hash": "…" },
   "warnings": ["2 cards in 'najeela' are 'parsed' but not 'verified' (run with coverage=warn)"],
   "win_rates": [
@@ -38,7 +38,7 @@ runs/<run-id>/
   "mulligans": { "kinnan": { "keep_at_7": 0.78, "win_rate_by_mulls": [0.30, 0.27, 0.19] } },
   "notable": ["Seat 1 advantage: +9 pp vs seat 4 (expected in cEDH)",
               "Kinnan loses 64% of games where Najeela resolves Silence on Kinnan's turn"],
-  "next": ["mtg_sim_report sections=[per_card] deck=kinnan", "mtg_game_inspect query='kinnan lost before turn 4'"]
+  "next": ["kiln_sim_report sections=[per_card] deck=kinnan", "kiln_game_inspect query='kinnan lost before turn 4'"]
 }
 ```
 *(Numbers are illustrative only.)*
@@ -53,7 +53,7 @@ The full `report.json` holds every enabled metric section, paginated when served
 - **cards:** `deck, oracle_id, name, seen, cast, gih_wr, gih_ci_lo, gih_ci_hi, oh_wr, iwd, dead_rate, tutor_rate, …`
 
 ## Schema governance
-JSON Schemas are generated from `mtg-protocol` (`schemars`). Versions bump on breaking changes. Readers accept older minor versions.
+JSON Schemas are generated from `kiln-protocol` (`schemars`). Versions bump on breaking changes. Readers accept older minor versions.
 
 ## Related
 [[Metrics Catalog]] · [[MCP Server Tool Catalog]] · [[ADR-0011 Experiment Spec and Report Schema]]

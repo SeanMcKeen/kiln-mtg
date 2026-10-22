@@ -3,7 +3,7 @@ type: milestone
 status: planned
 milestone: M2
 tags: [milestone]
-updated: 2026-10-20
+updated: 2026-10-22
 ---
 
 # M2: Core Game Loop
@@ -23,7 +23,7 @@ updated: 2026-10-20
 - [ ] Seeded RNG, replay log, determinism tests → accept ADR-0005 ([[Determinism & Replay]])
 - [ ] PlayerView v1 with knowledge tracking basics ([[Hidden Information & Player Views]])
 - [ ] Event system v1 ([[Event System]])
-- [ ] `mtg-policy`: the Policy trait, random, passive, scripted
+- [ ] `kiln-policy`: the Policy trait, random, passive, scripted
 - [ ] Sim skeleton: run N random games in parallel. Invariant checks ([[Invariants & Property Tests]])
 - [ ] Benchmarks: clone cost, games/sec → decide the persistent vs. arena state strategy ([[Performance & Cheap Cloning]])
 - [ ] Scenario file loader v1 ([[Scenario File Format]])

@@ -2,7 +2,7 @@
 type: vision
 status: draft
 tags: [vision, user-stories, requirements]
-updated: 2026-10-20
+updated: 2026-10-22
 ---
 
 # User Stories
@@ -13,10 +13,10 @@ Each story traces to the notes and milestones that deliver it. The headline stor
 > As a cEDH player, I ask my AI assistant: "Evaluate my Kinnan list against Blue Farm, Najeela and Thrasios/Tymna over 5,000 games and tell me how it performs."
 
 **Flow:**
-1. The agent calls `mtg_deck_import` four times (Moxfield URL, pasted text, or file). Each call returns a deck ID, legality, and **coverage** (any unverified cards are listed). → [[Deck Import]], [[MCP Server Tool Catalog]]
+1. The agent calls `kiln_deck_import` four times (Moxfield URL, pasted text, or file). Each call returns a deck ID, legality, and **coverage** (any unverified cards are listed). → [[Deck Import]], [[MCP Server Tool Catalog]]
 2. The agent writes an experiment spec: 4 decks, `seating: balanced_rotation`, policies per seat (e.g. `search` with a per-deck playbook), `games: 5000`, `seed`, and metric flags. → [[Experiment Spec]], [[Policy Composition]]
-3. `mtg_sim_run` returns a job ID. The agent polls `mtg_sim_status`, which reports progress and an ETA. → [[Batch Runner & Parallelism]]
-4. `mtg_sim_report` with `response_format: concise` returns:
+3. `kiln_sim_run` returns a job ID. The agent polls `kiln_sim_status`, which reports progress and an ETA. → [[Batch Runner & Parallelism]]
+4. `kiln_sim_report` with `response_format: concise` returns:
    - win rate per deck, with 95% CIs and seat breakdown
    - draw rate
    - mean and median win turn
@@ -25,7 +25,7 @@ Each story traces to the notes and milestones that deliver it. The headline stor
    - the top 10 over- and under-performing cards
 
    → [[Metrics Catalog]], [[Output Formats & Report Schema]]
-5. The agent drills in: "show me a game where Kinnan lost to Najeela on turn 3". It calls `mtg_game_inspect` on a replay. → [[Golden Replays]], [[Reproducibility]]
+5. The agent drills in: "show me a game where Kinnan lost to Najeela on turn 3". It calls `kiln_game_inspect` on a replay. → [[Golden Replays]], [[Reproducibility]]
 
 **Delivered by:** [[M6 Commander & cEDH Core Pool]] (rules and cards), [[M7 Simulation Lab v1]] (harness), [[M8 Agent Integration & Playbooks]] (MCP, playbooks), and [[M9 Search AI]] (competent play).
 

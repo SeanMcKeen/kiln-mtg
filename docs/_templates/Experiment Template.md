@@ -11,7 +11,7 @@ updated: {{date}}
 ## Hypothesis
 ## Spec
 ```yaml
-spec: mtg-spec/1
+spec: kiln-spec/1
 name: …
 format: commander
 mode: pod

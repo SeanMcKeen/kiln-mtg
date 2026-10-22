@@ -2,13 +2,13 @@
 type: design
 status: draft
 tags: [policies, search, mcts, ai]
-updated: 2026-10-20
+updated: 2026-10-22
 ---
 
 # D: Generic Search AI
 
 ## Concept
-A deck-agnostic look-ahead player. At non-trivial decisions it samples possible hidden states, simulates continuations, and picks the option with the best expected outcome. It lives in the `mtg-search` crate. It's in scope per [[ADR-0006 Pluggable Decision-Makers]], which reversed the original "AI out of scope" decision.
+A deck-agnostic look-ahead player. At non-trivial decisions it samples possible hidden states, simulates continuations, and picks the option with the best expected outcome. It lives in the `kiln-search` crate. It's in scope per [[ADR-0006 Pluggable Decision-Makers]], which reversed the original "AI out of scope" decision.
 
 ## Algorithm family
 - **Determinized MCTS / Perfect-Information Monte Carlo (PIMC):** sample a determinization (opponents' hands and library order consistent with the view), run MCTS on it, and aggregate across samples. Cowling, Ward & Powley (2012) applied **ensemble determinization** MCTS to MTG and beat an expert rule-based player.

@@ -3,7 +3,7 @@ type: reference
 status: living
 tags: [rules-map, cr]
 cr_version: 2026-06-19
-updated: 2026-10-20
+updated: 2026-10-22
 ---
 
 # CR Structure
@@ -40,7 +40,7 @@ updated: 2026-10-20
 **9. Casual Variants:** 900 General · 901 Planechase · 902 Vanguard · 903 Commander · 904 Archenemy · 905 Conspiracy Draft
 
 ## Machine-readable CR (planned, M1)
-A small tool in `mtg-testkit` parses `cr-lf.txt` into `{rule_id, text, parent, children}`. It's used to:
+A small tool in `kiln-testkit` parses `cr-lf.txt` into `{rule_id, text, parent, children}`. It's used to:
 - validate every `CR x.y` citation in code, tests and docs (CI check)
 - produce the coverage matrix (which rules have tests)
 - diff CR releases ([[CR Update Process]])

@@ -2,15 +2,15 @@
 type: design
 status: draft
 tags: [testing, format, judge]
-updated: 2026-10-20
+updated: 2026-10-22
 ---
 
 # Scenario File Format (draft)
 
-The same format serves **tests**, the **judge tool**, and **MCP `mtg_rules_scenario`**.
+The same format serves **tests**, the **judge tool**, and **MCP `kiln_rules_scenario`**.
 
 ```yaml
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: Thassa's Oracle vs Platinum Angel
 cr: ["101.2", "104.2b"]
 format: commander
