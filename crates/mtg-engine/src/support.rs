@@ -38,6 +38,7 @@ type Check = Result<(), String>;
 
 /// `Ok` if the engine can execute every ability of `def`.
 pub(crate) fn check(def: &CardDef) -> Check {
+    permanent_kind(def)?;
     let instant_or_sorcery = def.is(CardType::Instant) || def.is(CardType::Sorcery);
     let mut spells = 0;
     for a in &def.abilities {
@@ -304,6 +305,42 @@ fn effect(e: &Effect) -> Check {
             None => Err(format!("escape function {:?} isn't registered", x.function)),
         },
     }
+}
+
+/// Kinds of permanent whose own rules (and state-based actions) aren't
+/// implemented yet; a card of one of them can't be run correctly even with
+/// supported abilities (M4 4.5).
+fn permanent_kind(def: &CardDef) -> Check {
+    let t = &def.type_line;
+    if def.is(CardType::Planeswalker) {
+        return Err(
+            "planeswalkers: starting loyalty and loyalty abilities (CR 306.5b, 704.5i)".into(),
+        );
+    }
+    if def.is(CardType::Battle) {
+        return Err("battles: defense and protectors (CR 310.4b, 704.5v-x)".into());
+    }
+    if t.has_supertype(mtg_core::Supertype::World) {
+        return Err("the world rule (CR 704.5k)".into());
+    }
+    // Equipment and Fortifications stay: without an equip ability (not in
+    // the IR yet) they are never attached, and unattached ones do nothing.
+    for (sub, why) in [
+        (
+            "Aura",
+            "Auras: enchant and attachment (CR 303.4, 704.5m; M5)",
+        ),
+        (
+            "Saga",
+            "Sagas: lore counters and chapters (CR 714.2, 704.5s; M5)",
+        ),
+        ("Role", "Roles (CR 704.5y)"),
+    ] {
+        if t.has_subtype(sub) {
+            return Err(why.into());
+        }
+    }
+    Ok(())
 }
 
 /// The rule statics M4 implements as engine checks (M4 plan R5).

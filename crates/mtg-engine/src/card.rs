@@ -1337,4 +1337,26 @@ mod tests {
         assert_eq!(lotus.len(), 5);
         assert!(units(ManaSpec::CommanderIdentity).is_err());
     }
+
+    #[test]
+    fn permanent_kinds_without_rules_are_unsupported() {
+        // M4 4.5: their state-based actions and rules aren't implemented yet.
+        for (types, why) in [
+            ("Legendary Planeswalker — Test", "704.5i"),
+            ("Battle — Siege", "704.5v"),
+            ("Enchantment — Aura", "704.5m"),
+            ("Enchantment — Saga", "704.5s"),
+            ("World Enchantment", "704.5k"),
+        ] {
+            let ch = synthetic("Test Kind", Some("{1}"), types, None);
+            let err = CardDef::new(ch, Vec::new()).err().map(|e| e.to_string());
+            assert!(
+                err.as_deref().is_some_and(|e| e.contains(why)),
+                "{types}: {err:?}"
+            );
+        }
+        // Unattached Equipment does nothing, so it stays supported.
+        let blade = synthetic("Test Kind", Some("{1}"), "Artifact — Equipment", None);
+        assert!(CardDef::new(blade, Vec::new()).is_ok());
+    }
 }
