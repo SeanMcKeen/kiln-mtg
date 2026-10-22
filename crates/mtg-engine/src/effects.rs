@@ -85,6 +85,8 @@ pub(crate) struct EffectCtx {
     /// The triggering object's ability index, when "that spell or ability"
     /// is an ability on the stack (ward).
     pub triggering_ability: Option<u8>,
+    /// "That much" from the trigger event.
+    pub triggering_amount: Option<u32>,
     /// This effect is a mana ability whose cost taps its source, so the
     /// mana it adds is "tapped for mana" (CR 106.12, 605.1b triggers).
     pub tapped_for_mana: bool,
@@ -113,6 +115,7 @@ impl EffectCtx {
             triggering_player: None,
             triggering_mana: None,
             triggering_ability: None,
+            triggering_amount: None,
             tapped_for_mana: false,
             applied: SmallVec::new(),
         }
@@ -1197,6 +1200,7 @@ impl Game {
                     .object_ref(ctx, what)
                     .map_or(0, |id| i64::from(self.counters_on(id, *counter))),
                 // Rejected by `support::check` until combat history is tracked (M4).
+                QuantityExpr::TriggeringAmount => i64::from(ctx.triggering_amount.unwrap_or(0)),
                 QuantityExpr::OpponentsDealtCombatDamageThisTurn => {
                     i64::from((self.combat_damaged & !(1u8 << ctx.controller.0)).count_ones())
                 }

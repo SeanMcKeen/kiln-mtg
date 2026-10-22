@@ -34,6 +34,8 @@ pub struct TriggerInfo {
     /// When the triggering object is an ability on the stack: its ability
     /// index on `object` (ward counters "that spell or ability").
     pub(crate) stack_ability: Option<u8>,
+    /// "That much": the life gained or lost.
+    pub(crate) amount: Option<u32>,
 }
 
 /// A delayed triggered ability (CR 603.7): created by an effect, it triggers
@@ -295,6 +297,7 @@ impl Game {
             lki: None,
             mana: None,
             stack_ability: None,
+            amount: None,
         };
         match (trigger, e) {
             (Trigger::AnyOf(v), _) => v.iter().find_map(|t| self.trigger_hit(t, source, you, e)),
@@ -342,6 +345,7 @@ impl Game {
                 ok.then_some(TriggerInfo {
                     mana: None,
                     stack_ability: None,
+                    amount: None,
                     object: Some(*old),
                     player: Some(*controller),
                     lki: Some(Lki {
@@ -437,7 +441,25 @@ impl Game {
                 lki: None,
                 mana: Some(*produced),
                 stack_ability: None,
+                amount: None,
             }),
+            // CR 119.9, 119.3
+            (Trigger::GainsLife { by }, Event::LifeGained { player, amount })
+            | (Trigger::LosesLife { by }, Event::LifeLost { player, amount }) => {
+                let kind_ok = matches!(
+                    (trigger, e),
+                    (Trigger::GainsLife { .. }, Event::LifeGained { .. })
+                        | (Trigger::LosesLife { .. }, Event::LifeLost { .. })
+                );
+                (kind_ok && self.player_rel(*by, you, *player)).then_some(TriggerInfo {
+                    object: None,
+                    player: Some(*player),
+                    lki: None,
+                    mana: None,
+                    stack_ability: None,
+                    amount: Some(*amount),
+                })
+            }
             // CR 702.21a
             (
                 Trigger::BecomesTarget { by, what },
@@ -460,6 +482,7 @@ impl Game {
                     lki: None,
                     mana: None,
                     stack_ability: *ability,
+                    amount: None,
                 })
             }
             _ => None,
@@ -612,6 +635,7 @@ pub(crate) fn trigger_ctx(
     ctx.triggering_player = info.player;
     ctx.triggering_mana = info.mana;
     ctx.triggering_ability = info.stack_ability;
+    ctx.triggering_amount = info.amount;
     if let Some(l) = info.lki {
         ctx.lki.push(l);
     }

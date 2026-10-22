@@ -151,6 +151,8 @@ pub(crate) enum Task {
     StackTriggers(crate::triggers::StackTriggersTask),
     /// Draw a card that a replacement effect may change (CR 614.11).
     Draw(crate::replacement::DrawTask),
+    /// Proposing and answering a shortcut for a detected loop (CR 732.2).
+    Shortcut(crate::loops::ShortcutTask),
 }
 
 /// A game in progress (or finished).
@@ -184,6 +186,8 @@ pub struct Game {
     /// Permanents leaving the battlefield in the current simultaneous batch
     /// (CR 603.10a look-back). Empty except while a batch moves.
     pub(crate) leaving_batch: Vec<(ObjectId, DefId, PlayerId)>,
+    /// Loop detection (CR 732); not hashed, like the event log.
+    pub(crate) loops: crate::loops::LoopTracker,
     /// Objects an ability of a permanent exiled and remembered, linked to
     /// that permanent's other abilities (CR 607.2a): (source, name, objects).
     pub(crate) linked: Vec<(ObjectId, String, SmallVec<[ObjectId; 2]>)>,
@@ -257,6 +261,7 @@ impl Game {
             counters: Vec::new(),
             pending_triggers: Vec::new(),
             leaving_batch: Vec::new(),
+            loops: crate::loops::LoopTracker::default(),
             linked: Vec::new(),
             copies: Vec::new(),
             face_down: Vec::new(),
@@ -409,6 +414,15 @@ impl Game {
             });
         }
         let decision = self.pending.take().unwrap_or_else(|| unreachable!());
+        // A loop of only passes is mandatory (CR 732.4); count everything else.
+        // A decision with one option isn't a choice either.
+        let pass = matches!(decision.kind, DecisionKind::Priority { .. }) && choice.option == 0;
+        if !pass
+            && count > 1
+            && let Some(c) = self.loops.choices.get_mut(decision.player.0 as usize)
+        {
+            *c += 1;
+        }
         let task = self
             .tasks
             .pop()
@@ -888,6 +902,7 @@ impl Game {
             Task::FinishAbility { source, ability } => self.finish_ability(source, ability),
             Task::StackTriggers(t) => self.stack_triggers_step(t),
             Task::Draw(t) => self.draw_task_step(t),
+            Task::Shortcut(t) => self.shortcut_step(t),
             Task::FinishSpell { object } => {
                 if let Some(o) = self.obj(object).copied()
                     && o.zone == ZoneId::Stack
@@ -963,6 +978,11 @@ impl Game {
             (Task::StackTriggers(t), DecisionKind::OrderTriggers { .. }) => {
                 self.stack_triggers_answer(t, option);
             }
+            (
+                Task::Shortcut(t),
+                kind
+                @ (DecisionKind::ProposeShortcut { .. } | DecisionKind::RespondShortcut { .. }),
+            ) => self.shortcut_answer(t, kind, option),
             (Task::Draw(t), DecisionKind::ChooseReplacement { .. }) => {
                 self.draw_task_answer(&t, option);
             }
@@ -1286,6 +1306,12 @@ impl Game {
             }
         };
         self.turn.priority = Some(holder);
+        // CR 732: a repeated state is a loop; offer or apply a shortcut first.
+        if let Some(t) = self.loop_check(holder) {
+            self.tasks.push(Task::Priority { checked: true });
+            self.shortcut_step(t);
+            return;
+        }
         let actions = self.priority_actions(holder);
         self.tasks.push(Task::Priority { checked: true });
         self.decide(holder, DecisionKind::Priority { actions }, "117.1");
@@ -1505,6 +1531,7 @@ impl Game {
                     dctx.triggering_object = info.object;
                     dctx.triggering_player = info.player;
                     dctx.triggering_mana = info.mana;
+                    dctx.triggering_amount = info.amount;
                 }
                 self.tasks.push(Task::Effect(Box::new(EffectTask {
                     ctx: dctx,
@@ -1517,6 +1544,7 @@ impl Game {
                 ctx.triggering_player = info.player;
                 ctx.triggering_mana = info.mana;
                 ctx.triggering_ability = info.stack_ability;
+                ctx.triggering_amount = info.amount;
                 ctx.lki.extend(info.lki);
                 // CR 603.4: an intervening "if" is checked again on resolution.
                 if let Some(ir::Ability::Triggered(t)) = def.abilities.get(usize::from(ability))

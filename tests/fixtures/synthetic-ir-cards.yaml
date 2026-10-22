@@ -735,3 +735,36 @@
             seq:
               - copy_card: { what: { one: { remembered: imprinted } }, remember: copy }
               - may: { cast: { what: { one: { remembered: copy } }, without_paying: true } }
+
+# ---- loops and shortcuts (M4 4.7) ----------------------------------------------
+
+- name: Test Reversal
+  cost: "{1}{U}"
+  types: Instant
+  abilities:
+    - spell: { effect: { untap: { all: { not_types: [land], controller: you } } } }
+
+- name: Test Mirror
+  cost: "{2}{W}"
+  types: Enchantment
+  abilities:
+    - triggered:
+        trigger: { gains_life: { by: you } }
+        effect: { for_each_player: { players: opponent, effect: { gain_life: { who: each, amount: 1 } } } }
+
+- name: Test Bond
+  cost: "{3}{B}{B}"
+  types: Enchantment
+  abilities:
+    - triggered:
+        trigger: { gains_life: { by: you } }
+        targets: [{ what: { player: opponent } }]
+        effect: { lose_life: { who: { target: 0 }, amount: triggering_amount } }
+
+- name: Test Blood
+  cost: "{4}{B}"
+  types: Enchantment
+  abilities:
+    - triggered:
+        trigger: { loses_life: { by: opponent } }
+        effect: { gain_life: { who: you, amount: triggering_amount } }

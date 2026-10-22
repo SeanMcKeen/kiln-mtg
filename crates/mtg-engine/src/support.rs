@@ -46,7 +46,9 @@ pub(crate) fn check(def: &CardDef) -> Check {
         // ability, or (the affected object or player) in a replacement.
         if !matches!(a, Ability::Triggered(_) | Ability::Replacement(_))
             && serde_json::to_string(a).is_ok_and(|j| {
-                j.contains("\"triggering\"") || j.contains("\"type_produced_by_trigger\"")
+                j.contains("\"triggering\"")
+                    || j.contains("\"triggering_amount\"")
+                    || j.contains("\"type_produced_by_trigger\"")
             })
         {
             return Err("a reference to a trigger event outside a triggered ability".into());
@@ -396,6 +398,8 @@ fn trigger(t: &mtg_cards::ir::Trigger) -> Check {
         T::Enters(_)
         | T::TapsForMana { .. }
         | T::BecomesTarget { .. }
+        | T::GainsLife { .. }
+        | T::LosesLife { .. }
         | T::Dies(_)
         | T::LeavesBattlefield(_)
         | T::Cast { .. }
@@ -449,6 +453,7 @@ fn quantity(q: &Quantity) -> Check {
             QuantityExpr::CardsInLibrary(p) => player(p),
             QuantityExpr::Plus(q, _) => quantity(q),
             QuantityExpr::OpponentsDealtCombatDamageThisTurn
+            | QuantityExpr::TriggeringAmount
             | QuantityExpr::X
             | QuantityExpr::Count(_)
             | QuantityExpr::Devotion(_)

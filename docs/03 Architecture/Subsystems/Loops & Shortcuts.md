@@ -1,11 +1,11 @@
 ---
 type: subsystem
-status: draft
+status: implemented-v1
 cr: ["104.4b", "104.4f", "732"]
-impl_status: not-started
+impl_status: partial
 milestone: M4
 tags: [subsystem, loops, shortcuts, cedh]
-updated: 2026-10-20
+updated: 2026-10-22
 ---
 
 # Loops & Shortcuts
@@ -40,6 +40,18 @@ updated: 2026-10-20
 - Worldgorger + Animate Dead with no other actions → draw (104.4b).
 - Dramatic Reversal + Isochron Scepter + Sol Ring + Mana Vault → arbitrarily large mana. A shortcut to N = 1,000.
 - Opponent shortens a shortcut to respond mid-loop (732.2b).
+
+## Implementation (M4 4.7)
+`crates/mtg-engine/src/loops.rs` implements options A and C:
+- **Detection.** At each priority decision, once the step has had 16 or more, the state is hashed without life, poison, mana pools and counter counts. A repeat with the same priority holder is a loop. The difference in those quantities is one iteration's delta.
+- **Proposed shortcut** (CR 732.2a). If only the priority holder made choices since the repeat, they get `ProposeShortcut`: play on, or repeat it 10, 100, 1,000, 10⁶ or 10⁹ times. The loop's resources can cap this (shrinking pools or counters), and so can the iteration where a player loses. Each other player, in turn order, gets `RespondShortcut`: accept, or shorten to where they'll act (CR 732.2b). The agreed delta × N is applied, then SBAs are checked.
+- **Mandatory loop** (CR 732.4, 104.4b). If nobody made a choice (one-option decisions don't count), each player in APNAP order may let it continue or stop it (CR 732.5). An endless one is a draw. One that drains a player runs to that iteration (Sanguine Bond plus Exquisite Blood wins).
+- **Performance.** The Isochron/Reversal shortcut of 10⁹ iterations applies in about 50 µs, even in a debug build. Normal games pay nothing measurable.
+
+Limitations:
+- **Zone-changing loops aren't detected** (Q26). A card that changes zones gets a new id, so the hash never repeats.
+- **Loops where several players act aren't shortcut** (CR 732.3).
+- **Shortening is simplified.** A shortened shortcut stops at the loop point. The shortener then acts at their next priority, rather than exactly where they named (CR 732.2c).
 
 ## Related
 [[Costs & Mana]] · [[Tricky Interactions Catalog]] · [[MTG Complexity & Loops]]

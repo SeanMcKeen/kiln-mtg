@@ -231,6 +231,14 @@ pub enum Trigger {
         by: PlayerRel,
         what: ObjectFilter,
     },
+    /// "Whenever [player] gains life" (CR 119.9).
+    GainsLife {
+        by: PlayerRel,
+    },
+    /// "Whenever [player] loses life" (CR 119.3).
+    LosesLife {
+        by: PlayerRel,
+    },
     /// "Whenever [player] taps [object] for mana" (CR 605.1b).
     TapsForMana {
         by: PlayerRel,
@@ -814,6 +822,8 @@ pub enum QuantityExpr {
         what: ObjectRef,
         counter: CounterKind,
     },
+    /// "That much": the amount from the trigger event (life gained or lost).
+    TriggeringAmount,
 }
 
 /// Conditions (intervening ifs, "if you control …").

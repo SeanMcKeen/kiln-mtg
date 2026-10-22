@@ -1,0 +1,27 @@
+scenario: mtg-scenario/1
+name: "Sanguine Bond and Exquisite Blood: each life change triggers the other until the opponent loses"
+cr: ["119.3", "119.9", "603.2", "704.5a"]
+verifies: [Sanguine Bond, Exquisite Blood]
+players:
+  - battlefield: [Sanguine Bond, Exquisite Blood, Mountain]
+    hand: [Lightning Bolt]
+  - life: 9
+script:
+  - choose: Cast Lightning Bolt
+  - choose: Target P2
+  - choose: Pay with Mountain
+  - pass_all
+  # P2 lost 3 (6): Exquisite Blood gains P1 3; Sanguine Bond drains 3 more.
+  - pass_all
+  - check:
+      life: { P1: 23, P2: 6 }
+  - choose: Target P2
+  - pass_all
+  - check:
+      life: { P1: 23, P2: 3 }
+  - pass_all
+  - choose: Target P2
+  - pass_all
+expect:
+  result: win P1
+  life: { P2: 0 }

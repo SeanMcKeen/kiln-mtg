@@ -289,6 +289,16 @@ impl Game {
                     ability + 1
                 )
             }
+            DecisionKind::ProposeShortcut { counts } => match i {
+                0 => "Don't take a shortcut".into(),
+                _ => format!("Repeat the loop {} times", counts[i - 1]),
+            },
+            DecisionKind::RespondShortcut { proposed, stops } => match (i, proposed) {
+                (0, Some(n)) => format!("Accept {n} iterations"),
+                (0, None) => "Let the loop continue".into(),
+                _ if stops[i - 1] == 0 => "Act before the next iteration".into(),
+                _ => format!("Stop after {} iterations", stops[i - 1]),
+            },
             DecisionKind::ChooseReplacement { options } => {
                 let (_, def, ability) = options[i];
                 format!("Apply {} ability {}", self.def(def).name, ability + 1)

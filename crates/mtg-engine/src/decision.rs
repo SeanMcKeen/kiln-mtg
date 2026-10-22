@@ -168,6 +168,16 @@ pub enum DecisionKind {
     OrderTriggers {
         triggers: Vec<(ObjectId, DefId, u8)>,
     },
+    /// CR 732.2a: repeat a detected loop. Option 0 plays on; option `i`
+    /// repeats it `counts[i - 1]` times.
+    ProposeShortcut { counts: Vec<u64> },
+    /// CR 732.2b: accept a shortcut (`proposed` iterations; `None` for an
+    /// endless mandatory loop) with option 0, or shorten it to
+    /// `stops[i - 1]` iterations and act there.
+    RespondShortcut {
+        proposed: Option<u64>,
+        stops: Vec<u64>,
+    },
     /// CR 616.1: which replacement effect to apply to the event first
     /// (`(source, definition, ability index)`).
     ChooseReplacement { options: Vec<(ObjectId, DefId, u8)> },
@@ -283,6 +293,8 @@ impl PendingDecision {
             DecisionKind::ChooseMode { modes, .. } => modes.len(),
             DecisionKind::OrderTriggers { triggers } => triggers.len(),
             DecisionKind::ChooseReplacement { options } => options.len(),
+            DecisionKind::ProposeShortcut { counts } => counts.len() + 1,
+            DecisionKind::RespondShortcut { stops, .. } => stops.len() + 1,
             DecisionKind::ChooseCost { options, .. } => options.len(),
             DecisionKind::ChooseSymbolPay { options, .. } => options.len(),
         }

@@ -223,6 +223,7 @@ impl GameBuilder {
             counters,
             pending_triggers: Vec::new(),
             leaving_batch: Vec::new(),
+            loops: crate::loops::LoopTracker::default(),
             linked: Vec::new(),
             copies: Vec::new(),
             face_down: Vec::new(),

@@ -185,3 +185,46 @@ expect:
         );
     }
 }
+
+/// M4 exit criterion: the Isochron/Reversal loop runs as a shortcut of 10^9
+/// iterations in under 1 ms (CR 732.2c; D9, D10). Wall-clock time is used
+/// only to measure the test, never by the engine.
+#[test]
+fn scepter_reversal_shortcut_is_fast() {
+    let pool = Arc::new(CardPool::m3_test_set());
+    let text = std::fs::read_to_string(root().join("tests/scenarios/loop-shortcut.yaml"))
+        .unwrap_or_else(|e| panic!("{e}"));
+    // Play the scenario up to the shortcut proposal.
+    let cut = text
+        .find("  - choose: Repeat the loop 1000 times")
+        .unwrap_or_else(|| panic!("scenario changed"));
+    let mut s = scenario::parse(&text[..cut], "shortcut").unwrap_or_else(|e| panic!("{e}"));
+    s.expect = scenario::Expect::default();
+    let mut game = scenario::run(&s, &pool).unwrap_or_else(|e| panic!("{e}"));
+    let p1 = mtg_core::PlayerId(0);
+    let options = |g: &mtg_engine::Game| {
+        g.pending()
+            .map(mtg_engine::PendingDecision::option_count)
+            .unwrap_or_else(|| panic!("no decision"))
+    };
+    let start = std::time::Instant::now();
+    // The largest shortcut on offer (10^9), then the opponent accepts.
+    let n = options(&game);
+    game.apply_option(u32::try_from(n - 1).unwrap_or(0))
+        .unwrap_or_else(|e| panic!("{e:?}"));
+    game.apply_option(0).unwrap_or_else(|e| panic!("{e:?}"));
+    let elapsed = start.elapsed();
+    let pool_c = game.view(p1).snapshot().players[0].mana_pool[5];
+    assert_eq!(
+        pool_c,
+        6 + 2 * 1_000_000_000,
+        "colorless mana after the shortcut"
+    );
+    // Debug builds are much slower than release; the 1 ms bound is for release.
+    let bound = if cfg!(debug_assertions) { 50 } else { 1 };
+    assert!(
+        elapsed.as_millis() < bound,
+        "shortcut took {elapsed:?} (bound {bound} ms)"
+    );
+    eprintln!("10^9-iteration shortcut applied in {elapsed:?}");
+}

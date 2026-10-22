@@ -86,6 +86,14 @@ pub enum Event {
         target: crate::state::Target,
         amount: u32,
     },
+    /// A shortcut repeated a loop (CR 732.2c); `proposer` is `None` for a
+    /// mandatory loop.
+    ShortcutTaken {
+        proposer: Option<PlayerId>,
+        iterations: u64,
+    },
+    /// An endless loop of mandatory actions: the game is a draw (CR 104.4b).
+    LoopDraw,
     /// A copy of a card was created (CR 707.12).
     CopyCreated {
         object: ObjectId,
@@ -264,6 +272,8 @@ impl Event {
             Event::TriggerRemoved { .. } => "603.3d",
             Event::Replaced { .. } => "614.6",
             Event::CopyCreated { .. } => "707.12",
+            Event::ShortcutTaken { .. } => "732.2c",
+            Event::LoopDraw => "104.4b",
             Event::BecameTarget { .. } => "115.1",
             Event::DamagePrevented { .. } => "702.16e",
             Event::PlayerLost { .. } => "104.3",

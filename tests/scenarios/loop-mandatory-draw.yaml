@@ -1,0 +1,28 @@
+scenario: mtg-scenario/1
+name: An endless loop of mandatory triggers that nobody breaks is a draw
+cr: ["104.4b", "732.4", "732.5"]
+players:
+  - battlefield: [Test Mirror, Test Plains]
+    hand: [Test Renewal]
+  - battlefield: [Test Mirror]
+script:
+  - choose: Cast Test Renewal
+  - choose: Pay with Test Plains
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  # Only passes since the state last repeated: a mandatory loop (CR 732.4)
+  # that never ends. Players may stop it (CR 732.5); nobody does.
+  - check:
+      decision: { player: P1, kind: respond_shortcut }
+  - choose: Let the loop continue
+  - choose: Let the loop continue
+    player: P2
+expect:
+  result: draw

@@ -370,7 +370,11 @@ impl Policy for GreedyPolicy {
             | DecisionKind::ChooseCost { .. }
             | DecisionKind::ChooseSymbolPay { .. }
             | DecisionKind::OrderTriggers { .. }
-            | DecisionKind::ChooseReplacement { .. } => 0,
+            | DecisionKind::ChooseReplacement { .. }
+            // Accept shortcuts others propose.
+            | DecisionKind::RespondShortcut { .. } => 0,
+            // Take the longest shortcut on offer.
+            DecisionKind::ProposeShortcut { counts } => counts.len(),
         };
         u32::try_from(i.min(d.option_count().saturating_sub(1))).unwrap_or(0)
     }

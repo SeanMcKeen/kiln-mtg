@@ -288,6 +288,8 @@ pub fn kind_name(k: &DecisionKind) -> &'static str {
         DecisionKind::ChooseMode { .. } => "choose_mode",
         DecisionKind::OrderTriggers { .. } => "order_triggers",
         DecisionKind::ChooseReplacement { .. } => "choose_replacement",
+        DecisionKind::ProposeShortcut { .. } => "propose_shortcut",
+        DecisionKind::RespondShortcut { .. } => "respond_shortcut",
         DecisionKind::ChooseCost { .. } => "choose_cost",
         DecisionKind::ChooseSymbolPay { .. } => "choose_symbol_pay",
     }
