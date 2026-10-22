@@ -619,3 +619,72 @@
             payer: triggering
             cost: [{ mana_repeated: { mana: "{1}", times: { power_of: this } } }]
             effect: { draw: { who: you, amount: 1 } }
+
+# ---- replacement effects and rule statics (M4 4.3) ---------------------------
+
+- name: Test Tapland
+  types: Land
+  abilities:
+    - replacement: { event: { would_enter: { this: true } }, instead: enters_tapped }
+    - activated: { cost: [tap], effect: { add_mana: { mana: { one_of: ["{W}", "{U}"] } } } }
+
+- name: Test Frost Orb
+  cost: "{2}"
+  types: Artifact
+  abilities:
+    - replacement:
+        event: { would_enter: { types: [creature], controller: opponent } }
+        instead: enters_tapped
+
+- name: Test Thief
+  cost: "{2}{U}{B}"
+  types: Creature — Human Rogue
+  pt: [3, 1]
+  abilities:
+    - replacement:
+        event: { would_draw: { by: opponent, except_first_in_draw_step: true } }
+        instead: { draw: { who: you, amount: 1 } }
+
+- name: Test Maniac
+  cost: "{2}{U}"
+  types: Creature — Human Wizard
+  pt: [2, 2]
+  abilities:
+    - replacement:
+        event: { would_draw: { by: you } }
+        condition: { not: { at_least: [{ cards_in_library: you }, 1] } }
+        instead: { win_game: you }
+
+- name: Test Abstainer
+  cost: "{B}"
+  types: Enchantment
+  abilities:
+    - static: { effect: { skip_step: { who: you, step: draw } } }
+
+- name: Test Vault
+  cost: "{1}"
+  types: Artifact
+  abilities:
+    - static: { effect: { doesnt_untap: { this: true } } }
+    - activated: { cost: [tap], effect: { add_mana: { mana: { fixed: "{C}{C}{C}" } } } }
+
+- name: Test Diamond
+  cost: "{0}"
+  types: Artifact
+  abilities:
+    - replacement:
+        event: { would_enter: { this: true } }
+        instead:
+          if_does:
+            who: you
+            action: { pay: { who: you, cost: [{ discard: { chosen: { count: 1, filter: { types: [land] } } } }] } }
+            then: { move: { what: { one: this }, to: battlefield } }
+            otherwise: { move: { what: { one: this }, to: graveyard } }
+
+- name: Test Hoard Seer
+  cost: "{B}"
+  types: Sorcery
+  abilities:
+    - spell:
+        effect:
+          exile: { what: { top_of_library: { owner: you, count: 1 } }, face_down: true }

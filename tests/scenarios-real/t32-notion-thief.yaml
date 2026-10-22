@@ -1,0 +1,23 @@
+scenario: mtg-scenario/1
+name: "Notion Thief: an opponent's first draw in their draw step is untouched; their other draws become its controller's"
+cr: ["614.11", "614.11a", "614.6"]
+verifies: [Notion Thief]
+players:
+  - battlefield: [Swamp, Swamp]
+    hand: [Night's Whisper]
+  - battlefield: [Notion Thief]
+turn: { number: 2, active: P1, step: upkeep }
+script:
+  - pass_all
+  - check:
+      step: draw
+      zones: { P1.hand: [Night's Whisper, Test Wastes], P2.hand: [] }
+  - pass_all
+  - choose: Cast Night's Whisper
+  - choose: Pay with Swamp, Swamp
+  - pass_all
+expect:
+  life: { P1: 18 }
+  zones:
+    P1.hand: [Test Wastes]
+    P2.hand: [Test Wastes, Test Wastes]

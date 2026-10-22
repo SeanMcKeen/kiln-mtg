@@ -85,6 +85,9 @@ pub(crate) struct EffectCtx {
     /// This effect is a mana ability whose cost taps its source, so the
     /// mana it adds is "tapped for mana" (CR 106.12, 605.1b triggers).
     pub tapped_for_mana: bool,
+    /// Replacement effects already applied to the event this effect replaces
+    /// (CR 614.5, 616.1f).
+    pub applied: crate::replacement::Applied,
 }
 
 impl EffectCtx {
@@ -107,6 +110,7 @@ impl EffectCtx {
             triggering_player: None,
             triggering_mana: None,
             tapped_for_mana: false,
+            applied: SmallVec::new(),
         }
     }
 }
@@ -171,6 +175,8 @@ pub(crate) enum Frame {
     },
     /// Pick cards one at a time.
     Pick(Pick),
+    /// `left` more cards for `who` to draw.
+    Draws { who: PlayerId, left: u32 },
     /// Choose which mana to add (`options` has at least two outcomes).
     Mana {
         who: PlayerId,
@@ -216,7 +222,11 @@ pub(crate) enum AfterPick {
     /// All picks are sacrificed together (CR 701.21a).
     Sacrifice,
     /// All picks are exiled together, optionally remembered.
-    Exile { remember: Option<String> },
+    Exile {
+        remember: Option<String>,
+        /// CR 406.3: no player may look at it.
+        face_down: bool,
+    },
     /// Search results (CR 701.23): reveal if asked, then put them `to`.
     Search { to: Destination, reveal: bool },
     /// Put this many +1/+1 counters on the pick (amass, CR 701.47a).
@@ -234,6 +244,9 @@ pub(crate) enum Flow {
     Continue,
     /// The frame put itself back; ask this.
     Decide(PlayerId, DecisionKind, &'static str),
+    /// Run this task first, then resume (CR 614.11a: a replaced draw's
+    /// actions finish before the sequence continues).
+    Yield(Box<Task>),
 }
 
 /// The root effect of an ability.
@@ -242,6 +255,7 @@ pub(crate) fn root(pool: &CardPool, a: AbilityRef) -> Option<&Effect> {
         Ability::Spell(s) => Some(&s.effect),
         Ability::Activated(x) => Some(&x.effect),
         Ability::Triggered(t) => Some(&t.effect),
+        Ability::Replacement(r) => Some(&r.instead),
         _ => None,
     }
 }
@@ -333,6 +347,11 @@ impl Game {
                 Flow::Decide(player, kind, cr) => {
                     self.tasks.push(Task::Effect(t));
                     self.decide(player, kind, cr);
+                    return;
+                }
+                Flow::Yield(task) => {
+                    self.tasks.push(Task::Effect(t));
+                    self.tasks.push(*task);
                     return;
                 }
             }
@@ -466,6 +485,7 @@ impl Game {
 
     fn exec_frame(&mut self, t: &mut EffectTask, frame: Frame) -> Flow {
         match frame {
+            Frame::Draws { who, left } => self.draws(t, who, left),
             Frame::Run(path) => {
                 let pool = Arc::clone(&self.pool);
                 match node(&pool, t.ctx.ability, &path) {
@@ -647,17 +667,25 @@ impl Game {
                 }
                 self.end_leaving();
             }
-            Effect::Exile { what, remember, .. } => {
+            Effect::Exile {
+                what,
+                remember,
+                face_down,
+            } => {
                 let remember = remember.clone();
+                let face_down = *face_down;
                 if let Some(p) = self.pick_for(t, what, CardPurpose::Exile) {
                     t.frames.push(Frame::Pick(Pick {
-                        then: AfterPick::Exile { remember },
+                        then: AfterPick::Exile {
+                            remember,
+                            face_down,
+                        },
                         ..p
                     }));
                     return Flow::Continue;
                 }
                 let ids = self.set_now(&t.ctx, what);
-                self.exile_all(&mut t.ctx, &ids, remember);
+                self.exile_all(&mut t.ctx, &ids, remember, face_down);
             }
             Effect::Move { what, to } => {
                 let to = *to;
@@ -729,9 +757,7 @@ impl Game {
             Effect::Draw { who, amount } => {
                 let n = self.amount(&t.ctx, amount);
                 if let Some(p) = self.player_ref(&t.ctx, who) {
-                    for _ in 0..n {
-                        self.draw(p);
-                    }
+                    return self.draws(t, p, n);
                 }
             }
             Effect::Discard { who, what } => {
@@ -1343,6 +1369,11 @@ impl Game {
                 self.fx_move(ctx, id, ZoneId::Exile, true);
             }
             Destination::Battlefield => {
+                // CR 614.1a: "if this would enter, … instead" (R4: it runs after this effect).
+                let applied = ctx.applied.clone();
+                if self.replace_entering(id, who, &applied) {
+                    return;
+                }
                 // CR 110.2: it enters under the control of the player putting it there.
                 if let Some(new) = self.fx_move(ctx, id, ZoneId::Battlefield, true)
                     && let Some(n) = self.objects.get_mut(new)
@@ -1367,12 +1398,21 @@ impl Game {
         self.fx_move(ctx, id, ZoneId::Graveyard(o.owner), true);
     }
 
-    fn exile_all(&mut self, ctx: &mut EffectCtx, ids: &[ObjectId], remember: Option<String>) {
+    fn exile_all(
+        &mut self,
+        ctx: &mut EffectCtx,
+        ids: &[ObjectId],
+        remember: Option<String>,
+        face_down: bool,
+    ) {
         let mut new_ids = SmallVec::new();
         for &id in ids {
             if self.obj(id).is_some_and(|o| o.zone != ZoneId::Exile)
                 && let Some(new) = self.fx_move(ctx, id, ZoneId::Exile, true)
             {
+                if face_down {
+                    self.face_down.push(new);
+                }
                 new_ids.push(new);
             }
         }
@@ -1480,6 +1520,25 @@ impl Game {
             o.tapped = false;
             self.log(Event::Untapped { object: id });
         }
+    }
+
+    /// Draws `n` cards for `p`, handing a draw to the task stack when a
+    /// replacement effect would change it (M4 plan R2).
+    fn draws(&mut self, t: &mut EffectTask, p: PlayerId, n: u32) -> Flow {
+        for i in 0..n {
+            if !self.draw_replacements(p, &t.ctx.applied).is_empty() {
+                let left = n - i - 1;
+                if left > 0 {
+                    t.frames.push(Frame::Draws { who: p, left });
+                }
+                return Flow::Yield(Box::new(Task::Draw(crate::replacement::DrawTask {
+                    player: p,
+                    applied: t.ctx.applied.clone(),
+                })));
+            }
+            self.draw(p);
+        }
+        Flow::Continue
     }
 
     /// The mana requirement of a mana cost part.
@@ -1688,7 +1747,10 @@ impl Game {
                     self.add_counters(id, mtg_cards::ir::CounterKind::PlusOne, n);
                 }
             }
-            AfterPick::Exile { remember } => self.exile_all(&mut t.ctx, &picked, remember),
+            AfterPick::Exile {
+                remember,
+                face_down,
+            } => self.exile_all(&mut t.ctx, &picked, remember, face_down),
             AfterPick::Search { to, reveal } => {
                 self.log(Event::Searched {
                     player: who,
@@ -1935,7 +1997,10 @@ impl Game {
                     CardPurpose::Exile,
                     candidates,
                     1,
-                    AfterPick::Exile { remember: None },
+                    AfterPick::Exile {
+                        remember: None,
+                        face_down: false,
+                    },
                 )));
                 Flow::Continue
             }
@@ -1953,7 +2018,10 @@ impl Game {
                     CardPurpose::Exile,
                     candidates,
                     count,
-                    AfterPick::Exile { remember: None },
+                    AfterPick::Exile {
+                        remember: None,
+                        face_down: false,
+                    },
                 )));
                 Flow::Continue
             }
@@ -1970,6 +2038,7 @@ impl Game {
                     1,
                     AfterPick::Exile {
                         remember: Some(remember),
+                        face_down: false,
                     },
                 )));
                 Flow::Continue

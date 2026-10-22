@@ -78,7 +78,7 @@ impl StackTriggersTask {
 
 /// A filter checked against a definition and controller rather than a live
 /// object (for objects that have left, CR 603.10).
-fn def_matches(
+pub(crate) fn def_matches(
     g: &Game,
     def: DefId,
     controller: PlayerId,
@@ -114,7 +114,7 @@ fn def_matches(
         && f.token.is_none_or(|tok| tok == d.token)
 }
 
-fn step_is(s: StepName, step: Step) -> bool {
+pub(crate) fn step_is(s: StepName, step: Step) -> bool {
     matches!(
         (s, step),
         (StepName::Main, Step::PrecombatMain | Step::PostcombatMain)

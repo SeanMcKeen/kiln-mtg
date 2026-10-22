@@ -41,8 +41,9 @@ pub(crate) fn check(def: &CardDef) -> Check {
     let instant_or_sorcery = def.is(CardType::Instant) || def.is(CardType::Sorcery);
     let mut spells = 0;
     for a in &def.abilities {
-        // "That card" / "that player" mean something only in a triggered ability.
-        if !matches!(a, Ability::Triggered(_))
+        // "That card" / "that player" mean something only in a triggered
+        // ability, or (the affected object or player) in a replacement.
+        if !matches!(a, Ability::Triggered(_) | Ability::Replacement(_))
             && serde_json::to_string(a).is_ok_and(|j| {
                 j.contains("\"triggering\"") || j.contains("\"type_produced_by_trigger\"")
             })
@@ -99,8 +100,8 @@ pub(crate) fn check(def: &CardDef) -> Check {
                 effect: StaticEffect::Rule(RuleMod::CantBeCountered),
                 condition: None,
             }) => {}
-            Ability::Static(_) => return Err("static abilities (M5)".into()),
-            Ability::Replacement(_) => return Err("replacement effects (M4)".into()),
+            Ability::Static(s) => rule_static(s)?,
+            Ability::Replacement(r) => replacement(r)?,
             // Whole-ability escapes need a hook per ability kind; none is needed yet.
             Ability::Escape(e) => {
                 return Err(format!(
@@ -223,14 +224,7 @@ fn effect(e: &Effect) -> Check {
             }
             set(s)
         }
-        Effect::Exile {
-            what, face_down, ..
-        } => {
-            if *face_down {
-                return Err("face-down exile (M5)".into());
-            }
-            set(what)
-        }
+        Effect::Exile { what, .. } => set(what),
         Effect::Move { what, .. }
         | Effect::Pump { what, .. }
         | Effect::Tap(what)
@@ -306,6 +300,45 @@ fn effect(e: &Effect) -> Check {
             Some(_) => Ok(()),
             None => Err(format!("escape function {:?} isn't registered", x.function)),
         },
+    }
+}
+
+/// The rule statics M4 implements as engine checks (M4 plan R5).
+fn rule_static(s: &StaticAbility) -> Check {
+    if s.condition.is_some() {
+        return Err("static abilities (M5)".into());
+    }
+    match &s.effect {
+        StaticEffect::DoesntUntap(_) => Ok(()),
+        StaticEffect::SkipStep {
+            step: mtg_cards::ir::StepName::Draw,
+            ..
+        } => Ok(()),
+        StaticEffect::SkipStep { .. } => Err("skipping a step other than the draw step".into()),
+        _ => Err("static abilities (M5)".into()),
+    }
+}
+
+/// Replacement effects the engine applies (M4 plan R1–R4).
+fn replacement(r: &mtg_cards::ir::ReplacementAbility) -> Check {
+    use mtg_cards::ir::ReplaceEvent as R;
+    match (&r.event, &r.instead) {
+        (R::WouldEnter(_), Effect::EntersTapped) if r.condition.is_none() => Ok(()),
+        (R::WouldEnter(_), Effect::EntersTapped) => {
+            Err("conditional \"enters tapped\" (later in M4)".into())
+        }
+        (R::WouldEnter(f), instead) if f.this && r.condition.is_none() => effect(instead),
+        (R::WouldEnter(_), _) => Err("replacing other permanents entering (later)".into()),
+        (R::WouldDraw { .. }, instead) => {
+            if let Some(c) = &r.condition {
+                condition(c)?;
+            }
+            effect(instead)
+        }
+        (R::WouldGoToGraveyard(_), _) => Err("graveyard replacement effects (later)".into()),
+        (R::WouldFindWhileSearching(_), _) => {
+            Err("controlling searches (M5: Opposition Agent)".into())
+        }
     }
 }
 

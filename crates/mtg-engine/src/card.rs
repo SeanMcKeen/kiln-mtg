@@ -695,6 +695,10 @@ pub struct CardPool {
     /// watch events for triggers; trigger-free games skip that work entirely.
     #[serde(default)]
     has_triggers: bool,
+    /// Whether any definition has a replacement effect (CR 614); games
+    /// without one never look for them.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    has_replacements: bool,
 }
 
 /// The pool key of a token spec.
@@ -900,6 +904,10 @@ impl CardPool {
                 Ability::Triggered(_) | Ability::Keyword(ir::Keyword::Ward(_))
             )
         });
+        self.has_replacements |= def
+            .abilities
+            .iter()
+            .any(|a| matches!(a, Ability::Replacement(_)));
         let id = DefId(u32::try_from(self.defs.len()).unwrap_or(u32::MAX));
         self.defs.push(def);
         id
@@ -908,6 +916,11 @@ impl CardPool {
     /// Whether any definition can trigger (CR 603); see the field.
     pub fn has_triggers(&self) -> bool {
         self.has_triggers
+    }
+
+    /// Whether any definition has a replacement effect; see the field.
+    pub fn has_replacements(&self) -> bool {
+        self.has_replacements
     }
 
     /// The definition of a token spec, added when a card that creates it was added.

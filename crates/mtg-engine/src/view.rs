@@ -289,6 +289,10 @@ impl Game {
                     ability + 1
                 )
             }
+            DecisionKind::ChooseReplacement { options } => {
+                let (_, def, ability) = options[i];
+                format!("Apply {} ability {}", self.def(def).name, ability + 1)
+            }
             DecisionKind::ChooseMode { modes, .. } => match modes[i] {
                 None => "No more modes".into(),
                 Some(m) => format!("Mode {}", m + 1),
@@ -348,6 +352,8 @@ impl<'g> PlayerView<'g> {
         self.game.obj(id).is_some_and(|o| match o.zone {
             ZoneId::Library(_) => false,
             ZoneId::Hand(p) => p == self.me,
+            // CR 406.3
+            ZoneId::Exile => !self.game.face_down.contains(&id),
             _ => true,
         })
     }

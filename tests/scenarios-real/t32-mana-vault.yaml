@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: "Mana Vault: doesn't untap in the untap step; unable to pay {4}, it stays tapped and deals 1 damage in the draw step"
+cr: ["502.3", "603.4", "118.12"]
+verifies: [Mana Vault]
+players:
+  - battlefield:
+      - { card: Mana Vault, tapped: true }
+      - { card: Island, tapped: true }
+  - {}
+turn: { number: 3, active: P1, step: untap }
+script:
+  - check:
+      tapped: { Mana Vault: true, Island: false }
+  - pass_all
+  - pass_all
+  - check: { step: draw }
+  - pass_all
+expect:
+  life: { P1: 19 }
+  tapped: { Mana Vault: true }

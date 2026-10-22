@@ -153,3 +153,35 @@ fn bad_labels_are_actionable() {
             .is_some_and(|e| e.to_string().contains("unknown card \"Nope\""))
     );
 }
+
+/// CR 406.3: a card exiled face down is in no player's view.
+#[test]
+fn face_down_exile_is_hidden_from_every_view() {
+    let pool = Arc::new(CardPool::m3_test_set());
+    let s = scenario::parse(
+        r#"
+scenario: mtg-scenario/1
+name: face-down exile
+cr: ["406.3"]
+players:
+  - battlefield: [Test Swamp]
+    hand: [Test Hoard Seer]
+  - {}
+script:
+  - choose: Cast Test Hoard Seer
+  - choose: Pay with Test Swamp
+  - pass_all
+expect:
+  zones: { exile: [Test Wastes] }
+"#,
+        "face-down",
+    )
+    .unwrap_or_else(|e| panic!("{e}"));
+    let game = scenario::run(&s, &pool).unwrap_or_else(|e| panic!("{e}"));
+    for p in [mtg_core::PlayerId(0), mtg_core::PlayerId(1)] {
+        assert!(
+            game.view(p).snapshot().exile.is_empty(),
+            "{p:?} can see a face-down exiled card"
+        );
+    }
+}

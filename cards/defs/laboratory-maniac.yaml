@@ -1,0 +1,8 @@
+card: Laboratory Maniac
+faces:
+  - abilities:
+      # CR 614.11, 121.6a: applies even though no card could be drawn.
+      - replacement:
+          event: { would_draw: { by: you } }
+          condition: { not: { at_least: [{ cards_in_library: you }, 1] } }
+          instead: { win_game: you }

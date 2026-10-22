@@ -168,6 +168,9 @@ pub enum DecisionKind {
     OrderTriggers {
         triggers: Vec<(ObjectId, DefId, u8)>,
     },
+    /// CR 616.1: which replacement effect to apply to the event first
+    /// (`(source, definition, ability index)`).
+    ChooseReplacement { options: Vec<(ObjectId, DefId, u8)> },
     /// CR 601.2b, 118.9: pay the mana cost or an alternative cost.
     ChooseCost {
         spell: ObjectId,
@@ -277,6 +280,7 @@ impl PendingDecision {
             DecisionKind::ChooseColor { colors, .. } => colors.len(),
             DecisionKind::ChooseMode { modes, .. } => modes.len(),
             DecisionKind::OrderTriggers { triggers } => triggers.len(),
+            DecisionKind::ChooseReplacement { options } => options.len(),
             DecisionKind::ChooseCost { options, .. } => options.len(),
             DecisionKind::ChooseSymbolPay { options, .. } => options.len(),
         }

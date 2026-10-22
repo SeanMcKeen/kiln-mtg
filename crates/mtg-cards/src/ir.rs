@@ -171,6 +171,9 @@ pub struct ReplacementAbility {
     pub event: ReplaceEvent,
     /// What happens instead (CR 614.1a).
     pub instead: Effect,
+    /// "If you would draw a card while your library has no cards in it".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub condition: Option<Condition>,
 }
 
 /// Events a replacement effect watches (CR 614.1).
@@ -180,7 +183,12 @@ pub enum ReplaceEvent {
     /// "If [object] would enter" / "As [object] enters" (CR 614.1c, 614.12).
     WouldEnter(ObjectFilter),
     /// "If [player] would draw a card" (CR 614.11).
-    WouldDraw(PlayerRel),
+    WouldDraw {
+        by: PlayerRel,
+        /// "except the first one they draw in each of their draw steps".
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        except_first_in_draw_step: bool,
+    },
     /// "If [object] would be put into a graveyard from anywhere".
     WouldGoToGraveyard(ObjectFilter),
     /// A player would find cards while searching (Opposition Agent).

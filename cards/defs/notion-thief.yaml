@@ -1,0 +1,8 @@
+card: Notion Thief
+faces:
+  - abilities:
+      - keyword: flash
+      # CR 614.11: "instead that player skips that draw and you draw a card".
+      - replacement:
+          event: { would_draw: { by: opponent, except_first_in_draw_step: true } }
+          instead: { draw: { who: you, amount: 1 } }

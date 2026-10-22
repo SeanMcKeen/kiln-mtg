@@ -149,6 +149,8 @@ pub(crate) enum Task {
     },
     /// CR 603.3: put pending triggered abilities on the stack.
     StackTriggers(crate::triggers::StackTriggersTask),
+    /// Draw a card that a replacement effect may change (CR 614.11).
+    Draw(crate::replacement::DrawTask),
 }
 
 /// A game in progress (or finished).
@@ -182,6 +184,8 @@ pub struct Game {
     /// Permanents leaving the battlefield in the current simultaneous batch
     /// (CR 603.10a look-back). Empty except while a batch moves.
     pub(crate) leaving_batch: Vec<(ObjectId, DefId, PlayerId)>,
+    /// Cards exiled face down (CR 406.3): no player may look at them.
+    pub(crate) face_down: Vec<ObjectId>,
     /// Delayed triggered abilities waiting for their event (CR 603.7).
     pub(crate) delayed: Vec<crate::triggers::DelayedTrigger>,
     /// Spells cast this turn, by caster ("first ... each turn"; tracked only
@@ -247,6 +251,7 @@ impl Game {
             counters: Vec::new(),
             pending_triggers: Vec::new(),
             leaving_batch: Vec::new(),
+            face_down: Vec::new(),
             delayed: Vec::new(),
             cast_this_turn: Vec::new(),
             combat_damaged: 0,
@@ -452,6 +457,9 @@ impl Game {
         if !self.delayed.is_empty() {
             self.delayed.hash(&mut h);
         }
+        if !self.face_down.is_empty() {
+            self.face_down.hash(&mut h);
+        }
         if !self.cast_this_turn.is_empty() {
             self.cast_this_turn.hash(&mut h);
         }
@@ -614,18 +622,25 @@ impl Game {
         // Last known information (CR 603.10, 608.2h) before the object leaves.
         let (power, toughness) = (self.power(id), self.toughness(id));
         self.detach(id, old.zone);
+        if old.zone == ZoneId::Exile && !self.face_down.is_empty() {
+            self.face_down.retain(|x| *x != id);
+        }
         self.objects.free(id);
         self.drop_counters(id);
         let controller = match to {
             ZoneId::Library(p) | ZoneId::Hand(p) | ZoneId::Graveyard(p) => p,
             _ => old.controller,
         };
+        // CR 614.1c-d, 614.12: "enters tapped" modifies the event itself.
+        let tapped = to == ZoneId::Battlefield
+            && self.pool.has_replacements()
+            && self.enters_tapped(old.def, controller);
         let new = self.objects.alloc(GameObject {
             def: old.def,
             owner: old.owner,
             controller,
             zone: to,
-            tapped: false,
+            tapped,
             damage: 0,
             deathtouch_damage: false,
             control_since: self.turn.number,
@@ -660,7 +675,7 @@ impl Game {
         };
         // Tracked only when something could care ("except the first one they
         // draw in each of their draw steps"), so trigger-free games keep M2 state.
-        let first_in_draw_step = self.pool.has_triggers()
+        let first_in_draw_step = (self.pool.has_triggers() || self.pool.has_replacements())
             && p == self.turn.active
             && self.turn.step == Step::Draw
             && !self.drew_in_draw_step;
@@ -846,6 +861,7 @@ impl Game {
             Task::SpendMana { player, spend } => self.spend_mana(player, spend),
             Task::FinishAbility { source, ability } => self.finish_ability(source, ability),
             Task::StackTriggers(t) => self.stack_triggers_step(t),
+            Task::Draw(t) => self.draw_task_step(t),
             Task::FinishSpell { object } => {
                 if let Some(o) = self.obj(object).copied()
                     && o.zone == ZoneId::Stack
@@ -920,6 +936,9 @@ impl Game {
             (Task::Effect(t), kind) => self.effect_answer(t, kind, option),
             (Task::StackTriggers(t), DecisionKind::OrderTriggers { .. }) => {
                 self.stack_triggers_answer(t, option);
+            }
+            (Task::Draw(t), DecisionKind::ChooseReplacement { .. }) => {
+                self.draw_task_answer(&t, option);
             }
             (task, kind) => unreachable!("decision {kind:?} answered for task {task:?}"),
         }
@@ -1052,6 +1071,7 @@ impl Game {
             Step::Untap => {
                 // CR 502.3: untap all permanents the active player controls. No priority (CR 117.3a).
                 if self.active_in_game() {
+                    let exempt = self.untap_exempt();
                     let ids: Vec<ObjectId> = self
                         .battlefield
                         .iter()
@@ -1059,6 +1079,7 @@ impl Game {
                         .filter(|id| {
                             self.obj(*id)
                                 .is_some_and(|o| o.controller == active && o.tapped)
+                                && !exempt.contains(id)
                         })
                         .collect();
                     for id in ids {
@@ -1075,10 +1096,17 @@ impl Game {
                 let skip = self.players.len() == 2
                     && self.turn.number == 1
                     && active == self.starting_player;
-                if self.active_in_game() && !skip {
-                    self.draw(active);
-                }
                 self.tasks.push(Task::Priority { checked: false });
+                if self.active_in_game() && !skip {
+                    if self.pool.has_replacements() {
+                        self.tasks.push(Task::Draw(crate::replacement::DrawTask {
+                            player: active,
+                            applied: SmallVec::new(),
+                        }));
+                    } else {
+                        self.draw(active);
+                    }
+                }
             }
             Step::BeginCombat => {
                 self.combat = Some(Combat::default());
@@ -1115,6 +1143,8 @@ impl Game {
         }
         let next = match self.turn.step {
             Step::Untap => Step::Upkeep,
+            // CR 614.10: "skip your draw step".
+            Step::Upkeep if self.skips_step(self.turn.active, Step::Draw) => Step::PrecombatMain,
             Step::Upkeep => Step::Draw,
             Step::Draw => Step::PrecombatMain,
             Step::PrecombatMain => Step::BeginCombat,
@@ -1399,6 +1429,10 @@ impl Game {
             }
             None => {
                 if def.is_permanent_card() {
+                    // CR 614.1a: "if this would enter, … instead" (Mox Diamond).
+                    if self.replace_entering(item.object, item.controller, &[]) {
+                        return;
+                    }
                     // CR 608.3a: a permanent spell becomes a permanent under its controller's control.
                     if let Some(new) = self.move_object(item.object, ZoneId::Battlefield, true)
                         && let Some(o) = self.objects.get_mut(new)

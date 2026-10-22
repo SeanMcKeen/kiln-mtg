@@ -18,6 +18,7 @@ pub mod escapes;
 pub mod events;
 mod invariants;
 pub mod mana;
+mod replacement;
 pub mod replay;
 pub mod rng;
 mod sba;

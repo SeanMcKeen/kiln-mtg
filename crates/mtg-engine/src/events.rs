@@ -72,6 +72,12 @@ pub enum Event {
         ability: u8,
         controller: PlayerId,
     },
+    /// A replacement effect replaced an event (CR 614.6).
+    Replaced {
+        source: ObjectId,
+        def: DefId,
+        ability: u8,
+    },
     /// A triggered ability was removed because it had no legal targets (CR 603.3d).
     TriggerRemoved {
         source: ObjectId,
@@ -237,6 +243,7 @@ impl Event {
             Event::TappedForMana { .. } => "106.12",
             Event::Triggered { .. } => "603.2",
             Event::TriggerRemoved { .. } => "603.3d",
+            Event::Replaced { .. } => "614.6",
             Event::PlayerLost { .. } => "104.3",
             Event::PlayerLeft { .. } => "800.4a",
             Event::GameOver => "104.1",

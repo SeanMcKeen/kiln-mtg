@@ -1083,6 +1083,7 @@ fn static_line(line: &str) -> Option<Ability> {
         return Some(Ability::Replacement(ReplacementAbility {
             event: ReplaceEvent::WouldEnter(this),
             instead: Effect::EntersTapped,
+            condition: None,
         }));
     }
     if l == "~ doesn't untap during your untap step" {

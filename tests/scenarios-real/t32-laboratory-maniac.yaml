@@ -1,0 +1,14 @@
+scenario: mtg-scenario/1
+name: "Laboratory Maniac: drawing from an empty library wins the game instead"
+cr: ["614.11", "121.6a", "104.2b"]
+verifies: [Laboratory Maniac]
+players:
+  - battlefield: [Laboratory Maniac]
+    library: []
+  - {}
+  - {}
+turn: { number: 2, active: P1, step: upkeep }
+script:
+  - pass_all
+expect:
+  result: win P1

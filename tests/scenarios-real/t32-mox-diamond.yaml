@@ -1,0 +1,16 @@
+scenario: mtg-scenario/1
+name: "Mox Diamond: discard a land card instead of it entering; if you do, it enters"
+cr: ["614.1a", "614.6", "608.3a"]
+verifies: [Mox Diamond]
+players:
+  - hand: [Mox Diamond, Forest]
+  - {}
+script:
+  - choose: Cast Mox Diamond
+  - pass_all
+  - choose: "Yes"
+expect:
+  zones:
+    P1.battlefield: [Mox Diamond]
+    P1.graveyard: [Forest]
+    P1.hand: []

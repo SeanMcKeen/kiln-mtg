@@ -1,0 +1,31 @@
+scenario: mtg-scenario/1
+name: Two draw replacements apply; the affected player chooses one, then the other applies to the modified event
+cr: ["616.1", "616.1e", "616.1f", "614.5", "614.11a"]
+players:
+  - battlefield: [Test Island, Test Island]
+    hand: [Test Insight]
+  - battlefield: [Test Thief]
+  - battlefield: [Test Thief]
+script:
+  - choose: Cast Test Insight
+  - choose: Pay with Test Island, Test Island
+  - pass_all
+  - check:
+      decision:
+        player: P1
+        kind: choose_replacement
+        options: ["Apply Test Thief ability 1", "Apply Test Thief ability 1"]
+  # Option 1 is P2's Thief: P2 would draw instead. P3's Thief then replaces
+  # P2's draw (CR 616.1f); P2's Thief already applied, so it can't replace
+  # P3's draw (CR 614.5).
+  - choose: Apply Test Thief ability 1
+  # The second draw of the sequence (CR 614.11a): the same choice again.
+  - check:
+      decision: { player: P1, kind: choose_replacement }
+      zones: { P3.hand: [Test Wastes] }
+  - choose: Apply Test Thief ability 1
+expect:
+  zones:
+    P1.hand: []
+    P2.hand: []
+    P3.hand: [Test Wastes, Test Wastes]

@@ -287,6 +287,7 @@ pub fn kind_name(k: &DecisionKind) -> &'static str {
         DecisionKind::ChooseColor { .. } => "choose_color",
         DecisionKind::ChooseMode { .. } => "choose_mode",
         DecisionKind::OrderTriggers { .. } => "order_triggers",
+        DecisionKind::ChooseReplacement { .. } => "choose_replacement",
         DecisionKind::ChooseCost { .. } => "choose_cost",
         DecisionKind::ChooseSymbolPay { .. } => "choose_symbol_pay",
     }
