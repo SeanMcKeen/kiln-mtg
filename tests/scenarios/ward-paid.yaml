@@ -1,0 +1,21 @@
+scenario: mtg-scenario/1
+name: Paying the ward cost lets the spell resolve
+cr: ["702.21a", "118.12"]
+players:
+  - battlefield: [Test Mountain, Test Mountain, Test Mountain]
+    hand: [Test Bolt]
+  - battlefield: [Test Warden]
+script:
+  - choose: Cast Test Bolt
+  - choose: Target Test Warden (P2)
+  - choose: Pay with Test Mountain
+  - pass_all
+  - check:
+      decision: { player: P1, kind: optional, options: [Don't pay, Pay] }
+  - choose: Pay
+  - choose: Pay with Test Mountain, Test Mountain
+  - pass_all
+expect:
+  zones:
+    P2.battlefield: []
+    P2.graveyard: [Test Warden]

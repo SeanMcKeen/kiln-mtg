@@ -72,6 +72,20 @@ pub enum Event {
         ability: u8,
         controller: PlayerId,
     },
+    /// A permanent became the target of a spell or ability (`ability` is
+    /// `None` for a spell) controlled by `controller` (CR 115.1, 702.21a).
+    BecameTarget {
+        target: ObjectId,
+        source: ObjectId,
+        ability: Option<u8>,
+        controller: PlayerId,
+    },
+    /// Damage was prevented (CR 615, 702.16e).
+    DamagePrevented {
+        source: ObjectId,
+        target: crate::state::Target,
+        amount: u32,
+    },
     /// A replacement effect replaced an event (CR 614.6).
     Replaced {
         source: ObjectId,
@@ -244,6 +258,8 @@ impl Event {
             Event::Triggered { .. } => "603.2",
             Event::TriggerRemoved { .. } => "603.3d",
             Event::Replaced { .. } => "614.6",
+            Event::BecameTarget { .. } => "115.1",
+            Event::DamagePrevented { .. } => "702.16e",
             Event::PlayerLost { .. } => "104.3",
             Event::PlayerLeft { .. } => "800.4a",
             Event::GameOver => "104.1",

@@ -162,11 +162,15 @@ impl Game {
             .unwrap_or_default()
     }
 
-    /// CR 702.9b, 702.17b: flying attackers can be blocked only by flying or reach.
+    /// CR 702.9b, 702.17b: flying attackers can be blocked only by flying or
+    /// reach; CR 702.16f: not by creatures with a quality it has protection from.
     fn can_block(&self, blocker: ObjectId, attacker: ObjectId) -> bool {
         let a = self.keywords(attacker);
         let b = self.keywords(blocker);
-        !a.has(Keywords::FLYING) || b.has(Keywords::FLYING) || b.has(Keywords::REACH)
+        (!a.has(Keywords::FLYING) || b.has(Keywords::FLYING) || b.has(Keywords::REACH))
+            && !self
+                .obj(blocker)
+                .is_some_and(|o| self.protected_from(attacker, self.def(o.def), o.controller))
     }
 
     /// Whether, after `chosen`, the remaining candidates can still satisfy

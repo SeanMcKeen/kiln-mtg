@@ -1,7 +1,7 @@
 # CLAUDE.md: orientation for AI sessions
 
 ## Project
-This is a Rust MTG rules engine plus a simulation lab. The headline use case: an AI agent runs "deck X vs Y, Z, C in a cEDH pod" for thousands of games and gets statistics. Commander-first, with N players from day one. **Current phase: M4 in progress (4.1 triggers, 4.2 delayed/mana triggers, 4.3 replacement done; 4.4 ward/protection next).** The engine executes card IR v1; the card library (ADR-0007 hybrid, accepted) supports 2,860 Commander-legal cards, 138 of them verified. Check `docs/09 Roadmap/Roadmap.md` for the active milestone.
+This is a Rust MTG rules engine plus a simulation lab. The headline use case: an AI agent runs "deck X vs Y, Z, C in a cEDH pod" for thousands of games and gets statistics. Commander-first, with N players from day one. **Current phase: M4 in progress (4.1 triggers, 4.2 delayed/mana triggers, 4.3 replacement, 4.4 ward/protection done; 4.5 SBAs next).** The engine executes card IR v1; the card library (ADR-0007 hybrid, accepted) supports 2,915 Commander-legal cards, 138 of them verified. Check `docs/09 Roadmap/Roadmap.md` for the active milestone.
 
 ## Where things are
 - `crates/` is the Cargo workspace (layout in `docs/03 Architecture/Crate Layout.md`). The CLI binary is `mtg` (`crates/mtg-cli`).

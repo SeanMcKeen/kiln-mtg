@@ -1391,7 +1391,7 @@ impl Game {
         let slot_legal = |g: &Game, i: usize, t: Target| {
             slots
                 .get(i)
-                .is_some_and(|slot| g.target_still_legal(&slot.what, t, item.controller))
+                .is_some_and(|slot| g.target_still_legal(&slot.what, t, item.controller, Some(def)))
         };
         // CR 608.2b: targets are rechecked; if all are illegal, it doesn't resolve.
         if !item.targets.is_empty()
@@ -1490,6 +1490,7 @@ impl Game {
                 ctx.triggering_object = info.object;
                 ctx.triggering_player = info.player;
                 ctx.triggering_mana = info.mana;
+                ctx.triggering_ability = info.stack_ability;
                 ctx.lki.extend(info.lki);
                 // CR 603.4: an intervening "if" is checked again on resolution.
                 if let Some(ir::Ability::Triggered(t)) = def.abilities.get(usize::from(ability))
@@ -1544,6 +1545,17 @@ impl Game {
                 self.lose_life(p, amount);
             }
             Target::Object(id) => {
+                // CR 702.16e: damage from a source with the quality is prevented.
+                if let Some(src) = self.obj(source).copied()
+                    && self.protected_from(id, self.def(src.def), src.controller)
+                {
+                    self.log(Event::DamagePrevented {
+                        source,
+                        target,
+                        amount,
+                    });
+                    return;
+                }
                 let Some(o) = self.objects.get_mut(id) else {
                     return;
                 };

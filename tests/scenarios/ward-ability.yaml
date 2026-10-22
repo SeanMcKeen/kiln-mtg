@@ -1,0 +1,23 @@
+scenario: mtg-scenario/1
+name: Ward also counters an opponent's activated ability that targets it; its own controller's abilities don't trigger it
+cr: ["702.21a", "701.6a"]
+players:
+  - battlefield: [Test Pinger]
+  - battlefield: [Test Warden, Test Pinger]
+script:
+  - choose: Activate Test Pinger ability 1
+  - choose: Target Test Warden (P2)
+  # Ward triggers; P1 can't pay {2}, so the ability is countered.
+  - pass_all
+  - pass_all
+  - check:
+      zones: { P2.battlefield: [Test Warden, Test Pinger] }
+  - pass: 1
+  - choose: Activate Test Pinger ability 1
+    player: P2
+  - choose: Target Test Warden (P2)
+  - pass_all
+expect:
+  zones:
+    P2.battlefield: [Test Pinger]
+    P2.graveyard: [Test Warden]

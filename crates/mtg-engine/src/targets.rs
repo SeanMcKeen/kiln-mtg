@@ -4,7 +4,7 @@
 use mtg_cards::ir::{ObjectFilter, PlayerRel, TargetKind};
 use mtg_core::{CardType, Color, ObjectId, PlayerId, Supertype};
 
-use crate::card::Keywords;
+use crate::card::{CardDef, Keywords};
 use crate::engine::Game;
 use crate::state::{Target, ZoneId};
 
@@ -116,6 +116,7 @@ impl Game {
         kind: &TargetKind,
         you: PlayerId,
         this: Option<ObjectId>,
+        src: Option<&CardDef>,
     ) -> Vec<Target> {
         let mut out = Vec::new();
         let players = |rel: PlayerRel, out: &mut Vec<Target>| {
@@ -135,7 +136,7 @@ impl Game {
                         .iter()
                         .copied()
                         .filter(|id| {
-                            self.is_any_target_permanent(*id) && self.targetable_by(*id, you)
+                            self.is_any_target_permanent(*id) && self.targetable_by(*id, you, src)
                         })
                         .map(Target::Object),
                 );
@@ -146,7 +147,7 @@ impl Game {
                     .iter()
                     .copied()
                     .filter(|id| {
-                        self.matches_filter(*id, f, you, None) && self.targetable_by(*id, you)
+                        self.matches_filter(*id, f, you, None) && self.targetable_by(*id, you, src)
                     })
                     .map(Target::Object),
             ),
@@ -162,14 +163,35 @@ impl Game {
         out
     }
 
-    /// CR 702.18a (shroud), 702.11b (hexproof): whether a spell or ability
-    /// controlled by `you` may target permanent `id`.
-    pub(crate) fn targetable_by(&self, id: ObjectId, you: PlayerId) -> bool {
+    /// CR 702.18a (shroud), 702.11b (hexproof), 702.16b (protection): whether
+    /// a spell or ability controlled by `you`, from source `src`, may target
+    /// permanent `id`.
+    pub(crate) fn targetable_by(&self, id: ObjectId, you: PlayerId, src: Option<&CardDef>) -> bool {
         let kw = self.keywords(id);
         if kw.has(Keywords::SHROUD) {
             return false;
         }
+        if src.is_some_and(|s| self.protected_from(id, s, you)) {
+            return false;
+        }
         !(kw.has(Keywords::HEXPROOF) && self.obj(id).is_some_and(|o| o.controller != you))
+    }
+
+    /// CR 702.16a: whether permanent `id` has protection from a source with
+    /// definition `src` controlled by `src_controller`.
+    pub(crate) fn protected_from(
+        &self,
+        id: ObjectId,
+        src: &CardDef,
+        src_controller: PlayerId,
+    ) -> bool {
+        let Some(o) = self.obj(id) else {
+            return false;
+        };
+        self.def(o.def).abilities.iter().any(|a| {
+            matches!(a, mtg_cards::ir::Ability::Keyword(mtg_cards::ir::Keyword::Protection(f))
+                if crate::triggers::card_matches(self, src, src_controller, f, o.controller))
+        })
     }
 
     fn is_spell_matching(&self, id: ObjectId, f: &ObjectFilter, you: PlayerId) -> bool {
@@ -182,7 +204,13 @@ impl Game {
     /// CR 608.2b: whether a chosen target is still legal as the spell or
     /// ability resolves. An object target must still be the same object in the
     /// same zone (a zone change makes a new object, CR 400.7).
-    pub(crate) fn target_still_legal(&self, kind: &TargetKind, t: Target, you: PlayerId) -> bool {
+    pub(crate) fn target_still_legal(
+        &self,
+        kind: &TargetKind,
+        t: Target,
+        you: PlayerId,
+        src: Option<&CardDef>,
+    ) -> bool {
         match (kind, t) {
             (TargetKind::Any, Target::Player(p)) => self.in_game(p),
             (TargetKind::Player(rel), Target::Player(p)) => {
@@ -191,12 +219,12 @@ impl Game {
             (TargetKind::Any, Target::Object(id)) => {
                 self.on_battlefield(id)
                     && self.is_any_target_permanent(id)
-                    && self.targetable_by(id, you)
+                    && self.targetable_by(id, you, src)
             }
             (TargetKind::Object(f), Target::Object(id)) => {
                 self.on_battlefield(id)
                     && self.matches_filter(id, f, you, None)
-                    && self.targetable_by(id, you)
+                    && self.targetable_by(id, you, src)
             }
             (TargetKind::Spell(f), Target::Object(id)) => self.is_spell_matching(id, f, you),
             _ => false,

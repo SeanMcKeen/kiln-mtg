@@ -357,6 +357,15 @@ impl CardDef {
         for cost in upkeeps {
             abilities.push(cumulative_upkeep(&cost).map_err(unsupported)?);
         }
+        // CR 702.21a: ward is a triggered ability.
+        let wards: Vec<Vec<CostPart>> = abilities
+            .iter()
+            .filter_map(|a| match a {
+                Ability::Keyword(ir::Keyword::Ward(c)) => Some(c.clone()),
+                _ => None,
+            })
+            .collect();
+        abilities.extend(wards.into_iter().map(ward));
         let mut keywords = Keywords::default();
         let mut mana_abilities = SmallVec::new();
         for (i, a) in abilities.iter().enumerate() {
@@ -735,6 +744,30 @@ pub fn amass_token(subtype: &str) -> ir::TokenSpec {
         keywords: Vec::new(),
         name: None,
     }
+}
+
+/// CR 702.21a: "Whenever this permanent becomes the target of a spell or
+/// ability an opponent controls, counter that spell or ability unless that
+/// player pays [cost]."
+fn ward(cost: Vec<CostPart>) -> Ability {
+    Ability::Triggered(ir::TriggeredAbility {
+        trigger: ir::Trigger::BecomesTarget {
+            by: ir::PlayerRel::Opponent,
+            what: ir::ObjectFilter {
+                this: true,
+                ..ir::ObjectFilter::default()
+            },
+        },
+        condition: None,
+        targets: Vec::new(),
+        effect: ir::Effect::Unless {
+            payer: ir::PlayerRef::Triggering,
+            cost,
+            effect: Box::new(ir::Effect::Counter(ir::ObjectSet::One(
+                ir::ObjectRef::Triggering,
+            ))),
+        },
+    })
 }
 
 /// CR 702.24a: "At the beginning of your upkeep, if this permanent is on the

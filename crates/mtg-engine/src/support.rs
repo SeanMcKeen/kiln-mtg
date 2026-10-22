@@ -55,6 +55,10 @@ pub(crate) fn check(def: &CardDef) -> Check {
             Ability::Keyword(mtg_cards::ir::Keyword::Partner) => {}
             // CR 702.24a: `CardDef::new` adds it as a triggered ability (checked below).
             Ability::Keyword(mtg_cards::ir::Keyword::CumulativeUpkeep(_)) => {}
+            // CR 702.21a: added as a triggered ability (checked below).
+            Ability::Keyword(mtg_cards::ir::Keyword::Ward(_)) => {}
+            // CR 702.16: targeting, blocking and damage (Auras and Equipment in M5).
+            Ability::Keyword(mtg_cards::ir::Keyword::Protection(_)) => {}
             Ability::Keyword(k) => match Keywords::of_ir(k) {
                 Some(bit) if IMPLEMENTED_KEYWORDS.contains(&bit) => {}
                 _ => return Err(keyword_gap(k)),
@@ -122,8 +126,6 @@ pub(crate) fn check(def: &CardDef) -> Check {
 fn keyword_gap(k: &mtg_cards::ir::Keyword) -> String {
     use mtg_cards::ir::Keyword as K;
     match k {
-        K::Ward(_) => "keyword ward (M4: triggered abilities)".into(),
-        K::Protection(_) => "keyword protection (M4: damage prevention)".into(),
         // CR 702.124j: "partner with" includes a "when this enters" trigger.
         K::PartnerWith(_) => "keyword partner with (M4: triggered abilities)".into(),
         other => format!("keyword {other:?} isn't implemented yet"),
@@ -234,8 +236,9 @@ fn effect(e: &Effect) -> Check {
             player(who)?;
             set(what)
         }
-        Effect::Counter(ObjectSet::One(ObjectRef::Target(_))) => Ok(()),
-        Effect::Counter(_) => Err("countering anything but a targeted spell".into()),
+        // A targeted spell, or "that spell or ability" (ward, CR 702.21a).
+        Effect::Counter(ObjectSet::One(ObjectRef::Target(_) | ObjectRef::Triggering)) => Ok(()),
+        Effect::Counter(_) => Err("countering anything but a targeted or triggering spell".into()),
         Effect::Draw { who, amount }
         | Effect::GainLife { who, amount }
         | Effect::LoseLife { who, amount }
@@ -349,6 +352,7 @@ fn trigger(t: &mtg_cards::ir::Trigger) -> Check {
         T::AnyOf(v) => v.iter().try_for_each(trigger),
         T::Enters(_)
         | T::TapsForMana { .. }
+        | T::BecomesTarget { .. }
         | T::Dies(_)
         | T::LeavesBattlefield(_)
         | T::Cast { .. }

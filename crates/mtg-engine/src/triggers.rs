@@ -31,6 +31,9 @@ pub struct TriggerInfo {
     pub(crate) lki: Option<Lki>,
     /// The mana a permanent was tapped for (CR 605.1b triggers).
     pub(crate) mana: Option<ManaBag>,
+    /// When the triggering object is an ability on the stack: its ability
+    /// index on `object` (ward counters "that spell or ability").
+    pub(crate) stack_ability: Option<u8>,
 }
 
 /// A delayed triggered ability (CR 603.7): created by an effect, it triggers
@@ -85,7 +88,17 @@ pub(crate) fn def_matches(
     f: &ObjectFilter,
     you: PlayerId,
 ) -> bool {
-    let d = g.def(def);
+    card_matches(g, g.def(def), controller, f, you)
+}
+
+/// [`def_matches`] for a definition in hand.
+pub(crate) fn card_matches(
+    g: &Game,
+    d: &crate::card::CardDef,
+    controller: PlayerId,
+    f: &ObjectFilter,
+    you: PlayerId,
+) -> bool {
     let t = &d.type_line;
     let has_type = |w: &String| {
         CardType::ALL
@@ -281,6 +294,7 @@ impl Game {
             player,
             lki: None,
             mana: None,
+            stack_ability: None,
         };
         match (trigger, e) {
             (Trigger::AnyOf(v), _) => v.iter().find_map(|t| self.trigger_hit(t, source, you, e)),
@@ -327,6 +341,7 @@ impl Game {
                 };
                 ok.then_some(TriggerInfo {
                     mana: None,
+                    stack_ability: None,
                     object: Some(*old),
                     player: Some(*controller),
                     lki: Some(Lki {
@@ -421,7 +436,32 @@ impl Game {
                 player: Some(*player),
                 lki: None,
                 mana: Some(*produced),
+                stack_ability: None,
             }),
+            // CR 702.21a
+            (
+                Trigger::BecomesTarget { by, what },
+                Event::BecameTarget {
+                    target,
+                    source: by_source,
+                    ability,
+                    controller,
+                },
+            ) => {
+                let ok = self.player_rel(*by, you, *controller)
+                    && if what.this {
+                        *target == source
+                    } else {
+                        self.matches_filter(*target, what, you, Some(source))
+                    };
+                ok.then_some(TriggerInfo {
+                    object: Some(*by_source),
+                    player: Some(*controller),
+                    lki: None,
+                    mana: None,
+                    stack_ability: *ability,
+                })
+            }
             _ => None,
         }
     }
@@ -532,8 +572,12 @@ impl Game {
         else {
             return;
         };
+        let src = self.def(pt.source_def);
         let satisfiable = ta.targets.iter().all(|s| {
-            s.up_to.is_some() || !self.legal_targets(&s.what, pt.controller, None).is_empty()
+            s.up_to.is_some()
+                || !self
+                    .legal_targets(&s.what, pt.controller, None, Some(src))
+                    .is_empty()
         });
         if !satisfiable {
             self.log(Event::TriggerRemoved {
@@ -567,6 +611,7 @@ pub(crate) fn trigger_ctx(
     ctx.triggering_object = info.object;
     ctx.triggering_player = info.player;
     ctx.triggering_mana = info.mana;
+    ctx.triggering_ability = info.stack_ability;
     if let Some(l) = info.lki {
         ctx.lki.push(l);
     }

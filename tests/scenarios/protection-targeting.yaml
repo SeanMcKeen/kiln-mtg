@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: A permanent with protection from red can't be targeted by red spells
+cr: ["702.16a", "702.16b"]
+players:
+  - battlefield: [Test Mountain]
+    hand: [Test Bolt]
+  - battlefield: [Test Paladin, Test Bear]
+script:
+  - choose: Cast Test Bolt
+  - check:
+      decision:
+        player: P1
+        kind: choose_target
+        options_include: ["Target Test Bear (P2)"]
+        options_exclude: ["Target Test Paladin (P2)"]
+  - choose: Target Test Bear (P2)
+  - choose: Pay with Test Mountain
+  - pass_all
+expect:
+  zones: { P2.battlefield: [Test Paladin] }

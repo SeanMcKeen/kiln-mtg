@@ -82,6 +82,9 @@ pub(crate) struct EffectCtx {
     pub triggering_player: Option<PlayerId>,
     /// The mana the triggering permanent produced (Kinnan, CR 605.1b).
     pub triggering_mana: Option<ManaBag>,
+    /// The triggering object's ability index, when "that spell or ability"
+    /// is an ability on the stack (ward).
+    pub triggering_ability: Option<u8>,
     /// This effect is a mana ability whose cost taps its source, so the
     /// mana it adds is "tapped for mana" (CR 106.12, 605.1b triggers).
     pub tapped_for_mana: bool,
@@ -109,6 +112,7 @@ impl EffectCtx {
             triggering_object: None,
             triggering_player: None,
             triggering_mana: None,
+            triggering_ability: None,
             tapped_for_mana: false,
             applied: SmallVec::new(),
         }
@@ -750,6 +754,13 @@ impl Game {
                 self.sacrifice_all(&mut t.ctx, &ids);
             }
             Effect::Counter(set) => {
+                // "Counter that spell or ability" when it is an ability (ward).
+                if let (ObjectSet::One(ObjectRef::Triggering), Some(source), Some(ability)) =
+                    (set, t.ctx.triggering_object, t.ctx.triggering_ability)
+                {
+                    self.counter_ability(source, ability);
+                    return Flow::Continue;
+                }
                 for id in self.set_now(&t.ctx, set) {
                     self.counter(&mut t.ctx, id);
                 }
@@ -1448,6 +1459,19 @@ impl Game {
         }
         self.log(Event::Countered { object: id });
         self.fx_move(ctx, id, ZoneId::Graveyard(o.owner), true);
+    }
+
+    /// CR 701.6a: an ability is countered by removing it from the stack (the
+    /// most recent one with this source and ability index).
+    fn counter_ability(&mut self, source: ObjectId, ability: u8) {
+        if let Some(pos) = self
+            .stack
+            .iter()
+            .rposition(|s| s.object == source && s.ability == Some(ability))
+        {
+            self.stack.remove(pos);
+            self.log(Event::Countered { object: source });
+        }
     }
 
     fn discard(&mut self, t: &mut EffectTask, p: PlayerId, what: &DiscardSpec) {

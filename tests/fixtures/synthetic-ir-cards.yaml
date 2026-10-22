@@ -688,3 +688,29 @@
     - spell:
         effect:
           exile: { what: { top_of_library: { owner: you, count: 1 } }, face_down: true }
+
+# ---- ward and protection (M4 4.4) --------------------------------------------
+
+- name: Test Warden
+  cost: "{1}{U}"
+  types: Creature — Spirit
+  pt: [1, 1]
+  abilities:
+    - keyword: { ward: [{ mana: "{2}" }] }
+
+- name: Test Pinger
+  cost: "{1}{R}"
+  types: Creature — Goblin
+  pt: [1, 1]
+  abilities:
+    - activated:
+        cost: [tap]
+        targets: [{ what: any }]
+        effect: { deal_damage: { to: { target: 0 }, amount: 1 } }
+
+- name: Test Paladin
+  cost: "{1}{W}"
+  types: Creature — Human Knight
+  pt: [2, 2]
+  abilities:
+    - keyword: { protection: { color: R } }

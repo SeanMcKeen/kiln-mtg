@@ -304,8 +304,17 @@ impl Game {
     // ---- castability (exact, before offering) ------------------------------
 
     /// Whether a target slot can be satisfied ("up to N" slots always can).
-    fn slot_ok(&self, spec: &TargetSpec, p: PlayerId, this: Option<ObjectId>) -> bool {
-        spec.up_to.is_some() || !self.legal_targets(&spec.what, p, this).is_empty()
+    fn slot_ok(
+        &self,
+        spec: &TargetSpec,
+        p: PlayerId,
+        this: Option<ObjectId>,
+        src: &CardDef,
+    ) -> bool {
+        spec.up_to.is_some()
+            || !self
+                .legal_targets(&spec.what, p, this, Some(src))
+                .is_empty()
     }
 
     /// The modes of a modal spell whose targets can be chosen.
@@ -321,7 +330,7 @@ impl Game {
                 .targets
                 .iter()
                 .enumerate()
-                .all(|(i, t)| mask & (1 << i) == 0 || self.slot_ok(t, p, this))
+                .all(|(i, t)| mask & (1 << i) == 0 || self.slot_ok(t, p, this, def))
         };
         (0..def.mode_slots.len())
             .filter(|m| slots_ok(def.mode_slots[*m]))
@@ -374,7 +383,7 @@ impl Game {
                 if self.ok_modes(def, spell, p, None).len() < *min as usize {
                     return false;
                 }
-            } else if !spell.targets.iter().all(|t| self.slot_ok(t, p, None)) {
+            } else if !spell.targets.iter().all(|t| self.slot_ok(t, p, None, def)) {
                 return false;
             }
         }
@@ -418,7 +427,7 @@ impl Game {
         {
             return false;
         }
-        if !x.targets.iter().all(|t| self.slot_ok(t, p, None)) {
+        if !x.targets.iter().all(|t| self.slot_ok(t, p, None, def)) {
             return false;
         }
         let ctx = cast_ctx(def_id, def, Some(ability), source, p);
@@ -646,7 +655,7 @@ impl Game {
                 let min = usize::from(spec.up_to.is_none());
                 // CR 115.3: the same target can't be chosen twice for one "target".
                 let candidates: Vec<Target> = self
-                    .legal_targets(&spec.what, t.caster, Some(t.spell))
+                    .legal_targets(&spec.what, t.caster, Some(t.spell), Some(def))
                     .into_iter()
                     .filter(|c| !chosen.contains(c))
                     .collect();
@@ -708,7 +717,7 @@ impl Game {
                 }
             }
             // A triggered ability is simply on the stack now (CR 603.3d).
-            CastStage::Done if item.trigger.is_some() => {}
+            CastStage::Done if item.trigger.is_some() => self.became_targets(&item, t.caster),
             CastStage::Done => match item.ability {
                 // CR 601.2i: the spell becomes cast.
                 None => {
@@ -720,6 +729,7 @@ impl Game {
                         object: t.spell,
                         def: def_id,
                     });
+                    self.became_targets(&item, t.caster);
                 }
                 // CR 602.2b (applying 601.2i): the ability becomes activated.
                 Some(ability) => {
@@ -732,8 +742,32 @@ impl Game {
                         def: def_id,
                         ability,
                     });
+                    self.became_targets(&item, t.caster);
                 }
             },
+        }
+    }
+
+    /// Each permanent a spell or ability targets "becomes the target" once
+    /// (CR 115.1, 702.21a); only logged when something could trigger.
+    fn became_targets(&mut self, item: &StackItem, controller: PlayerId) {
+        if !self.pool.has_triggers() {
+            return;
+        }
+        let mut seen: SmallVec<[ObjectId; 4]> = SmallVec::new();
+        for t in &item.targets {
+            if let Target::Object(id) = *t
+                && !seen.contains(&id)
+                && self.obj(id).is_some_and(|o| o.zone == ZoneId::Battlefield)
+            {
+                seen.push(id);
+                self.log(Event::BecameTarget {
+                    target: id,
+                    source: item.object,
+                    ability: item.ability,
+                    controller,
+                });
+            }
         }
     }
 

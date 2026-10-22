@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: Ward counters an opponent's spell that targets it when the cost can't be paid
+cr: ["702.21a", "701.6a", "118.12"]
+players:
+  - battlefield: [Test Mountain]
+    hand: [Test Bolt]
+  - battlefield: [Test Warden]
+script:
+  - choose: Cast Test Bolt
+  - choose: Target Test Warden (P2)
+  - choose: Pay with Test Mountain
+  # The ward trigger goes on the stack above the Bolt; P1 can't pay {2}.
+  - pass_all
+  - pass_all
+expect:
+  zones:
+    P2.battlefield: [Test Warden]
+    P1.graveyard: [Test Bolt]
+  life: { P2: 20 }

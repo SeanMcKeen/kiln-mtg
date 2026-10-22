@@ -225,6 +225,12 @@ pub enum Trigger {
     Discards {
         by: PlayerRel,
     },
+    /// "Whenever [object] becomes the target of a spell or ability [player]
+    /// controls" (ward, CR 702.21a).
+    BecomesTarget {
+        by: PlayerRel,
+        what: ObjectFilter,
+    },
     /// "Whenever [player] taps [object] for mana" (CR 605.1b).
     TapsForMana {
         by: PlayerRel,
