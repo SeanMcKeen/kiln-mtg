@@ -353,6 +353,25 @@ fn permanent_kind(def: &CardDef) -> Check {
 
 /// The rule statics M4 implements as engine checks (M4 plan R5).
 fn rule_static(s: &StaticAbility) -> Check {
+    if crate::layers::is_layer_static(&s.effect) {
+        if let Some(c) = &s.condition {
+            condition(c)?;
+        }
+        return layer_static(&s.effect);
+    }
+    // Restrictions the engine checks while offering actions (CR 613.11).
+    match &s.effect {
+        StaticEffect::CantCast { .. } | StaticEffect::CantActivate { .. } => {
+            if let Some(c) = &s.condition {
+                condition(c)?;
+            }
+            return Ok(());
+        }
+        StaticEffect::Rule(RuleMod::CreaturesEnteringDontTrigger) if s.condition.is_none() => {
+            return Ok(());
+        }
+        _ => {}
+    }
     if s.condition.is_some() {
         return Err("static abilities (M5)".into());
     }
@@ -363,6 +382,36 @@ fn rule_static(s: &StaticAbility) -> Check {
             ..
         } => Ok(()),
         StaticEffect::SkipStep { .. } => Err("skipping a step other than the draw step".into()),
+        _ => Err("static abilities (M5)".into()),
+    }
+}
+
+/// Static abilities the layers apply (CR 613; M5 plan L5).
+fn layer_static(e: &StaticEffect) -> Check {
+    match e {
+        StaticEffect::Multi(v) => v.iter().try_for_each(|e| match e {
+            StaticEffect::Multi(_) => Err("nested multi-part statics".into()),
+            e => layer_static(e),
+        }),
+        StaticEffect::AddTypes { types, .. } => {
+            for w in types {
+                if !CardType::ALL
+                    .iter()
+                    .any(|t| t.word().eq_ignore_ascii_case(w))
+                {
+                    return Err(format!("unknown card type {w}"));
+                }
+            }
+            Ok(())
+        }
+        StaticEffect::Grant { keyword, .. } => match Keywords::of_ir(keyword) {
+            Some(bit) if IMPLEMENTED_KEYWORDS.contains(&bit) => Ok(()),
+            _ => Err(format!("granting {}", keyword_gap(keyword))),
+        },
+        StaticEffect::LandType { .. }
+        | StaticEffect::LoseAllAbilities { .. }
+        | StaticEffect::SetBasePt { .. }
+        | StaticEffect::Pump { .. } => Ok(()),
         _ => Err("static abilities (M5)".into()),
     }
 }

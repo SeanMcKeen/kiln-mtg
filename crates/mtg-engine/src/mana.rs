@@ -11,7 +11,7 @@
 
 use std::collections::BTreeSet;
 
-use mtg_core::{CardType, ManaCost, ManaSymbol, ObjectId, PlayerId};
+use mtg_core::{ManaCost, ManaSymbol, ObjectId, PlayerId};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
@@ -414,22 +414,19 @@ impl Game {
                 continue;
             }
             let Some(o) = self.obj(id) else { continue };
-            if o.controller != p || o.tapped {
+            if o.controller != p || o.tapped || !self.activation_allowed(p, id) {
                 continue;
             }
-            let def = self.def(o.def);
+            let mana = self.mana_abilities_of(id);
             // CR 302.6: a creature's {T} abilities need it under control since the turn began.
-            if def.mana_abilities.is_empty()
-                || (def.is(CardType::Creature) && self.is_summoning_sick(id))
-            {
+            if mana.is_empty() || (self.is_creature(id) && self.is_summoning_sick(id)) {
                 continue;
             }
-            let abilities: SmallVec<[(u8, Bags); 2]> = def
-                .mana_abilities
+            let abilities: SmallVec<[(u8, Bags); 2]> = mana
                 .iter()
                 .enumerate()
-                .filter(|(_, m)| m.tap_only)
-                .filter_map(|(i, m)| Some((u8::try_from(i).ok()?, m.bags.clone())))
+                .filter(|(_, (_, m))| m.tap_only)
+                .filter_map(|(i, (_, m))| Some((u8::try_from(i).ok()?, m.bags.clone())))
                 .collect();
             if abilities.is_empty() {
                 continue;
@@ -447,21 +444,60 @@ impl Game {
         out
     }
 
-    /// Whether `p` may activate mana ability `ability` (an index into the
-    /// definition's mana abilities) of `source` right now (CR 605.3a, 302.6).
+    /// The mana abilities object `id` has now (CR 605.1a), after the layers:
+    /// `(the ability, its precomputed output)`. Mana-ability indices in
+    /// actions and payment plans index this list.
+    pub(crate) fn mana_abilities_of(
+        &self,
+        id: ObjectId,
+    ) -> SmallVec<[(AbilityRef, &crate::card::ManaAbility); 2]> {
+        match self.chars(id) {
+            None => SmallVec::new(),
+            Some(crate::layers::Chars::Printed { def_id, def, .. }) => def
+                .mana_abilities
+                .iter()
+                .map(|m| {
+                    (
+                        AbilityRef {
+                            def: def_id,
+                            ability: m.ability,
+                        },
+                        m,
+                    )
+                })
+                .collect(),
+            Some(crate::layers::Chars::Computed(..)) => self
+                .abilities_of(id)
+                .into_iter()
+                .filter_map(|(r, _)| {
+                    let m = self
+                        .def(r.def)
+                        .mana_abilities
+                        .iter()
+                        .find(|m| m.ability == r.ability)?;
+                    Some((r, m))
+                })
+                .collect(),
+        }
+    }
+
+    /// Whether `p` may activate mana ability `ability` (an index into
+    /// [`Game::mana_abilities_of`]) of `source` right now (CR 605.3a, 302.6).
     pub(crate) fn can_activate_mana(&self, p: PlayerId, source: ObjectId, ability: u8) -> bool {
         let Some(o) = self.obj(source) else {
             return false;
         };
-        if o.controller != p || o.zone != crate::state::ZoneId::Battlefield {
+        if o.controller != p
+            || o.zone != crate::state::ZoneId::Battlefield
+            || !self.activation_allowed(p, source)
+        {
             return false;
         }
-        let def = self.def(o.def);
-        let Some(m) = def.mana_abilities.get(usize::from(ability)) else {
+        let list = self.mana_abilities_of(source);
+        let Some(&(r, _)) = list.get(usize::from(ability)) else {
             return false;
         };
-        let Some(mtg_cards::ir::Ability::Activated(x)) = def.abilities.get(usize::from(m.ability))
-        else {
+        let Some(mtg_cards::ir::Ability::Activated(x)) = self.ability_at(r) else {
             return false;
         };
         let taps = x.cost.iter().any(|c| {
@@ -470,17 +506,10 @@ impl Game {
                 mtg_cards::ir::CostPart::Tap | mtg_cards::ir::CostPart::Untap
             )
         });
-        if taps && def.is(CardType::Creature) && self.is_summoning_sick(source) {
+        if taps && self.is_creature(source) && self.is_summoning_sick(source) {
             return false;
         }
-        let ctx = EffectCtx::new(
-            AbilityRef {
-                def: o.def,
-                ability: m.ability,
-            },
-            source,
-            p,
-        );
+        let ctx = EffectCtx::new(r, source, p);
         self.can_pay(&ctx, p, &x.cost)
     }
 
@@ -492,22 +521,16 @@ impl Game {
         let Some(o) = self.obj(source).copied() else {
             return;
         };
-        let def = self.def(o.def);
-        let Some(m) = def.mana_abilities.get(usize::from(ability)) else {
+        let Some(&(r, _)) = self.mana_abilities_of(source).get(usize::from(ability)) else {
             return;
         };
-        let Some(mtg_cards::ir::Ability::Activated(x)) = def.abilities.get(usize::from(m.ability))
+        let pool = std::sync::Arc::clone(&self.pool);
+        let Some(mtg_cards::ir::Ability::Activated(x)) =
+            pool.get(r.def).abilities.get(usize::from(r.ability))
         else {
             return;
         };
-        let mut ctx = EffectCtx::new(
-            AbilityRef {
-                def: o.def,
-                ability: m.ability,
-            },
-            source,
-            o.controller,
-        );
+        let mut ctx = EffectCtx::new(r, source, o.controller);
         ctx.forced_mana = forced;
         ctx.tapped_for_mana = x
             .cost

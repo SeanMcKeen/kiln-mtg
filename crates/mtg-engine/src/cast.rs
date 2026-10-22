@@ -375,6 +375,9 @@ impl Game {
             return false;
         };
         let def = self.def(def_id);
+        if !self.cast_allowed(p, id) {
+            return false;
+        }
         // CR 117.1a, 702.8a: instants and flash any time the player has
         // priority; everything else at sorcery timing.
         if !(def.is(CardType::Instant) || def.keywords.has(Keywords::FLASH)) && !sorcery_timing {
@@ -406,10 +409,15 @@ impl Game {
             return false;
         };
         // CR 602.2: only the controller of the source may activate it.
-        if o.controller != p || o.zone != ZoneId::Battlefield {
+        if o.controller != p || o.zone != ZoneId::Battlefield || !self.activation_allowed(p, source)
+        {
             return false;
         }
-        let def_id = o.def;
+        // `ability` indexes the object's current abilities (CR 613).
+        let Some(&(r, _)) = self.abilities_of(source).get(usize::from(ability)) else {
+            return false;
+        };
+        let (def_id, ability) = (r.def, r.ability);
         let def = self.def(def_id);
         let Some(x) = activated(def, ability) else {
             return false;
@@ -424,7 +432,7 @@ impl Game {
         }
         // CR 302.6: a creature's {T}/{Q} abilities need it under control since the turn began.
         if taps_source(def, Some(ability))
-            && def.is(CardType::Creature)
+            && self.is_creature(source)
             && self.is_summoning_sick(source)
         {
             return false;
@@ -440,12 +448,12 @@ impl Game {
 
     /// CR 602.2a: put the ability on the stack and start the activation procedure.
     pub(crate) fn begin_activate(&mut self, p: PlayerId, source: ObjectId, ability: u8) {
-        let Some(def) = self.obj(source).map(|o| o.def) else {
+        let Some(&(r, _)) = self.abilities_of(source).get(usize::from(ability)) else {
             return;
         };
         self.turn.priority = Some(p);
         self.stack
-            .push(StackItem::new(source, def, Some(ability), p));
+            .push(StackItem::new(source, r.def, Some(r.ability), p));
         self.tasks.push(Task::Cast(CastTask {
             spell: source,
             caster: p,
@@ -486,6 +494,7 @@ impl Game {
         if let Some(o) = self.objects.get_mut(spell) {
             o.controller = p;
         }
+        self.bump_layers();
         let mut item = StackItem::new(spell, def, None, p);
         item.cost = CastCost::WithoutPaying;
         self.stack.push(item);
@@ -503,6 +512,9 @@ impl Game {
         let Some(def_id) = self.obj(id).map(|o| o.def) else {
             return false;
         };
+        if !self.cast_allowed(p, id) {
+            return false;
+        }
         let def = self.def(def_id);
         // CR 305.9: lands can't be cast.
         if def.is(CardType::Land) {

@@ -291,6 +291,26 @@ pub enum StaticEffect {
         affected: ObjectFilter,
         extra_cost: Vec<CostPart>,
     },
+    /// Layer 4: "[objects] are [types] in addition to their other types"
+    /// (Opalescence; amass's type change).
+    AddTypes {
+        affected: ObjectFilter,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        types: Vec<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        subtypes: Vec<String>,
+    },
+    /// Layer 6: "[objects] lose all abilities" (Humility, Dress Down).
+    LoseAllAbilities { affected: ObjectFilter },
+    /// Layer 7b: "[objects] have base power and toughness N/M" (CR 613.4b).
+    SetBasePt {
+        affected: ObjectFilter,
+        power: BasePt,
+        toughness: BasePt,
+    },
+    /// One ability whose effect applies in several layers; once it starts
+    /// applying it keeps applying to the same objects (CR 613.6).
+    Multi(Vec<StaticEffect>),
     /// Layer 4: set (or add) a land type. Blood Moon: replace = true.
     LandType {
         affected: ObjectFilter,
@@ -326,6 +346,17 @@ pub enum RuleMod {
     MayPlayExiledWithThis { any_color_mana: bool },
     /// "This spell can't be countered" (a static ability that functions on the stack, CR 101.2).
     CantBeCountered,
+    /// "Creatures entering don't cause abilities to trigger" (Torpor Orb).
+    CreaturesEnteringDontTrigger,
+}
+
+/// A base power or toughness set by a static ability (CR 613.4b).
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
+pub enum BasePt {
+    Fixed(i32),
+    /// The affected object's mana value (Opalescence).
+    ManaValue,
 }
 
 // ---- effects -----------------------------------------------------------------

@@ -1,0 +1,15 @@
+scenario: mtg-scenario/1
+name: "T51: Opalescence older than Humility: the animated enchantments end 1/1 and lose their abilities"
+cr: ["613.6", "613.7", "613.4b"]
+verifies: [Humility, Opalescence, Glorious Anthem]
+players:
+  # Opalescence, then Humility; Glorious Anthem (+1/+1, layer 7c) is animated too.
+  - battlefield: [Opalescence, Humility, Glorious Anthem, Rhystic Study, Grizzly Bears]
+  - {}
+expect:
+  pt:
+    Humility: [1, 1]
+    Rhystic Study: [1, 1]
+    Glorious Anthem: [1, 1]
+    Grizzly Bears: [1, 1]
+    Opalescence: null

@@ -180,6 +180,10 @@ pub struct Game {
     pub(crate) effects: Vec<crate::layers::ContinuousEffect>,
     /// The latest timestamp handed out (CR 613.7).
     pub(crate) timestamp: u64,
+    /// Bumped whenever characteristics may have changed (not hashed).
+    pub(crate) layer_epoch: u64,
+    /// Computed characteristics for the current epoch (not hashed).
+    pub(crate) layer_cache: crate::layers::LayerCache,
     /// "Activate only once each turn" abilities activated this turn (CR 602.5b).
     pub(crate) activated_this_turn: Vec<(ObjectId, u8)>,
     /// Counters on objects (CR 122), sorted by object and kind.
@@ -265,6 +269,8 @@ impl Game {
             event_count: 0,
             effects: Vec::new(),
             timestamp: 0,
+            layer_epoch: 0,
+            layer_cache: crate::layers::LayerCache::default(),
             activated_this_turn: Vec::new(),
             counters: Vec::new(),
             pending_triggers: Vec::new(),
@@ -650,6 +656,7 @@ impl Game {
             && self.pool.has_replacements()
             && self.enters_tapped(old.def, controller);
         let timestamp = self.next_timestamp();
+        self.bump_layers();
         let new = self.objects.alloc(GameObject {
             def: old.def,
             owner: old.owner,
@@ -770,6 +777,7 @@ impl Game {
             self.objects.free(id);
             self.drop_counters(id);
         }
+        self.bump_layers();
         let pl = self.player_mut(p);
         pl.library.clear();
         pl.hand.clear();
@@ -1091,6 +1099,8 @@ impl Game {
     }
 
     fn begin_step(&mut self) {
+        // Static conditions like "during your turn" may change.
+        self.bump_layers();
         let step = self.turn.step;
         self.turn.priority = None;
         self.turn.passes = 0;
@@ -1324,8 +1334,7 @@ impl Game {
             if o.controller != p {
                 continue;
             }
-            let def = self.def(o.def);
-            for i in 0..def.mana_abilities.len() {
+            for i in 0..self.mana_abilities_of(id).len() {
                 let ability = u8::try_from(i).unwrap_or(0);
                 if self.can_activate_mana(p, id, ability) {
                     actions.push(Action::ActivateMana {
@@ -1334,7 +1343,8 @@ impl Game {
                     });
                 }
             }
-            for (i, a) in def.abilities.iter().enumerate() {
+            // CR 613: the abilities it has now; `ability` indexes that list.
+            for (i, (_, a)) in self.abilities_of(id).into_iter().enumerate() {
                 let ability = u8::try_from(i).unwrap_or(0);
                 if let ir::Ability::Activated(x) = a
                     && !crate::card::is_mana_ability(x)
@@ -1473,6 +1483,7 @@ impl Game {
                         && let Some(o) = self.objects.get_mut(new)
                     {
                         o.controller = item.controller;
+                        self.bump_layers();
                     }
                     return;
                 }

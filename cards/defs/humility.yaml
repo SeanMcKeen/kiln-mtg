@@ -1,0 +1,12 @@
+card: Humility
+faces:
+  - abilities:
+      # One ability in layers 6 and 7b (CR 613.6).
+      - static:
+          effect:
+            multi:
+              - lose_all_abilities: { affected: { types: [creature] } }
+              - set_base_pt:
+                  affected: { types: [creature] }
+                  power: { fixed: 1 }
+                  toughness: { fixed: 1 }

@@ -159,6 +159,10 @@ pub struct Expect {
     /// Card name → expected tapped state, for the first permanent with that name.
     #[serde(default)]
     pub tapped: BTreeMap<String, bool>,
+    /// Card name → `[power, toughness]` after the layers (CR 613), or `null`
+    /// for a noncreature, for the first permanent with that name.
+    #[serde(default)]
+    pub pt: BTreeMap<String, Option<[i32; 2]>>,
     pub step: Option<String>,
     pub decision: Option<DecisionExpect>,
 }
@@ -539,6 +543,21 @@ fn check_expect(game: &Game, e: &Expect, at: &str) -> Result<(), ScenarioError> 
         if &actual != want {
             return Err(fail(format!(
                 "{p}'s mana pool is {actual:?}, expected {want:?}"
+            )));
+        }
+    }
+    for (name, want) in &e.pt {
+        let found = game
+            .objects_in(ZoneId::Battlefield)
+            .into_iter()
+            .find(|id| game.object_def(*id).is_some_and(|d| &d.name == name));
+        let Some(id) = found else {
+            return Err(fail(format!("no permanent named {name:?}")));
+        };
+        let have = game.power_toughness(id).map(|(p, t)| [p, t]);
+        if have != *want {
+            return Err(fail(format!(
+                "{name} has power/toughness {have:?}, expected {want:?}"
             )));
         }
     }

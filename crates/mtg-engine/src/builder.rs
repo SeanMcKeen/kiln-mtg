@@ -223,6 +223,8 @@ impl GameBuilder {
             event_count: 0,
             effects: Vec::new(),
             timestamp: next_ts,
+            layer_epoch: 0,
+            layer_cache: crate::layers::LayerCache::default(),
             activated_this_turn: Vec::new(),
             counters,
             pending_triggers: Vec::new(),

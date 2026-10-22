@@ -1,0 +1,10 @@
+card: Urborg, Tomb of Yawgmoth
+faces:
+  - abilities:
+      # Layer 4; a land with the Swamp type has its intrinsic mana ability (CR 305.6).
+      - static:
+          effect:
+            land_type:
+              affected: { types: [land] }
+              land_type: Swamp
+              replace: false

@@ -708,6 +708,37 @@ pub struct CardPool {
     /// without one never look for them.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     has_replacements: bool,
+    /// Whether any definition has a static ability the layers apply (CR 613);
+    /// games without one read printed characteristics directly.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    has_layer_statics: bool,
+    /// Whether any definition has a rule-modifying static ability that the
+    /// engine checks while offering actions (can't cast, can't activate,
+    /// Torpor Orb; CR 613.11).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    has_rule_statics: bool,
+    /// Hidden definitions holding each land type's intrinsic mana ability
+    /// (CR 305.6), for lands that gain the type (Blood Moon, Urborg).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    intrinsics: BTreeMap<String, DefId>,
+}
+
+/// Land types a definition's static abilities give lands (CR 305.6, 305.7).
+fn granted_land_types(abilities: &[Ability]) -> Vec<String> {
+    fn walk(e: &ir::StaticEffect, out: &mut Vec<String>) {
+        match e {
+            ir::StaticEffect::LandType { land_type, .. } => out.push(land_type.clone()),
+            ir::StaticEffect::Multi(v) => v.iter().for_each(|e| walk(e, out)),
+            _ => {}
+        }
+    }
+    let mut out = Vec::new();
+    for a in abilities {
+        if let Ability::Static(s) = a {
+            walk(&s.effect, &mut out);
+        }
+    }
+    out
 }
 
 /// The pool key of a token spec.
@@ -920,12 +951,26 @@ impl CardPool {
             .filter(|s| !self.tokens.contains_key(&token_key(s)))
             .map(|s| Ok((token_key(s), token_def(s)?)))
             .collect::<Result<_, Unsupported>>()?;
+        let granted = granted_land_types(&def.abilities);
         let id = self.push(def);
         self.by_name
             .insert(self.defs[id.0 as usize].name.clone(), id);
         for (key, t) in tokens {
             let tid = self.push(t);
             self.tokens.insert(key, tid);
+        }
+        for land_type in granted {
+            if !self.intrinsics.contains_key(&land_type) {
+                let ch = synthetic(
+                    &format!("{land_type} (intrinsic)"),
+                    None,
+                    &format!("Land — {land_type}"),
+                    None,
+                );
+                let d = CardDef::new(ch, Vec::new())?;
+                let iid = self.push(d);
+                self.intrinsics.insert(land_type, iid);
+            }
         }
         Ok(id)
     }
@@ -941,6 +986,16 @@ impl CardPool {
             .abilities
             .iter()
             .any(|a| matches!(a, Ability::Replacement(_)));
+        self.has_layer_statics |= def
+            .abilities
+            .iter()
+            .any(|a| matches!(a, Ability::Static(s) if crate::layers::is_layer_static(&s.effect)));
+        self.has_rule_statics |= def.abilities.iter().any(|a| {
+            matches!(a, Ability::Static(s) if matches!(s.effect,
+                ir::StaticEffect::CantCast { .. }
+                | ir::StaticEffect::CantActivate { .. }
+                | ir::StaticEffect::Rule(ir::RuleMod::CreaturesEnteringDontTrigger)))
+        });
         let id = DefId(u32::try_from(self.defs.len()).unwrap_or(u32::MAX));
         self.defs.push(def);
         id
@@ -954,6 +1009,23 @@ impl CardPool {
     /// Whether any definition has a replacement effect; see the field.
     pub fn has_replacements(&self) -> bool {
         self.has_replacements
+    }
+
+    /// Whether any definition has a static ability the layers apply.
+    pub fn has_layer_statics(&self) -> bool {
+        self.has_layer_statics
+    }
+
+    /// Whether any definition has a rule static the engine checks; see the field.
+    pub fn has_rule_statics(&self) -> bool {
+        self.has_rule_statics
+    }
+
+    /// The intrinsic mana ability of a land type (CR 305.6), if it has one.
+    pub(crate) fn intrinsic(&self, land_type: &str) -> Option<crate::effects::AbilityRef> {
+        let def = *self.intrinsics.get(land_type)?;
+        (!self.get(def).abilities.is_empty())
+            .then_some(crate::effects::AbilityRef { def, ability: 0 })
     }
 
     /// The definition of a token spec, added when a card that creates it was added.

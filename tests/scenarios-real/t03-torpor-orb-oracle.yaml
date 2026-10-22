@@ -1,0 +1,17 @@
+scenario: mtg-scenario/1
+name: "T03: Torpor Orb stops a creature's own enters-the-battlefield trigger (Thassa's Oracle)"
+cr: ["603.6a", "613.11"]
+verifies: [Torpor Orb, "Thassa's Oracle"]
+players:
+  - battlefield: [Torpor Orb, Island, Island]
+    hand: ["Thassa's Oracle"]
+    library: []
+  - {}
+script:
+  - choose: "Cast Thassa's Oracle"
+  - choose: Pay with Island, Island
+  - pass_all
+  - check:
+      decision: { player: P1, kind: priority }
+expect:
+  result: in_progress

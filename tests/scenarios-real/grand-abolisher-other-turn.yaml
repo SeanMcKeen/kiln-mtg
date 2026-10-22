@@ -1,0 +1,17 @@
+scenario: mtg-scenario/1
+name: "Grand Abolisher: on an opponent's own turn the restriction doesn't apply"
+cr: ["613.11", "611.3a"]
+verifies: [Grand Abolisher]
+players:
+  - battlefield: [Grand Abolisher]
+  - battlefield: [Mountain, Sol Ring]
+    hand: [Lightning Bolt]
+turn: { number: 2, active: P2, step: upkeep }
+script:
+  - check:
+      decision:
+        player: P2
+        kind: priority
+        options_include: [Cast Lightning Bolt, "Tap Sol Ring for {C}{C}"]
+expect:
+  result: in_progress

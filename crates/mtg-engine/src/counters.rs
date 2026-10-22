@@ -33,6 +33,7 @@ impl Game {
 
     /// CR 122.6: put counters on a permanent.
     pub(crate) fn add_counters(&mut self, id: ObjectId, kind: CounterKind, n: u32) {
+        self.bump_layers();
         if n == 0 || !self.obj(id).is_some_and(|o| o.zone == ZoneId::Battlefield) {
             return;
         }
@@ -57,6 +58,7 @@ impl Game {
 
     /// Removes up to `n` counters; returns how many were removed (CR 609.3).
     pub(crate) fn remove_counters(&mut self, id: ObjectId, kind: CounterKind, n: u32) -> u32 {
+        self.bump_layers();
         let Some(pos) = self
             .counters
             .iter()
@@ -98,6 +100,7 @@ impl Game {
 
     /// CR 111.2: creates `n` tokens owned and controlled by `owner`, on the battlefield.
     pub(crate) fn create_tokens(&mut self, def: DefId, owner: PlayerId, n: u32) {
+        self.bump_layers();
         for _ in 0..n {
             let timestamp = self.next_timestamp();
             let id = self.objects.alloc(GameObject {
@@ -144,6 +147,7 @@ impl Game {
         self.detach_object(id, zone);
         self.objects.free(id);
         self.drop_counters(id);
+        self.bump_layers();
         self.tokens_off_field.retain(|x| *x != id);
         if !self.copies.is_empty() {
             self.copies.retain(|x| *x != id);

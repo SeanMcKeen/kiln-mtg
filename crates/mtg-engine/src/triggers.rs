@@ -174,7 +174,7 @@ impl Game {
                     _ => None,
                 })
                 .collect(),
-            Some(crate::layers::Chars::Computed(_)) => self
+            Some(crate::layers::Chars::Computed(..)) => self
                 .abilities_of(id)
                 .into_iter()
                 .filter_map(|(r, a)| match a {
@@ -349,7 +349,8 @@ impl Game {
                 } else {
                     self.matches_filter(*id, f, you, Some(source))
                 };
-                ok.then(|| seen(Some(*id), Some(o.controller)))
+                // Torpor Orb (CR 613.11): creatures entering don't trigger.
+                (ok && self.entering_triggers(*id)).then(|| seen(Some(*id), Some(o.controller)))
             }
             // CR 700.4: "dies" means put into a graveyard from the battlefield.
             (

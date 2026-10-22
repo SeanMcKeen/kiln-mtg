@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: "T50: Blood Moon makes Urborg a Mountain without abilities, so no land is a Swamp (Urborg depends on Blood Moon)"
+cr: ["613.8a", "613.8b", "305.7", "305.6"]
+verifies: [Blood Moon, "Urborg, Tomb of Yawgmoth"]
+players:
+  - battlefield: [Blood Moon, "Urborg, Tomb of Yawgmoth", Island, Underground Sea]
+  - {}
+script:
+  - check:
+      decision:
+        player: P1
+        kind: priority
+        options_include:
+          - "Tap Urborg, Tomb of Yawgmoth for {R}"
+          - "Tap Island for {U}"
+          - "Tap Underground Sea for {R}"
+        options_exclude: ["Tap Island for mana"]
+expect:
+  result: in_progress

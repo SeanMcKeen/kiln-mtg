@@ -170,9 +170,8 @@ impl Game {
                 Action::PlayLand(id) => format!("Play {}", name(id)),
                 Action::Cast(id) => format!("Cast {}", name(id)),
                 Action::ActivateMana { source, ability } => {
-                    let m = self
-                        .obj_def(source)
-                        .and_then(|def| def.mana_abilities.get(ability as usize));
+                    let list = self.mana_abilities_of(source);
+                    let m = list.get(ability as usize).map(|(_, m)| *m);
                     let verb = if m.is_some_and(|m| m.tap_only) {
                         "Tap"
                     } else {
@@ -376,6 +375,18 @@ impl<'g> PlayerView<'g> {
         } else {
             None
         }
+    }
+
+    /// Ability `i` of a visible object as it is now (CR 613): the index an
+    /// `Action::Activate` carries.
+    pub fn object_ability(&self, id: ObjectId, i: u8) -> Option<&'g mtg_cards::ir::Ability> {
+        if !self.can_see(id) {
+            return None;
+        }
+        self.game
+            .abilities_of(id)
+            .get(usize::from(i))
+            .map(|(_, a)| *a)
     }
 
     pub fn object(&self, id: ObjectId) -> Option<VisibleObject> {

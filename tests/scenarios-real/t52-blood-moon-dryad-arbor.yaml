@@ -1,0 +1,16 @@
+scenario: mtg-scenario/1
+name: "T52: Dryad Arbor under Blood Moon is a Mountain (not a Forest) that taps for {R}, still a Dryad creature"
+cr: ["305.7", "613.1d"]
+verifies: [Blood Moon, Dryad Arbor]
+players:
+  - battlefield: [Blood Moon, Dryad Arbor]
+  - {}
+script:
+  - check:
+      decision:
+        player: P1
+        kind: priority
+        options_include: ["Tap Dryad Arbor for {R}"]
+        options_exclude: ["Tap Dryad Arbor for {G}"]
+expect:
+  pt: { Dryad Arbor: [1, 1] }

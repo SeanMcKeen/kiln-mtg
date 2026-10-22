@@ -1,0 +1,5 @@
+card: Glorious Anthem
+faces:
+  - abilities:
+      - static:
+          effect: { pump: { affected: { types: [creature], controller: you }, power: 1, toughness: 1 } }

@@ -1,0 +1,14 @@
+card: Opalescence
+faces:
+  - abilities:
+      # One ability in layers 4 and 7b (CR 613.6).
+      - static:
+          effect:
+            multi:
+              - add_types:
+                  affected: { types: [enchantment], not_subtypes: [Aura], other: true }
+                  types: [creature]
+              - set_base_pt:
+                  affected: { types: [enchantment], not_subtypes: [Aura], other: true }
+                  power: mana_value
+                  toughness: mana_value

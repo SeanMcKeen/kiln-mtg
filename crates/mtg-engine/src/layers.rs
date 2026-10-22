@@ -1,26 +1,35 @@
 //! Continuous effects and the layer system (CR 611, 613;
 //! `docs/03 Architecture/Subsystems/Continuous Effects & Layers.md`, M5 plan L1–L6).
 //!
-//! An object's characteristics are computed: its copiable values (its
-//! definition, CR 707.2) transformed by the continuous effects that apply to
-//! it, layer by layer (CR 613.1). Effects created by resolving spells and
-//! abilities are stored with a timestamp and lock in what they affect
-//! (CR 611.2c). When nothing applies to an object, its characteristics are
-//! its printed values and are read straight from the definition (the fast
-//! path every game without continuous effects takes).
+//! Characteristics are computed for the whole battlefield at once, because
+//! one permanent's static abilities change others (and may remove each
+//! other's abilities: dependencies, CR 613.8). The result is cached per
+//! "layer epoch": every mutation that can change characteristics bumps the
+//! epoch, and the next read recomputes. An invariant check compares the cache
+//! with a fresh computation, so a missed bump shows up in fuzzing.
+//!
+//! When no continuous effect exists in the game (no stored effects and no
+//! card in the pool with a layer static), characteristics are read straight
+//! from the definitions: the fast path most games take.
+//!
+//! Layers applied: 4 (types), 6 (abilities), 7b (set P/T), 7c (modify P/T,
+//! counters). Layer 1 (copy) and 2 (control) arrive in M5 5.3–5.4; 3, 5, 7a
+//! and 7d have no supported effects yet.
 
-use mtg_core::{CardType, Colors, ObjectId, PlayerId, TypeLine};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
+
+use mtg_cards::ir::{Ability, BasePt, Condition, ObjectFilter, StaticEffect};
+use mtg_core::{CardType, Color, Colors, ObjectId, PlayerId, Subtype, Supertype, TypeLine};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
-use mtg_cards::ir::Ability;
-
 use crate::card::{CardDef, DefId, Keywords};
-use crate::effects::AbilityRef;
+use crate::effects::{AbilityRef, EffectCtx};
 use crate::engine::Game;
 use crate::state::ZoneId;
 
-/// What a continuous effect does, by layer (CR 613.1).
+/// What a stored continuous effect does, by layer (CR 613.1).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub(crate) enum LayerEffect {
     /// Layer 7c: "+N/+M" (CR 613.4c).
@@ -46,7 +55,7 @@ pub(crate) struct ContinuousEffect {
 }
 
 /// An object's characteristics after the layers (CR 613).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Characteristics {
     /// The definition supplying the copiable values (layer 1, CR 707.2).
     pub def: DefId,
@@ -60,6 +69,45 @@ pub(crate) struct Characteristics {
     pub controller: PlayerId,
 }
 
+/// The battlefield's characteristics where the layers changed them.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct LayerState {
+    epoch: u64,
+    /// Sorted by id; objects not listed have their printed values.
+    changed: Vec<(ObjectId, Characteristics)>,
+    /// Rule-modifying statics whose conditions hold (CR 613.11): source,
+    /// its controller, the ability.
+    pub(crate) rules: Vec<(ObjectId, PlayerId, AbilityRef)>,
+}
+
+/// The cached [`LayerState`]. Not part of the game state: a clone starts
+/// empty and recomputes on first use. `computing` is set while the layers
+/// are being applied: reads made then (a static ability's condition) see
+/// printed values instead of recursing.
+#[derive(Debug)]
+pub(crate) struct LayerCache {
+    state: Mutex<Option<Arc<LayerState>>>,
+    computing: AtomicBool,
+    /// The epoch whose computation changed nothing (reads then skip the lock).
+    empty_at: AtomicU64,
+}
+
+impl Default for LayerCache {
+    fn default() -> Self {
+        Self {
+            state: Mutex::default(),
+            computing: AtomicBool::new(false),
+            empty_at: AtomicU64::new(u64::MAX),
+        }
+    }
+}
+
+impl Clone for LayerCache {
+    fn clone(&self) -> Self {
+        Self::default()
+    }
+}
+
 /// Characteristics as read: the printed values when no continuous effect
 /// applies, otherwise computed.
 #[derive(Debug)]
@@ -69,14 +117,21 @@ pub(crate) enum Chars<'g> {
         def: &'g CardDef,
         controller: PlayerId,
     },
-    Computed(Box<Characteristics>),
+    Computed(Arc<LayerState>, usize),
 }
 
 impl Chars<'_> {
+    fn computed(&self) -> Option<&Characteristics> {
+        match self {
+            Chars::Printed { .. } => None,
+            Chars::Computed(s, i) => Some(&s.changed[*i].1),
+        }
+    }
+
     pub fn type_line(&self) -> &TypeLine {
         match self {
             Chars::Printed { def, .. } => &def.type_line,
-            Chars::Computed(c) => &c.type_line,
+            Chars::Computed(s, i) => &s.changed[*i].1.type_line,
         }
     }
 
@@ -87,23 +142,110 @@ impl Chars<'_> {
     pub fn colors(&self) -> Colors {
         match self {
             Chars::Printed { def, .. } => def.colors,
-            Chars::Computed(c) => c.colors,
+            Chars::Computed(..) => self.computed().map_or(Colors::COLORLESS, |c| c.colors),
         }
     }
 
     pub fn keywords(&self) -> Keywords {
         match self {
             Chars::Printed { def, .. } => def.keywords,
-            Chars::Computed(c) => c.keywords,
+            Chars::Computed(..) => self.computed().map(|c| c.keywords).unwrap_or_default(),
         }
     }
 
     pub fn controller(&self) -> PlayerId {
         match self {
             Chars::Printed { controller, .. } => *controller,
-            Chars::Computed(c) => c.controller,
+            Chars::Computed(..) => self.computed().map_or(PlayerId(0), |c| c.controller),
         }
     }
+}
+
+/// CR 205.3i: the land types.
+const LAND_TYPES: [&str; 17] = [
+    "Cave",
+    "Desert",
+    "Forest",
+    "Gate",
+    "Island",
+    "Lair",
+    "Locus",
+    "Mine",
+    "Mountain",
+    "Plains",
+    "Planet",
+    "Power-Plant",
+    "Sphere",
+    "Swamp",
+    "Tower",
+    "Town",
+    "Urza's",
+];
+
+/// One continuous effect as the layers see it.
+struct Live<'a> {
+    timestamp: u64,
+    /// The static ability generating it (`None` for a stored effect).
+    source: Option<(ObjectId, AbilityRef)>,
+    controller: PlayerId,
+    condition: Option<&'a Condition>,
+    /// Its parts, each in one layer (CR 613.6).
+    parts: SmallVec<[Part<'a>; 2]>,
+    /// Set once the effect starts applying (CR 613.6, 611.2c).
+    set: Option<SmallVec<[ObjectId; 8]>>,
+}
+
+#[derive(Clone, Copy)]
+enum Part<'a> {
+    Static(&'a StaticEffect),
+    Stored(&'a ContinuousEffect),
+}
+
+/// The layer a part applies in (CR 613.1, 613.4): 4, 6, 72 (7b) or 73 (7c).
+fn layer_of(p: Part<'_>) -> Option<u8> {
+    match p {
+        Part::Stored(e) => match e.effect {
+            LayerEffect::ModifyPt { .. } => Some(73),
+        },
+        Part::Static(s) => match s {
+            StaticEffect::LandType { .. } | StaticEffect::AddTypes { .. } => Some(4),
+            StaticEffect::LoseAllAbilities { .. } | StaticEffect::Grant { .. } => Some(6),
+            StaticEffect::SetBasePt { .. } => Some(72),
+            StaticEffect::Pump { .. } => Some(73),
+            _ => None,
+        },
+    }
+}
+
+fn filter_of<'a>(p: Part<'a>) -> Option<&'a ObjectFilter> {
+    match p {
+        Part::Stored(_) => None,
+        Part::Static(
+            StaticEffect::LandType { affected, .. }
+            | StaticEffect::AddTypes { affected, .. }
+            | StaticEffect::LoseAllAbilities { affected }
+            | StaticEffect::Grant { affected, .. }
+            | StaticEffect::SetBasePt { affected, .. }
+            | StaticEffect::Pump { affected, .. },
+        ) => Some(affected),
+        Part::Static(_) => None,
+    }
+}
+
+/// Whether a static effect changes characteristics (so the layers handle it).
+pub(crate) fn is_layer_static(e: &StaticEffect) -> bool {
+    match e {
+        StaticEffect::Multi(v) => v.iter().any(is_layer_static),
+        e => layer_of(Part::Static(e)).is_some(),
+    }
+}
+
+/// The working state of the computation: battlefield order, printed values.
+#[derive(Clone)]
+struct Board {
+    ids: Vec<ObjectId>,
+    chars: Vec<Characteristics>,
+    touched: Vec<bool>,
 }
 
 impl Game {
@@ -113,10 +255,16 @@ impl Game {
         self.timestamp
     }
 
-    /// Whether any continuous effect applies to `id` (so its printed values
-    /// aren't its characteristics).
-    fn affected(&self, id: ObjectId) -> bool {
-        self.effects.iter().any(|e| e.affected.contains(&id))
+    /// Characteristics may have changed: the next read recomputes.
+    #[inline]
+    pub(crate) fn bump_layers(&mut self) {
+        self.layer_epoch += 1;
+    }
+
+    /// Whether the layers can change anything in this game.
+    #[inline]
+    pub(crate) fn layers_live(&self) -> bool {
+        !self.effects.is_empty() || self.pool.has_layer_statics()
     }
 
     /// Object `id`'s characteristics (CR 613). Layers apply to permanents
@@ -124,25 +272,101 @@ impl Game {
     #[inline]
     pub(crate) fn chars(&self, id: ObjectId) -> Option<Chars<'_>> {
         let o = self.obj(id)?;
-        let def = self.def(o.def);
-        if self.effects.is_empty() || o.zone != ZoneId::Battlefield || !self.affected(id) {
-            return Some(Chars::Printed {
-                def_id: o.def,
-                def,
-                controller: o.controller,
-            });
+        let printed = || Chars::Printed {
+            def_id: o.def,
+            def: self.def(o.def),
+            controller: o.controller,
+        };
+        if !self.layers_live()
+            || o.zone != ZoneId::Battlefield
+            || self.layer_cache.computing.load(Ordering::Relaxed)
+            || self.layer_cache.empty_at.load(Ordering::Relaxed) == self.layer_epoch
+        {
+            return Some(printed());
         }
-        Some(Chars::Computed(Box::new(self.compute(id))))
+        let state = self.layer_state();
+        match state.changed.binary_search_by_key(&id, |(k, _)| *k) {
+            Ok(i) => Some(Chars::Computed(state, i)),
+            Err(_) => Some(printed()),
+        }
     }
 
-    /// Applies the layers to `id`'s printed values (CR 613.1).
-    fn compute(&self, id: ObjectId) -> Characteristics {
-        let o = self
-            .obj(id)
-            .copied()
-            .unwrap_or_else(|| unreachable!("checked by chars()"));
+    /// The cached layer state, recomputed if the epoch moved.
+    fn layer_state(&self) -> Arc<LayerState> {
+        let lock = || {
+            self.layer_cache
+                .state
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+        };
+        if let Some(s) = lock().as_ref()
+            && s.epoch == self.layer_epoch
+        {
+            return Arc::clone(s);
+        }
+        // Not holding the lock: computing may read characteristics.
+        self.layer_cache.computing.store(true, Ordering::Relaxed);
+        let s = Arc::new(self.compute_layers());
+        self.layer_cache.computing.store(false, Ordering::Relaxed);
+        if s.changed.is_empty() {
+            self.layer_cache
+                .empty_at
+                .store(self.layer_epoch, Ordering::Relaxed);
+        }
+        *lock() = Some(Arc::clone(&s));
+        s
+    }
+
+    /// Invariant: the cache matches a fresh computation (a missed epoch bump
+    /// would show as a difference).
+    /// `None` if fresh; otherwise what differs.
+    pub(crate) fn layer_cache_diff(&self) -> Option<String> {
+        if !self.layers_live() {
+            return None;
+        }
+        let cached = self
+            .layer_cache
+            .state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()?;
+        if cached.epoch != self.layer_epoch {
+            return None;
+        }
+        self.layer_cache.computing.store(true, Ordering::Relaxed);
+        let fresh = self.compute_layers();
+        self.layer_cache.computing.store(false, Ordering::Relaxed);
+        if *cached == fresh {
+            return None;
+        }
+        let name = |id: ObjectId| {
+            self.obj(id).map_or_else(
+                || format!("{id}"),
+                |o| format!("{id} {}", self.def(o.def).name),
+            )
+        };
+        let mut out = Vec::new();
+        for (id, c) in &cached.changed {
+            match fresh.changed.iter().find(|(f, _)| f == id) {
+                None => out.push(format!("{} only cached: {c:?}", name(*id))),
+                Some((_, f)) if f != c => {
+                    out.push(format!("{}: cached {c:?} fresh {f:?}", name(*id)));
+                }
+                Some(_) => {}
+            }
+        }
+        for (id, f) in &fresh.changed {
+            if !cached.changed.iter().any(|(c, _)| c == id) {
+                out.push(format!("{} only fresh: {f:?}", name(*id)));
+            }
+        }
+        Some(out.join("; "))
+    }
+
+    fn printed_chars(&self, id: ObjectId) -> Option<Characteristics> {
+        let o = self.obj(id)?;
         let def = self.def(o.def);
-        let mut c = Characteristics {
+        Some(Characteristics {
             def: o.def,
             type_line: def.type_line.clone(),
             colors: def.colors,
@@ -157,29 +381,401 @@ impl Game {
             power: def.power,
             toughness: def.toughness,
             controller: o.controller,
-        };
-        // Layer 7c (CR 613.4c): counters, then modifications in timestamp
-        // order (they commute).
-        let counters = self.counter_pt(id);
-        let mut dp = counters;
-        let mut dt = counters;
-        let mut effects: SmallVec<[&ContinuousEffect; 4]> = self
-            .effects
+        })
+    }
+
+    /// Applies the layers to the whole battlefield (CR 613.1–613.8).
+    fn compute_layers(&self) -> LayerState {
+        let mut live = self.live_effects();
+        // Nothing to apply: every permanent has its printed values (counters
+        // are added on the printed path).
+        if live.is_empty() {
+            return LayerState {
+                epoch: self.layer_epoch,
+                changed: Vec::new(),
+                rules: self.compute_rules(&[]),
+            };
+        }
+        let ids: Vec<ObjectId> = self.battlefield.clone();
+        let chars: Vec<Characteristics> = ids
             .iter()
-            .filter(|e| e.affected.contains(&id))
+            .filter_map(|id| self.printed_chars(*id))
             .collect();
-        effects.sort_by_key(|e| e.timestamp);
-        for e in effects {
-            match e.effect {
-                LayerEffect::ModifyPt { power, toughness } => {
-                    dp += power;
-                    dt += toughness;
+        let n = chars.len();
+        let mut board = Board {
+            ids,
+            chars,
+            touched: vec![false; n],
+        };
+        // Layers in order; 7c also holds counters (CR 613.4c).
+        for layer in [4u8, 6, 72, 73] {
+            let mut done: SmallVec<[usize; 8]> = SmallVec::new();
+            loop {
+                let cands: SmallVec<[usize; 8]> = (0..live.len())
+                    .filter(|i| !done.contains(i))
+                    .filter(|&i| live[i].parts.iter().any(|p| layer_of(*p) == Some(layer)))
+                    .filter(|&i| live[i].set.is_some() || self.exists(&board, &live[i]))
+                    .collect();
+                if cands.is_empty() {
+                    break;
+                }
+                let pick = self.next_to_apply(&board, &live, &cands, layer);
+                let set = match live[pick].set.clone() {
+                    Some(s) => s,
+                    None => self.affected_set(&board, &live[pick], layer),
+                };
+                self.apply_parts(&mut board, &live[pick], layer, &set);
+                live[pick].set = Some(set);
+                done.push(pick);
+            }
+            if layer == 73 {
+                for (i, id) in board.ids.iter().enumerate() {
+                    let d = self.counter_pt(*id);
+                    if d != 0 {
+                        let c = &mut board.chars[i];
+                        c.power = c.power.map(|p| p + d);
+                        c.toughness = c.toughness.map(|t| t + d);
+                        board.touched[i] = true;
+                    }
                 }
             }
         }
-        c.power = c.power.map(|p| p + dp);
-        c.toughness = c.toughness.map(|t| t + dt);
-        c
+        let mut changed: Vec<(ObjectId, Characteristics)> = board
+            .ids
+            .into_iter()
+            .zip(board.chars)
+            .zip(board.touched)
+            .filter_map(|((id, c), t)| t.then_some((id, c)))
+            .collect();
+        changed.sort_by_key(|(id, _)| *id);
+        let rules = self.compute_rules(&changed);
+        LayerState {
+            epoch: self.layer_epoch,
+            changed,
+            rules,
+        }
+    }
+
+    /// The rule statics in effect: on permanents that have them after the
+    /// layers, with their conditions holding.
+    fn compute_rules(
+        &self,
+        changed: &[(ObjectId, Characteristics)],
+    ) -> Vec<(ObjectId, PlayerId, AbilityRef)> {
+        let mut out = Vec::new();
+        if !self.pool.has_rule_statics() {
+            return out;
+        }
+        for &id in &self.battlefield {
+            let Some(o) = self.obj(id) else { continue };
+            let computed = changed
+                .binary_search_by_key(&id, |(k, _)| *k)
+                .ok()
+                .map(|i| &changed[i].1);
+            let refs: SmallVec<[AbilityRef; 6]> = match computed {
+                Some(c) => c.abilities.clone(),
+                None => (0..self.def(o.def).abilities.len())
+                    .filter_map(|i| u8::try_from(i).ok())
+                    .map(|ability| AbilityRef {
+                        def: o.def,
+                        ability,
+                    })
+                    .collect(),
+            };
+            let controller = computed.map_or(o.controller, |c| c.controller);
+            for r in refs {
+                let Some(Ability::Static(s)) = self.ability_at(r) else {
+                    continue;
+                };
+                let rule = matches!(
+                    s.effect,
+                    StaticEffect::CantCast { .. }
+                        | StaticEffect::CantActivate { .. }
+                        | StaticEffect::Rule(mtg_cards::ir::RuleMod::CreaturesEnteringDontTrigger)
+                );
+                if rule
+                    && s.condition
+                        .as_ref()
+                        .is_none_or(|c| self.condition(&EffectCtx::new(r, id, controller), c))
+                {
+                    out.push((id, controller, r));
+                }
+            }
+        }
+        out
+    }
+
+    /// The rule statics in effect now (cached with the layers).
+    pub(crate) fn rule_statics(&self) -> Option<Arc<LayerState>> {
+        if !self.pool.has_rule_statics() || self.layer_cache.computing.load(Ordering::Relaxed) {
+            return None;
+        }
+        Some(self.layer_state())
+    }
+
+    /// Every continuous effect: stored ones and the static abilities of
+    /// permanents (CR 611.3), in timestamp order (CR 613.7).
+    fn live_effects(&self) -> Vec<Live<'_>> {
+        let mut out: Vec<Live<'_>> = Vec::new();
+        for e in &self.effects {
+            out.push(Live {
+                timestamp: e.timestamp,
+                source: None,
+                controller: PlayerId(0),
+                condition: None,
+                parts: SmallVec::from_elem(Part::Stored(e), 1),
+                set: Some(e.affected.iter().copied().collect()),
+            });
+        }
+        if self.pool.has_layer_statics() {
+            for &id in &self.battlefield {
+                let Some(o) = self.obj(id) else { continue };
+                let def = self.def(o.def);
+                for (i, a) in def.abilities.iter().enumerate() {
+                    let Ability::Static(s) = a else { continue };
+                    if !is_layer_static(&s.effect) {
+                        continue;
+                    }
+                    let parts: SmallVec<[Part<'_>; 2]> = match &s.effect {
+                        StaticEffect::Multi(v) => v.iter().map(Part::Static).collect(),
+                        e => SmallVec::from_elem(Part::Static(e), 1),
+                    };
+                    let Ok(ability) = u8::try_from(i) else {
+                        continue;
+                    };
+                    out.push(Live {
+                        timestamp: o.timestamp,
+                        source: Some((
+                            id,
+                            AbilityRef {
+                                def: o.def,
+                                ability,
+                            },
+                        )),
+                        controller: o.controller,
+                        condition: s.condition.as_ref(),
+                        parts,
+                        set: None,
+                    });
+                }
+            }
+        }
+        out.sort_by_key(|l| l.timestamp);
+        out
+    }
+
+    /// Whether an effect's static ability still exists: its source still has
+    /// it, and its condition holds (CR 611.3a).
+    fn exists(&self, board: &Board, l: &Live<'_>) -> bool {
+        let Some((source, ability)) = l.source else {
+            return true;
+        };
+        let has = board
+            .ids
+            .iter()
+            .position(|id| *id == source)
+            .is_some_and(|i| board.chars[i].abilities.contains(&ability));
+        has && l.condition.is_none_or(|c| {
+            let ctx = EffectCtx::new(ability, source, l.controller);
+            self.condition(&ctx, c)
+        })
+    }
+
+    /// The objects an effect's part in `layer` applies to, now.
+    fn affected_set(&self, board: &Board, l: &Live<'_>, layer: u8) -> SmallVec<[ObjectId; 8]> {
+        let Some(part) = l.parts.iter().find(|p| layer_of(**p) == Some(layer)) else {
+            return SmallVec::new();
+        };
+        let Some(f) = filter_of(*part) else {
+            return SmallVec::new();
+        };
+        let this = l.source.map(|(s, _)| s);
+        board
+            .ids
+            .iter()
+            .enumerate()
+            .filter(|(i, id)| self.board_matches(board, *i, **id, f, l.controller, this))
+            .map(|(_, id)| *id)
+            .collect()
+    }
+
+    /// `matches_filter` against the working characteristics.
+    fn board_matches(
+        &self,
+        board: &Board,
+        i: usize,
+        id: ObjectId,
+        f: &ObjectFilter,
+        you: PlayerId,
+        this: Option<ObjectId>,
+    ) -> bool {
+        if (f.this && this != Some(id)) || (f.other && this == Some(id)) {
+            return false;
+        }
+        let c = &board.chars[i];
+        let t = &c.type_line;
+        let has_type = |w: &String| {
+            CardType::ALL
+                .iter()
+                .any(|ct| ct.word().eq_ignore_ascii_case(w) && t.has_type(*ct))
+        };
+        let has_sub = |w: &String| t.subtypes.iter().any(|s| s.0.eq_ignore_ascii_case(w));
+        let has_super = |w: &String| {
+            Supertype::ALL
+                .iter()
+                .any(|st| st.word().eq_ignore_ascii_case(w) && t.has_supertype(*st))
+        };
+        let def = self.def(c.def);
+        (f.types.is_empty() || f.types.iter().any(has_type))
+            && !f.not_types.iter().any(has_type)
+            && (f.subtypes.is_empty() || f.subtypes.iter().any(has_sub))
+            && !f.not_subtypes.iter().any(has_sub)
+            && (f.supertypes.is_empty() || f.supertypes.iter().any(has_super))
+            && !f.not_supertypes.iter().any(has_super)
+            && f.color.as_ref().is_none_or(|letters| {
+                letters
+                    .chars()
+                    .filter_map(Color::from_letter)
+                    .any(|col| c.colors.contains(col))
+            })
+            && self.player_rel(f.controller, you, c.controller)
+            && f.token.is_none_or(|tok| tok == def.token)
+            && f.min_mana_value.is_none_or(|m| def.mana_value() >= m)
+            && f.max_mana_value.is_none_or(|m| def.mana_value() <= m)
+    }
+
+    /// CR 613.8: the next effect to apply among `cands` (all in one layer):
+    /// the earliest one that doesn't depend on another candidate. A
+    /// dependency loop falls back to timestamp order (CR 613.8b).
+    fn next_to_apply(&self, board: &Board, live: &[Live<'_>], cands: &[usize], layer: u8) -> usize {
+        // Only type- and ability-changing effects can change another effect's
+        // existence or what it applies to.
+        if cands.len() < 2 || !matches!(layer, 4 | 6) {
+            return cands[0];
+        }
+        for &a in cands {
+            let before = (
+                self.exists(board, &live[a]),
+                self.affected_set(board, &live[a], layer),
+            );
+            let depends = cands.iter().any(|&b| {
+                if b == a {
+                    return false;
+                }
+                let mut trial = board.clone();
+                let set = live[b]
+                    .set
+                    .clone()
+                    .unwrap_or_else(|| self.affected_set(board, &live[b], layer));
+                self.apply_parts(&mut trial, &live[b], layer, &set);
+                let after = (
+                    self.exists(&trial, &live[a]),
+                    self.affected_set(&trial, &live[a], layer),
+                );
+                after != before
+            });
+            if !depends {
+                return a;
+            }
+        }
+        cands[0]
+    }
+
+    /// Applies an effect's parts in `layer` to `set`.
+    fn apply_parts(&self, board: &mut Board, l: &Live<'_>, layer: u8, set: &[ObjectId]) {
+        for part in l.parts.iter().filter(|p| layer_of(**p) == Some(layer)) {
+            for (i, id) in board.ids.clone().iter().enumerate() {
+                if !set.contains(id) {
+                    continue;
+                }
+                board.touched[i] = true;
+                let def_mv = self.def(board.chars[i].def).mana_value();
+                let c = &mut board.chars[i];
+                match *part {
+                    Part::Stored(e) => match e.effect {
+                        LayerEffect::ModifyPt { power, toughness } => {
+                            c.power = c.power.map(|p| p + power);
+                            c.toughness = c.toughness.map(|t| t + toughness);
+                        }
+                    },
+                    Part::Static(s) => self.apply_static(c, s, def_mv),
+                }
+            }
+        }
+    }
+
+    fn apply_static(&self, c: &mut Characteristics, s: &StaticEffect, mana_value: u32) {
+        match s {
+            // CR 305.7: a land whose subtype is set to a basic land type
+            // loses its other land types and its rules-text abilities, and
+            // has the new type's mana ability.
+            StaticEffect::LandType {
+                land_type, replace, ..
+            } => {
+                if !c.type_line.has_type(CardType::Land) {
+                    return;
+                }
+                if *replace {
+                    c.type_line
+                        .subtypes
+                        .retain(|s| !LAND_TYPES.contains(&s.0.as_str()));
+                    c.abilities.clear();
+                    c.keywords = Keywords::default();
+                }
+                if !c.type_line.subtypes.iter().any(|s| s.0 == *land_type) {
+                    c.type_line.subtypes.push(Subtype(land_type.clone()));
+                    if let Some(r) = self.pool.intrinsic(land_type) {
+                        c.abilities.push(r);
+                    }
+                } else if *replace && let Some(r) = self.pool.intrinsic(land_type) {
+                    c.abilities.push(r);
+                }
+            }
+            StaticEffect::AddTypes {
+                types, subtypes, ..
+            } => {
+                for w in types {
+                    if let Some(ct) = CardType::ALL
+                        .iter()
+                        .find(|ct| ct.word().eq_ignore_ascii_case(w))
+                        && !c.type_line.card_types.contains(ct)
+                    {
+                        c.type_line.card_types.push(*ct);
+                    }
+                }
+                for w in subtypes {
+                    if !c.type_line.subtypes.iter().any(|s| s.0 == *w) {
+                        c.type_line.subtypes.push(Subtype(w.clone()));
+                    }
+                }
+            }
+            StaticEffect::LoseAllAbilities { .. } => {
+                c.abilities.clear();
+                c.keywords = Keywords::default();
+            }
+            StaticEffect::Grant { keyword, .. } => {
+                if let Some(bit) = Keywords::of_ir(keyword) {
+                    c.keywords = c.keywords.with(bit);
+                }
+            }
+            StaticEffect::SetBasePt {
+                power, toughness, ..
+            } => {
+                let v = |b: &BasePt| match b {
+                    BasePt::Fixed(n) => *n,
+                    BasePt::ManaValue => i32::try_from(mana_value).unwrap_or(i32::MAX),
+                };
+                c.power = Some(v(power));
+                c.toughness = Some(v(toughness));
+            }
+            StaticEffect::Pump {
+                power, toughness, ..
+            } => {
+                c.power = c.power.map(|p| p + power);
+                c.toughness = c.toughness.map(|t| t + toughness);
+            }
+            _ => {}
+        }
     }
 
     /// Adds a continuous effect created by a resolving spell or ability.
@@ -196,11 +792,16 @@ impl Game {
             effect,
             duration,
         });
+        self.bump_layers();
     }
 
     /// CR 514.2: "until end of turn" effects end in the cleanup step.
     pub(crate) fn end_turn_effects(&mut self) {
+        let before = self.effects.len();
         self.effects.retain(|e| e.duration != Duration::EndOfTurn);
+        if self.effects.len() != before {
+            self.bump_layers();
+        }
     }
 
     /// The ability an `AbilityRef` names.
@@ -226,12 +827,20 @@ impl Game {
                     ))
                 })
                 .collect(),
-            Some(Chars::Computed(c)) => c
+            Some(Chars::Computed(s, i)) => s.changed[i]
+                .1
                 .abilities
                 .iter()
                 .filter_map(|r| Some((*r, self.ability_at(*r)?)))
                 .collect(),
         }
+    }
+
+    /// A creature's current power and toughness (CR 613); `None` for a
+    /// noncreature. For judge tools and tests.
+    pub fn power_toughness(&self, id: ObjectId) -> Option<(i32, i32)> {
+        self.is_creature(id)
+            .then(|| (self.power(id), self.toughness(id)))
     }
 
     /// Effective power (0 if it has none).
@@ -253,13 +862,16 @@ impl Game {
                 let on_field = self.obj(id).is_some_and(|o| o.zone == ZoneId::Battlefield);
                 printed.unwrap_or(0) + if on_field { self.counter_pt(id) } else { 0 }
             }
-            Some(Chars::Computed(c)) => if power { c.power } else { c.toughness }.unwrap_or(0),
+            Some(c @ Chars::Computed(..)) => c
+                .computed()
+                .and_then(|c| if power { c.power } else { c.toughness })
+                .unwrap_or(0),
         }
     }
 
     #[inline]
     pub(crate) fn keywords(&self, id: ObjectId) -> Keywords {
-        if self.effects.is_empty() {
+        if !self.layers_live() {
             return self.obj_def(id).map(|d| d.keywords).unwrap_or_default();
         }
         self.chars(id).map(|c| c.keywords()).unwrap_or_default()
@@ -267,7 +879,7 @@ impl Game {
 
     #[inline]
     pub(crate) fn is_creature(&self, id: ObjectId) -> bool {
-        if self.effects.is_empty() {
+        if !self.layers_live() {
             return self.obj_def(id).is_some_and(|d| d.is(CardType::Creature));
         }
         self.chars(id).is_some_and(|c| c.is(CardType::Creature))

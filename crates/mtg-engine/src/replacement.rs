@@ -251,7 +251,57 @@ impl Game {
         true
     }
 
-    // ---- rule statics (M4 plan R5) ---------------------------------------------
+    // ---- rule statics (M4 plan R5; CR 613.11) ------------------------------------
+
+    /// Rule-modifying statics in effect now (CR 613.11), from the layer cache.
+    fn active_rule_statics(&self) -> SmallVec<[(ObjectId, PlayerId, &StaticEffect); 4]> {
+        let Some(state) = self.rule_statics() else {
+            return SmallVec::new();
+        };
+        state
+            .rules
+            .iter()
+            .filter_map(|&(id, controller, r)| match self.ability_at(r) {
+                Some(Ability::Static(s)) => Some((id, controller, &s.effect)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// "[who] can't cast [spells]" (Grand Abolisher): whether `p` may cast `card`.
+    pub(crate) fn cast_allowed(&self, p: PlayerId, card: ObjectId) -> bool {
+        self.active_rule_statics()
+            .iter()
+            .all(|(source, controller, e)| {
+                !matches!(e, StaticEffect::CantCast { who, spells }
+                if self.player_rel(*who, *controller, p)
+                    && self.matches_filter(card, spells, *controller, Some(*source)))
+            })
+    }
+
+    /// "[who] can't activate abilities of [sources]": whether `p` may
+    /// activate an ability of `object` (mana abilities included, CR 605).
+    pub(crate) fn activation_allowed(&self, p: PlayerId, object: ObjectId) -> bool {
+        self.active_rule_statics()
+            .iter()
+            .all(|(source, controller, e)| {
+                !matches!(e, StaticEffect::CantActivate { who, sources }
+                if self.player_rel(*who, *controller, p)
+                    && self.matches_filter(object, sources, *controller, Some(*source)))
+            })
+    }
+
+    /// Torpor Orb: whether a creature entering (object `id`) can cause
+    /// abilities to trigger.
+    pub(crate) fn entering_triggers(&self, id: ObjectId) -> bool {
+        !self.is_creature(id)
+            || !self.active_rule_statics().iter().any(|(_, _, e)| {
+                matches!(
+                    e,
+                    StaticEffect::Rule(ir::RuleMod::CreaturesEnteringDontTrigger)
+                )
+            })
+    }
 
     /// CR 614.10: whether `p` skips `step` (checked before it begins).
     pub(crate) fn skips_step(&self, p: PlayerId, step: Step) -> bool {

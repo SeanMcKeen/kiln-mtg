@@ -126,6 +126,14 @@ impl Game {
             (None, None) => return Err("invariant 2: no decision and no result".into()),
         }
 
+        // 8. The layer cache matches a fresh computation (a mutation that
+        // changes characteristics without bumping the epoch would show here).
+        if let Some(diff) = self.layer_cache_diff() {
+            return Err(format!(
+                "invariant 8: stale layer cache (missing epoch bump): {diff}"
+            ));
+        }
+
         // 6. Conservation: each in-game player owns exactly their deck's cards.
         for p in self.players.iter().filter(|p| p.in_game()) {
             let i = p.id.0 as usize;

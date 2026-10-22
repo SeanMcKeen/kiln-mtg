@@ -144,8 +144,7 @@ impl GreedyPolicy {
         if !view.stack().is_empty() {
             return 0;
         }
-        let Some(d) = view.card(source) else { return 0 };
-        let Some(ir::Ability::Activated(x)) = d.abilities.get(usize::from(ability)) else {
+        let Some(ir::Ability::Activated(x)) = view.object_ability(source, ability) else {
             return 0;
         };
         if harmful(&x.effect) && !x.targets.iter().all(|t| Self::opponent_has(view, &t.what)) {

@@ -1429,6 +1429,7 @@ impl Game {
                     && let Some(n) = self.objects.get_mut(new)
                 {
                     n.controller = who;
+                    self.bump_layers();
                 }
             }
         }
