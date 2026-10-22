@@ -231,6 +231,7 @@ impl GameBuilder {
             leaving_batch: Vec::new(),
             loops: crate::loops::LoopTracker::default(),
             tokens_off_field: Vec::new(),
+            any_color_spells: Vec::new(),
             linked: Vec::new(),
             copies: Vec::new(),
             face_down: Vec::new(),

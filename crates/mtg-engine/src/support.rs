@@ -299,6 +299,11 @@ fn effect(e: &Effect) -> Check {
             Ok(())
         }
         Effect::CopySpell { what, .. } => set(what),
+        Effect::GainControl { what, .. } => set(what),
+        Effect::GainKeyword { what, keyword } => match Keywords::of_ir(keyword) {
+            Some(bit) if IMPLEMENTED_KEYWORDS.contains(&bit) => set(what),
+            _ => Err(format!("granting {}", keyword_gap(keyword))),
+        },
         Effect::Cast {
             what,
             without_paying: true,
@@ -383,7 +388,11 @@ fn rule_static(s: &StaticAbility) -> Check {
             }
             return Ok(());
         }
-        StaticEffect::Rule(RuleMod::CreaturesEnteringDontTrigger) if s.condition.is_none() => {
+        StaticEffect::Rule(
+            RuleMod::CreaturesEnteringDontTrigger
+            | RuleMod::ControlOpponentsWhileSearching
+            | RuleMod::MayPlayExiledWithThis { .. },
+        ) if s.condition.is_none() => {
             return Ok(());
         }
         _ => {}
@@ -449,9 +458,9 @@ fn replacement(r: &mtg_cards::ir::ReplacementAbility) -> Check {
             effect(instead)
         }
         (R::WouldGoToGraveyard(_), _) => Err("graveyard replacement effects (later)".into()),
-        (R::WouldFindWhileSearching(_), _) => {
-            Err("controlling searches (M5: Opposition Agent)".into())
-        }
+        // Applied by the search itself when a player controls the search
+        // (Opposition Agent, CR 723); the replacement records what it does.
+        (R::WouldFindWhileSearching(_), instead) => effect(instead),
     }
 }
 

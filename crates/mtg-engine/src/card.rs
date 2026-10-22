@@ -1071,9 +1071,13 @@ impl CardPool {
             .any(|a| matches!(a, Ability::Static(s) if crate::layers::is_layer_static(&s.effect)));
         self.has_rule_statics |= def.abilities.iter().any(|a| {
             matches!(a, Ability::Static(s) if matches!(s.effect,
-                ir::StaticEffect::CantCast { .. }
-                | ir::StaticEffect::CantActivate { .. }
-                | ir::StaticEffect::Rule(ir::RuleMod::CreaturesEnteringDontTrigger)))
+            ir::StaticEffect::CantCast { .. }
+            | ir::StaticEffect::CantActivate { .. }
+            | ir::StaticEffect::Rule(
+                ir::RuleMod::CreaturesEnteringDontTrigger
+                    | ir::RuleMod::ControlOpponentsWhileSearching
+                    | ir::RuleMod::MayPlayExiledWithThis { .. }
+            )))
         });
         let id = DefId(u32::try_from(self.defs.len()).unwrap_or(u32::MAX));
         self.defs.push(def);

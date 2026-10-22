@@ -556,6 +556,17 @@ pub enum Effect {
         at: Trigger,
         effect: Box<Effect>,
     },
+    /// "Gain control of [objects]" (layer 2, CR 613.1b), until end of turn or for good.
+    GainControl {
+        what: ObjectSet,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        until_end_of_turn: bool,
+    },
+    /// "[objects] gain [keyword] until end of turn" (layer 6).
+    GainKeyword {
+        what: ObjectSet,
+        keyword: Keyword,
+    },
     /// "You may have this enter as a copy of [object] on the battlefield,
     /// except ..." (CR 707.9, 614.1c): the instead-effect of a self-replacement.
     EnterAsCopy {

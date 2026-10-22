@@ -1,0 +1,34 @@
+scenario: mtg-scenario/1
+name: "T27: Opposition Agent's controller makes an opponent's Demonic Tutor search, the found card is exiled, and they may cast it spending mana as any color"
+cr: ["723.2", "723.5", "607.2a", "701.23a"]
+verifies: [Opposition Agent]
+players:
+  - battlefield: [Opposition Agent, Island]
+  - battlefield: [Swamp, Swamp]
+    hand: [Demonic Tutor]
+    library: [Island, Lightning Bolt, Island]
+turn: { number: 2, active: P2, step: precombat_main }
+script:
+  - choose: Cast Demonic Tutor
+    player: P2
+  - choose: Pay with Swamp, Swamp
+  - pass_all
+  # CR 723.5: P1 makes the search choice for P2.
+  - check:
+      decision: { player: P1, options: [Find Island, Find Lightning Bolt, Find Island] }
+  - choose: Find Lightning Bolt
+  - check:
+      zones: { exile: [Lightning Bolt], P2.hand: [] }
+  # P1 may cast it, spending mana as though it were any color: an Island pays {R}.
+  - pass: 1
+  - check:
+      decision: { player: P1, kind: priority, options_include: [Cast Lightning Bolt] }
+  - choose: Cast Lightning Bolt
+  - choose: Target P2
+  - choose: Pay with Island
+  - pass_all
+expect:
+  life: { P2: 17 }
+  zones:
+    exile: []
+    P2.graveyard: [Demonic Tutor, Lightning Bolt]

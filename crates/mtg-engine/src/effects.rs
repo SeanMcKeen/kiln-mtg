@@ -237,7 +237,15 @@ pub(crate) enum AfterPick {
         face_down: bool,
     },
     /// Search results (CR 701.23): reveal if asked, then put them `to`.
-    Search { to: Destination, reveal: bool },
+    Search {
+        /// Who searches (CR 701.23); the pick's decider may be another
+        /// player controlling them (CR 723).
+        searcher: PlayerId,
+        /// An Opposition Agent whose controller controls the search.
+        agent: Option<ObjectId>,
+        to: Destination,
+        reveal: bool,
+    },
     /// Put this many +1/+1 counters on the pick (amass, CR 701.47a).
     PutCounters(u32),
     /// The ability's source enters the battlefield as a copy of the pick, or
@@ -876,14 +884,18 @@ impl Game {
                 // a search for a quantity of cards must find as many as possible.
                 let quality = *filter != ObjectFilter::default();
                 let n = count.min(u32::try_from(candidates.len()).unwrap_or(u32::MAX));
+                // CR 723.5: a player controlling the searcher makes the choices.
+                let agent = self.search_controller(p);
                 t.frames.push(Frame::Pick(Pick {
-                    who: p,
+                    who: agent.map_or(p, |(_, q)| q),
                     purpose: CardPurpose::Search,
                     candidates,
                     picked: Vec::new(),
                     max: n,
                     min: if quality { 0 } else { n },
                     then: AfterPick::Search {
+                        searcher: p,
+                        agent: agent.map(|(a, _)| a),
                         to: *to,
                         reveal: *reveal,
                     },
@@ -1003,6 +1015,36 @@ impl Game {
             Effect::WinGame(who) => {
                 if let Some(p) = self.player_ref(&t.ctx, who) {
                     self.win_by_effect(p);
+                }
+            }
+            Effect::GainControl {
+                what,
+                until_end_of_turn,
+            } => {
+                let p = t.ctx.controller;
+                let duration = if *until_end_of_turn {
+                    crate::layers::Duration::EndOfTurn
+                } else {
+                    crate::layers::Duration::Permanent
+                };
+                for id in self.set_now(&t.ctx, what) {
+                    if self.on_battlefield_now(id) {
+                        self.gain_control(id, p, duration);
+                    }
+                }
+            }
+            Effect::GainKeyword { what, keyword } => {
+                let affected: SmallVec<[ObjectId; 4]> = self
+                    .set_now(&t.ctx, what)
+                    .into_iter()
+                    .filter(|id| self.on_battlefield_now(*id))
+                    .collect();
+                if !affected.is_empty() {
+                    self.add_effect(
+                        affected,
+                        crate::layers::LayerEffect::GrantKeyword(Box::new(keyword.clone())),
+                        crate::layers::Duration::EndOfTurn,
+                    );
                 }
             }
             Effect::EnterAsCopy { of, .. } => {
@@ -2097,11 +2139,36 @@ impl Game {
                 remember,
                 face_down,
             } => self.exile_all(&mut t.ctx, &picked, remember, face_down),
-            AfterPick::Search { to, reveal } => {
+            AfterPick::Search {
+                searcher,
+                agent,
+                to,
+                reveal,
+            } => {
+                let who = searcher;
                 self.log(Event::Searched {
                     player: who,
                     found: u32::try_from(picked.len()).unwrap_or(0),
                 });
+                // Opposition Agent: the searcher exiles each card found; the
+                // Agent's controller may play them (linked, CR 607.2a).
+                if let Some(agent) = agent {
+                    let mut exiled: SmallVec<[ObjectId; 2]> = SmallVec::new();
+                    for id in picked {
+                        if let Some(new) = self.fx_move(&mut t.ctx, id, ZoneId::Exile, true) {
+                            exiled.push(new);
+                        }
+                    }
+                    match self
+                        .linked
+                        .iter_mut()
+                        .find(|(s, k, _)| *s == agent && k == "found")
+                    {
+                        Some((_, _, v)) => v.extend(exiled),
+                        None => self.linked.push((agent, "found".into(), exiled)),
+                    }
+                    return;
+                }
                 if reveal && !picked.is_empty() {
                     self.log(Event::Revealed {
                         player: who,

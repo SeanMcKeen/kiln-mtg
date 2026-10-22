@@ -34,6 +34,11 @@ use crate::state::ZoneId;
 pub(crate) enum LayerEffect {
     /// Layer 1a: the object's copiable values become these (CR 707.2, 613.2a).
     Copy(Box<CopyValues>),
+    /// Layer 2: `to` controls it; `from` controlled it before (CR 613.1b).
+    /// The current controller is kept on the object itself.
+    Control { to: PlayerId, from: PlayerId },
+    /// Layer 6: it has this keyword (CR 613.1f).
+    GrantKeyword(Box<mtg_cards::ir::Keyword>),
     /// Layer 7c: "+N/+M" (CR 613.4c).
     ModifyPt { power: i32, toughness: i32 },
 }
@@ -230,6 +235,8 @@ fn layer_of(p: Part<'_>) -> Option<u8> {
     match p {
         Part::Stored(e) => match e.effect {
             LayerEffect::Copy(_) => Some(1),
+            LayerEffect::Control { .. } => Some(2),
+            LayerEffect::GrantKeyword(_) => Some(6),
             LayerEffect::ModifyPt { .. } => Some(73),
         },
         Part::Static(s) => match s {
@@ -448,7 +455,7 @@ impl Game {
             .filter(|e| e.affected.contains(&id))
             .filter_map(|e| match &e.effect {
                 LayerEffect::Copy(cv) => Some((e.timestamp, cv)),
-                LayerEffect::ModifyPt { .. } => None,
+                _ => None,
             })
             .max_by_key(|(t, _)| *t);
         Some(match latest {
@@ -602,7 +609,11 @@ impl Game {
                     s.effect,
                     StaticEffect::CantCast { .. }
                         | StaticEffect::CantActivate { .. }
-                        | StaticEffect::Rule(mtg_cards::ir::RuleMod::CreaturesEnteringDontTrigger)
+                        | StaticEffect::Rule(
+                            mtg_cards::ir::RuleMod::CreaturesEnteringDontTrigger
+                                | mtg_cards::ir::RuleMod::ControlOpponentsWhileSearching
+                                | mtg_cards::ir::RuleMod::MayPlayExiledWithThis { .. }
+                        )
                 );
                 if rule
                     && s.condition
@@ -629,7 +640,8 @@ impl Game {
     fn live_effects(&self, board: &Board) -> Vec<Live<'_>> {
         let mut out: Vec<Live<'_>> = Vec::new();
         for e in &self.effects {
-            if matches!(e.effect, LayerEffect::Copy(_)) {
+            // Copy effects apply first (above); control is on the objects.
+            if matches!(e.effect, LayerEffect::Copy(_) | LayerEffect::Control { .. }) {
                 continue;
             }
             out.push(Live {
@@ -800,9 +812,14 @@ impl Game {
                 let def_mv = self.def(board.chars[i].def).mana_value();
                 let c = &mut board.chars[i];
                 match *part {
-                    Part::Stored(e) => match e.effect {
-                        LayerEffect::Copy(_) => {}
-                        LayerEffect::ModifyPt { power, toughness } => {
+                    Part::Stored(e) => match &e.effect {
+                        LayerEffect::Copy(_) | LayerEffect::Control { .. } => {}
+                        LayerEffect::GrantKeyword(k) => {
+                            if let Some(bit) = Keywords::of_ir(k) {
+                                c.keywords = c.keywords.with(bit);
+                            }
+                        }
+                        &LayerEffect::ModifyPt { power, toughness } => {
                             c.power = c.power.map(|p| p + power);
                             c.toughness = c.toughness.map(|t| t + toughness);
                         }
@@ -906,6 +923,19 @@ impl Game {
 
     /// CR 514.2: "until end of turn" effects end in the cleanup step.
     pub(crate) fn end_turn_effects(&mut self) {
+        // CR 613.1b: control effects ending return control (to the latest
+        // remaining control effect, or to the controller before this one).
+        let ending: Vec<(ObjectId, PlayerId, u64)> = self
+            .effects
+            .iter()
+            .filter(|e| e.duration == Duration::EndOfTurn)
+            .filter_map(|e| match e.effect {
+                LayerEffect::Control { from, .. } => {
+                    Some((*e.affected.first()?, from, e.timestamp))
+                }
+                _ => None,
+            })
+            .collect();
         let before = self.effects.len();
         // Also drop effects whose objects no longer exist.
         let objects = &self.objects;
@@ -913,9 +943,48 @@ impl Game {
             e.duration != Duration::EndOfTurn
                 && e.affected.iter().any(|id| objects.get(*id).is_some())
         });
+        for (id, from, _) in ending {
+            let latest = self
+                .effects
+                .iter()
+                .filter(|e| e.affected.contains(&id))
+                .filter_map(|e| match e.effect {
+                    LayerEffect::Control { to, .. } => Some((e.timestamp, to)),
+                    _ => None,
+                })
+                .max_by_key(|(t, _)| *t)
+                .map_or(from, |(_, to)| to);
+            self.set_controller(id, latest);
+        }
         if self.effects.len() != before {
             self.bump_layers();
         }
+    }
+
+    /// Sets an object's controller (layer 2's result, kept on the object);
+    /// a permanent that changes controller is new to it (CR 302.6).
+    pub(crate) fn set_controller(&mut self, id: ObjectId, p: PlayerId) {
+        let turn = self.turn.number;
+        if let Some(o) = self.objects.get_mut(id)
+            && o.controller != p
+        {
+            o.controller = p;
+            o.control_since = turn;
+        }
+        self.bump_layers();
+    }
+
+    /// CR 613.1b: `p` gains control of `id`.
+    pub(crate) fn gain_control(&mut self, id: ObjectId, p: PlayerId, duration: Duration) {
+        let Some(from) = self.obj(id).map(|o| o.controller) else {
+            return;
+        };
+        self.add_effect(
+            SmallVec::from_elem(id, 1),
+            LayerEffect::Control { to: p, from },
+            duration,
+        );
+        self.set_controller(id, p);
     }
 
     /// The ability an `AbilityRef` names.

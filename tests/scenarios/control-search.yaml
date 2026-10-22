@@ -1,0 +1,25 @@
+scenario: mtg-scenario/1
+name: A player controlling an opponent's search chooses the card; it's exiled, and they may cast it with mana of any color
+cr: ["723.2", "723.5", "607.2a"]
+players:
+  - battlefield: [Test Overseer, Test Island]
+  - battlefield: [Test Swamp, Test Swamp]
+    hand: [Test Tutor]
+    library: [Test Wastes, Test Bolt, Test Wastes]
+turn: { number: 2, active: P2, step: precombat_main }
+script:
+  - choose: Cast Test Tutor
+    player: P2
+  - choose: Pay with Test Swamp, Test Swamp
+  - pass_all
+  - check:
+      decision: { player: P1, options: [Find Test Wastes, Find Test Bolt, Find Test Wastes] }
+  - choose: Find Test Bolt
+  - pass: 1
+  - choose: Cast Test Bolt
+  - choose: Target P2
+  - choose: Pay with Test Island
+  - pass_all
+expect:
+  life: { P2: 17 }
+  zones: { exile: [], P2.hand: [] }

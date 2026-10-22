@@ -871,3 +871,32 @@
         trigger: { enters: { this: true } }
         targets: [{ what: { spell: { types: [instant, sorcery] } } }]
         effect: { copy_spell: { what: { one: { target: 0 } }, new_targets: true } }
+
+# ---- control (M5 5.4) ----------------------------------------------------------
+
+- name: Test Usurper
+  cost: "{4}{R}"
+  types: Creature — Human Warrior
+  pt: [3, 3]
+  abilities:
+    - keyword: haste
+    - triggered:
+        trigger: { enters: { this: true } }
+        targets: [{ what: { object: {} } }]
+        effect:
+          seq:
+            - gain_control: { what: { one: { target: 0 } }, until_end_of_turn: true }
+            - untap: { one: { target: 0 } }
+            - gain_keyword: { what: { one: { target: 0 } }, keyword: haste }
+
+- name: Test Overseer
+  cost: "{1}{U}{B}"
+  types: Creature — Human Rogue
+  pt: [3, 2]
+  abilities:
+    - keyword: flash
+    - static: { effect: { rule: control_opponents_while_searching } }
+    - replacement:
+        event: { would_find_while_searching: opponent }
+        instead: { exile: { what: { one: triggering }, remember: found } }
+    - static: { effect: { rule: { may_play_exiled_with_this: { any_color_mana: true } } } }

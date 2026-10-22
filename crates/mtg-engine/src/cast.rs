@@ -381,7 +381,7 @@ impl Game {
                     continue;
                 }
             }
-            if let Some(shape) = cost_shape(def, None, c)
+            if let Some(shape) = self.spell_shape(def, None, c, ctx.source)
                 && self.shape_payable(p, ctx, &shape, 0, &[], None)
             {
                 out.push(c);
@@ -492,9 +492,15 @@ impl Game {
         let Some(def) = self.obj(card).map(|o| o.def) else {
             return;
         };
+        let any_color = self.exile_permission(card).is_some_and(|(_, any)| any);
         let Some(spell) = self.move_object(card, ZoneId::Stack, true) else {
             return;
         };
+        // CR 601.2a: the player casting it controls it (it may be another's card).
+        self.set_controller(spell, p);
+        if any_color {
+            self.any_color_spells.push(spell);
+        }
         self.stack.push(StackItem::new(spell, def, None, p));
         self.tasks.push(Task::Cast(CastTask {
             spell,
@@ -648,7 +654,8 @@ impl Game {
                 );
             }
             CastStage::X => {
-                let Some(shape) = cost_shape(def, item.ability, item.cost) else {
+                let Some(shape) = self.spell_shape(def, item.ability, item.cost, item.object)
+                else {
                     return;
                 };
                 // CR 107.3a: X in the mana cost or in an additional cost
@@ -674,7 +681,8 @@ impl Game {
                 );
             }
             CastStage::Symbols => {
-                let Some(shape) = cost_shape(def, item.ability, item.cost) else {
+                let Some(shape) = self.spell_shape(def, item.ability, item.cost, item.object)
+                else {
                     return;
                 };
                 let Some(symbol) = shape
@@ -792,7 +800,8 @@ impl Game {
             }
             CastStage::PayOther => {
                 self.advance(t, CastStage::Done);
-                let Some(shape) = cost_shape(def, item.ability, item.cost) else {
+                let Some(shape) = self.spell_shape(def, item.ability, item.cost, item.object)
+                else {
                     return;
                 };
                 let life = self.cast_requirement(def, &item).1;
@@ -861,9 +870,38 @@ impl Game {
         }
     }
 
+    /// [`cost_shape`] for a spell, with mana spent as though it were any
+    /// color when an effect allows it (Opposition Agent): every colored
+    /// symbol is then payable by any mana.
+    fn spell_shape(
+        &self,
+        def: &CardDef,
+        ability: Option<u8>,
+        cost: CastCost,
+        object: ObjectId,
+    ) -> Option<CostShape> {
+        let mut shape = cost_shape(def, ability, cost)?;
+        let any_color = ability.is_none()
+            && (self.any_color_spells.contains(&object)
+                || self.exile_permission(object).is_some_and(|(_, any)| any));
+        if any_color {
+            for s in &mut shape.symbols {
+                if matches!(
+                    s,
+                    ManaSymbol::Colored(_)
+                        | ManaSymbol::Hybrid(..)
+                        | ManaSymbol::ColorlessHybrid(_)
+                ) {
+                    *s = ManaSymbol::Generic(1);
+                }
+            }
+        }
+        Some(shape)
+    }
+
     /// The mana requirement and Phyrexian life of the chosen cost.
     pub(crate) fn cast_requirement(&self, def: &CardDef, item: &StackItem) -> (CostReq, i64) {
-        cost_shape(def, item.ability, item.cost)
+        self.spell_shape(def, item.ability, item.cost, item.object)
             .map(|s| requirement(&s.symbols, item.x, &item.pays))
             .unwrap_or_default()
     }

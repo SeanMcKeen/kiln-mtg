@@ -202,6 +202,9 @@ pub struct Game {
     /// from the objects, so not hashed; tokens are only ever created on the
     /// battlefield, so a token elsewhere is always in this list.
     pub(crate) tokens_off_field: Vec<ObjectId>,
+    /// Spells being cast with mana spent as though it were any color
+    /// (Opposition Agent).
+    pub(crate) any_color_spells: Vec<ObjectId>,
     /// Copies of cards (CR 707.12); they cease to exist outside the stack and
     /// battlefield (CR 704.5e).
     pub(crate) copies: Vec<ObjectId>,
@@ -277,6 +280,7 @@ impl Game {
             leaving_batch: Vec::new(),
             loops: crate::loops::LoopTracker::default(),
             tokens_off_field: Vec::new(),
+            any_color_spells: Vec::new(),
             linked: Vec::new(),
             copies: Vec::new(),
             face_down: Vec::new(),
@@ -511,6 +515,9 @@ impl Game {
         }
         if !self.copies.is_empty() {
             self.copies.hash(&mut h);
+        }
+        if !self.any_color_spells.is_empty() {
+            self.any_color_spells.hash(&mut h);
         }
         if !self.cast_this_turn.is_empty() {
             self.cast_this_turn.hash(&mut h);
@@ -1352,6 +1359,24 @@ impl Game {
                 actions.push(Action::Cast(id));
             }
         }
+        // Cards in exile `p` may play (CR 607.2a; Opposition Agent).
+        if !self.linked.is_empty() {
+            for &id in &self.exile {
+                if self.exile_permission(id).is_none_or(|(q, _)| q != p) {
+                    continue;
+                }
+                let Some(def) = self.obj_def(id) else {
+                    continue;
+                };
+                if def.is(CardType::Land) {
+                    if sorcery_timing && self.player(p).lands_played < 1 {
+                        actions.push(Action::PlayLand(id));
+                    }
+                } else if self.can_cast(p, id, sorcery_timing) {
+                    actions.push(Action::Cast(id));
+                }
+            }
+        }
         for &id in &self.battlefield {
             let Some(o) = self.obj(id) else { continue };
             if o.controller != p {
@@ -1404,6 +1429,8 @@ impl Game {
             Action::PlayLand(id) => {
                 // CR 116.2a: a special action; the player keeps priority (CR 117.3c).
                 if let Some(new) = self.move_object(id, ZoneId::Battlefield, true) {
+                    // The player who plays it controls it (it may be another's card).
+                    self.set_controller(new, p);
                     self.player_mut(p).lands_played += 1;
                     self.log(Event::LandPlayed {
                         player: p,

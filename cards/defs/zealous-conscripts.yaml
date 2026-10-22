@@ -1,0 +1,13 @@
+card: Zealous Conscripts
+faces:
+  - abilities:
+      - keyword: haste
+      - triggered:
+          trigger: { enters: { this: true } }
+          targets: [{ what: { object: {} } }]
+          effect:
+            seq:
+              # Layer 2 until end of turn (CR 613.1b).
+              - gain_control: { what: { one: { target: 0 } }, until_end_of_turn: true }
+              - untap: { one: { target: 0 } }
+              - gain_keyword: { what: { one: { target: 0 } }, keyword: haste }

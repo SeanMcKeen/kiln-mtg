@@ -291,6 +291,47 @@ impl Game {
             })
     }
 
+    /// CR 723 (Opposition Agent): the permanent, and its controller, that
+    /// controls `searcher` while they search their library: the latest one
+    /// controlled by an opponent of theirs (ruling 2020-11-10).
+    pub(crate) fn search_controller(&self, searcher: PlayerId) -> Option<(ObjectId, PlayerId)> {
+        self.active_rule_statics()
+            .into_iter()
+            .filter(|(_, controller, e)| {
+                matches!(
+                    e,
+                    StaticEffect::Rule(ir::RuleMod::ControlOpponentsWhileSearching)
+                ) && self.player_rel(ir::PlayerRel::Opponent, *controller, searcher)
+            })
+            .max_by_key(|(source, _, _)| self.obj(*source).map_or(0, |o| o.timestamp))
+            .map(|(source, controller, _)| (source, controller))
+    }
+
+    /// Who may play exiled card `card`, and whether they may spend mana as
+    /// though it were any color: a permanent linked to it with "you may play
+    /// those cards" (CR 607.2a; Opposition Agent).
+    pub(crate) fn exile_permission(&self, card: ObjectId) -> Option<(PlayerId, bool)> {
+        if self.linked.is_empty()
+            || self
+                .obj(card)
+                .is_none_or(|o| o.zone != crate::state::ZoneId::Exile)
+        {
+            return None;
+        }
+        self.active_rule_statics()
+            .into_iter()
+            .find_map(|(source, controller, e)| {
+                let StaticEffect::Rule(ir::RuleMod::MayPlayExiledWithThis { any_color_mana }) = e
+                else {
+                    return None;
+                };
+                self.linked
+                    .iter()
+                    .any(|(s, _, ids)| *s == source && ids.contains(&card))
+                    .then_some((controller, *any_color_mana))
+            })
+    }
+
     /// Torpor Orb: whether a creature entering (object `id`) can cause
     /// abilities to trigger.
     pub(crate) fn entering_triggers(&self, id: ObjectId) -> bool {
