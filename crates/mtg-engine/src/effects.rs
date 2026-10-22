@@ -972,6 +972,23 @@ impl Game {
                     self.win_by_effect(p);
                 }
             }
+            Effect::CopyCard { what, remember } => {
+                let ids = self.set_now(&t.ctx, what);
+                let copies: SmallVec<[ObjectId; 2]> = ids
+                    .iter()
+                    .filter_map(|id| self.copy_card(*id, t.ctx.controller))
+                    .collect();
+                t.ctx.remembered.retain(|(k, _)| k != remember);
+                t.ctx.remembered.push((remember.clone(), copies));
+            }
+            Effect::Cast { what, .. } => {
+                let p = t.ctx.controller;
+                if let Some(&id) = self.set_now(&t.ctx, what).first()
+                    && let Some(task) = self.cast_during_resolution(p, id)
+                {
+                    return Flow::Yield(Box::new(task));
+                }
+            }
             Effect::LoseGame(who) => {
                 // CR 104.3e
                 if let Some(p) = self.player_ref(&t.ctx, who) {
@@ -1053,11 +1070,18 @@ impl Game {
                         .collect()
                 })
                 .unwrap_or_default(),
+            // CR 607.2a: otherwise, objects a linked ability of the source remembered.
             ObjectRef::Remembered(name) => ctx
                 .remembered
                 .iter()
                 .find(|(k, _)| k == name)
                 .map(|(_, v)| v.clone())
+                .or_else(|| {
+                    self.linked
+                        .iter()
+                        .find(|(s, k, _)| *s == ctx.source && k == name)
+                        .map(|(_, _, v)| v.clone())
+                })
                 .unwrap_or_default(),
             ObjectRef::Triggering => ctx.triggering_object.into_iter().collect(),
         }
@@ -1428,6 +1452,14 @@ impl Game {
             }
         }
         if let Some(name) = remember {
+            // CR 607.2a: a permanent's ability that exiles links the cards to
+            // the permanent's other abilities.
+            if self.on_battlefield(ctx.source) {
+                let source = ctx.source;
+                self.linked
+                    .retain(|(s, k, _)| !(*s == source && *k == name));
+                self.linked.push((source, name.clone(), new_ids.clone()));
+            }
             ctx.remembered.retain(|(k, _)| *k != name);
             ctx.remembered.push((name, new_ids));
         }
@@ -1563,6 +1595,33 @@ impl Game {
             self.draw(p);
         }
         Flow::Continue
+    }
+
+    /// CR 707.12: a copy of a card, in the same zone, owned and controlled by
+    /// `controller`; it ceases to exist outside the stack and battlefield
+    /// (CR 704.5e).
+    fn copy_card(&mut self, id: ObjectId, controller: PlayerId) -> Option<ObjectId> {
+        let o = *self.obj(id)?;
+        let copy = self.objects.alloc(crate::state::GameObject {
+            def: o.def,
+            owner: controller,
+            controller,
+            zone: o.zone,
+            tapped: false,
+            damage: 0,
+            deathtouch_damage: false,
+            control_since: self.turn.number,
+        });
+        match o.zone {
+            ZoneId::Stack | ZoneId::Command => {}
+            zone => self.zone_vec_mut(zone).push(copy),
+        }
+        self.copies.push(copy);
+        self.log(Event::CopyCreated {
+            object: copy,
+            of: id,
+        });
+        Some(copy)
     }
 
     /// The mana requirement of a mana cost part.

@@ -223,6 +223,8 @@ impl GameBuilder {
             counters,
             pending_triggers: Vec::new(),
             leaving_batch: Vec::new(),
+            linked: Vec::new(),
+            copies: Vec::new(),
             face_down: Vec::new(),
             delayed: Vec::new(),
             cast_this_turn: Vec::new(),

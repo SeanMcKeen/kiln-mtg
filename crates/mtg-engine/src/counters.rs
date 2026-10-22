@@ -119,12 +119,19 @@ impl Game {
     }
 
     /// CR 704.5d: tokens in a zone other than the battlefield.
+    /// Also copies of cards outside the stack and battlefield (CR 704.5e).
     pub(crate) fn tokens_off_battlefield(&self) -> Vec<ObjectId> {
-        self.objects
+        let mut out: Vec<ObjectId> = self
+            .objects
             .iter()
             .filter(|(_, o)| o.zone != ZoneId::Battlefield && self.def(o.def).token)
             .map(|(id, _)| id)
-            .collect()
+            .collect();
+        out.extend(self.copies.iter().copied().filter(|id| {
+            self.obj(*id)
+                .is_some_and(|o| !matches!(o.zone, ZoneId::Battlefield | ZoneId::Stack))
+        }));
+        out
     }
 
     /// CR 704.5d: the token ceases to exist.
@@ -135,6 +142,9 @@ impl Game {
         self.detach_object(id, zone);
         self.objects.free(id);
         self.drop_counters(id);
+        if !self.copies.is_empty() {
+            self.copies.retain(|x| *x != id);
+        }
     }
 
     /// CR 704.5q: permanents with both +1/+1 and -1/-1 counters, and how many pairs to remove.

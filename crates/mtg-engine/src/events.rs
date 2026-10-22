@@ -86,6 +86,11 @@ pub enum Event {
         target: crate::state::Target,
         amount: u32,
     },
+    /// A copy of a card was created (CR 707.12).
+    CopyCreated {
+        object: ObjectId,
+        of: ObjectId,
+    },
     /// A replacement effect replaced an event (CR 614.6).
     Replaced {
         source: ObjectId,
@@ -258,6 +263,7 @@ impl Event {
             Event::Triggered { .. } => "603.2",
             Event::TriggerRemoved { .. } => "603.3d",
             Event::Replaced { .. } => "614.6",
+            Event::CopyCreated { .. } => "707.12",
             Event::BecameTarget { .. } => "115.1",
             Event::DamagePrevented { .. } => "702.16e",
             Event::PlayerLost { .. } => "104.3",

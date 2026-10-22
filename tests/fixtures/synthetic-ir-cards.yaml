@@ -714,3 +714,24 @@
   pt: [2, 2]
   abilities:
     - keyword: { protection: { color: R } }
+
+# ---- copies, free casts, linked abilities (M4 4.6) ----------------------------
+
+- name: Test Scepter
+  cost: "{2}"
+  types: Artifact
+  abilities:
+    - triggered:
+        trigger: { enters: { this: true } }
+        effect:
+          may:
+            exile:
+              what: { chosen_from: { who: you, zone: hand, filter: { types: [instant], max_mana_value: 2 }, count: 1 } }
+              remember: imprinted
+    - activated:
+        cost: [{ mana: "{2}" }, tap]
+        effect:
+          may:
+            seq:
+              - copy_card: { what: { one: { remembered: imprinted } }, remember: copy }
+              - may: { cast: { what: { one: { remembered: copy } }, without_paying: true } }

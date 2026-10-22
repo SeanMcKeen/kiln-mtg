@@ -280,6 +280,12 @@ fn effect(e: &Effect) -> Check {
             _ => Ok(()),
         },
         Effect::WinGame(who) => player(who),
+        Effect::CopyCard { what, .. } => set(what),
+        Effect::Cast {
+            what,
+            without_paying: true,
+        } => set(what),
+        Effect::Cast { .. } => Err("casting a spell during resolution and paying for it".into()),
         Effect::EntersTapped => Err("\"enters tapped\" is a replacement effect (M4)".into()),
         Effect::CreateToken {
             token,

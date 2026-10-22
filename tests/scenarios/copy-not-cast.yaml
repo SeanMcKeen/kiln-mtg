@@ -1,0 +1,23 @@
+scenario: mtg-scenario/1
+name: A copy of a card that isn't cast ceases to exist
+cr: ["707.12", "704.5e"]
+players:
+  - battlefield: [Test Rock, Test Island, Test Island]
+    hand: [Test Scepter, Test Bolt]
+  - {}
+script:
+  - choose: Cast Test Scepter
+  - choose: Pay with Test Island, Test Island
+  - pass_all
+  - pass_all
+  - choose: "Yes"
+  - choose: Activate Test Scepter ability 2
+  - choose: Pay with Test Rock
+  - pass_all
+  - choose: "Yes"
+  - choose: "No"
+expect:
+  life: { P2: 20 }
+  zones:
+    exile: [Test Bolt]
+    stack: []

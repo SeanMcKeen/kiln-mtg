@@ -498,6 +498,18 @@ pub enum Effect {
         at: Trigger,
         effect: Box<Effect>,
     },
+    /// "Copy [object]": a copy of a card, created in the zone the card is in
+    /// (CR 707.12), named `remember` for the rest of the effect.
+    CopyCard {
+        what: ObjectSet,
+        remember: String,
+    },
+    /// "Cast [object] without paying its mana cost" during resolution
+    /// (CR 608.2g, 118.9). Usually inside a `May`.
+    Cast {
+        what: ObjectSet,
+        without_paying: bool,
+    },
     /// "[who] wins the game" (CR 104.2b).
     WinGame(PlayerRef),
     /// "[who] loses the game" (CR 104.3e).

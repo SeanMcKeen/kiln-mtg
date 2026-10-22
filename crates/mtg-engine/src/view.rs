@@ -300,6 +300,7 @@ impl Game {
             DecisionKind::ChooseCost { options, .. } => match options[i] {
                 CastCost::Normal => "Pay the mana cost".into(),
                 CastCost::Alternative(a) => format!("Pay alternative cost {}", a + 1),
+                CastCost::WithoutPaying => "Cast without paying its mana cost".into(),
             },
             DecisionKind::ChooseSymbolPay {
                 symbol, options, ..

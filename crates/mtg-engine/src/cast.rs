@@ -190,6 +190,8 @@ fn cost_shape(def: &CardDef, ability: Option<u8>, cost: CastCost) -> Option<Cost
             let alt = spell?.alternative_costs.get(usize::from(i))?;
             add(&alt.cost, &mut symbols);
         }
+        // CR 118.9: no mana cost (and so X is 0, CR 107.3b); additional costs remain.
+        CastCost::WithoutPaying => {}
     }
     if let Some(s) = spell {
         add(&s.additional_costs, &mut symbols);
@@ -472,6 +474,54 @@ impl Game {
         }));
     }
 
+    /// CR 608.2g, 707.12: an effect casts `card` (or a copy of a card) without
+    /// paying its mana cost while it resolves. Returns the cast procedure to
+    /// run before the effect continues, or `None` if no legal cast exists.
+    pub(crate) fn cast_during_resolution(&mut self, p: PlayerId, card: ObjectId) -> Option<Task> {
+        if !self.can_cast_free(p, card) {
+            return None;
+        }
+        let def = self.obj(card)?.def;
+        let spell = self.move_object(card, ZoneId::Stack, true)?;
+        if let Some(o) = self.objects.get_mut(spell) {
+            o.controller = p;
+        }
+        let mut item = StackItem::new(spell, def, None, p);
+        item.cost = CastCost::WithoutPaying;
+        self.stack.push(item);
+        Some(Task::Cast(CastTask {
+            spell,
+            caster: p,
+            stage: CastStage::Modes,
+            index: 0,
+        }))
+    }
+
+    /// Whether `p` could cast `id` without paying its mana cost right now
+    /// (timing permissions don't apply during resolution, CR 608.2g).
+    fn can_cast_free(&self, p: PlayerId, id: ObjectId) -> bool {
+        let Some(def_id) = self.obj(id).map(|o| o.def) else {
+            return false;
+        };
+        let def = self.def(def_id);
+        // CR 305.9: lands can't be cast.
+        if def.is(CardType::Land) {
+            return false;
+        }
+        if let Some(spell) = def.spell() {
+            if let Effect::Modal { min, .. } = &spell.effect {
+                if self.ok_modes(def, spell, p, None).len() < *min as usize {
+                    return false;
+                }
+            } else if !spell.targets.iter().all(|t| self.slot_ok(t, p, None, def)) {
+                return false;
+            }
+        }
+        let ctx = cast_ctx(def_id, def, None, id, p);
+        cost_shape(def, None, CastCost::WithoutPaying)
+            .is_some_and(|shape| self.shape_payable(p, &ctx, &shape, 0, &[], None))
+    }
+
     /// The stack item being cast or activated: the topmost one for this
     /// object (an ability's object is its source, which may have other
     /// abilities lower on the stack).
@@ -537,8 +587,9 @@ impl Game {
                 );
             }
             CastStage::Cost => {
-                // Abilities have only their activation cost.
-                if !item.is_spell() {
+                // Abilities have only their activation cost; an effect that
+                // casts a spell "without paying" fixed its cost already.
+                if !item.is_spell() || item.cost == CastCost::WithoutPaying {
                     return self.advance(t, CastStage::X);
                 }
                 let options = self.cost_options(def, &ctx, t.caster);

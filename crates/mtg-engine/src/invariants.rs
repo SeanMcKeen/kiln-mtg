@@ -53,8 +53,9 @@ impl Game {
         }
         let mut owned = [0usize; 8];
         for (id, o) in self.objects.iter() {
-            // Tokens aren't deck cards (CR 111.1).
+            // Tokens (CR 111.1) and copies of cards (CR 707.12) aren't deck cards.
             if !self.def(o.def).token
+                && !self.copies.contains(&id)
                 && let Some(n) = owned.get_mut(o.owner.0 as usize)
             {
                 *n += 1;

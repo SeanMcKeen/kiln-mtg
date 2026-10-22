@@ -1,0 +1,5 @@
+card: Dramatic Reversal
+faces:
+  - abilities:
+      - spell:
+          effect: { untap: { all: { not_types: [land], controller: you } } }

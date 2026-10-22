@@ -231,7 +231,7 @@ impl Game {
         }
     }
 
-    fn on_battlefield(&self, id: ObjectId) -> bool {
+    pub(crate) fn on_battlefield(&self, id: ObjectId) -> bool {
         self.obj(id).is_some_and(|o| o.zone == ZoneId::Battlefield)
     }
 

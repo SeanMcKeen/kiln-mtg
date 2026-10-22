@@ -184,6 +184,12 @@ pub struct Game {
     /// Permanents leaving the battlefield in the current simultaneous batch
     /// (CR 603.10a look-back). Empty except while a batch moves.
     pub(crate) leaving_batch: Vec<(ObjectId, DefId, PlayerId)>,
+    /// Objects an ability of a permanent exiled and remembered, linked to
+    /// that permanent's other abilities (CR 607.2a): (source, name, objects).
+    pub(crate) linked: Vec<(ObjectId, String, SmallVec<[ObjectId; 2]>)>,
+    /// Copies of cards (CR 707.12); they cease to exist outside the stack and
+    /// battlefield (CR 704.5e).
+    pub(crate) copies: Vec<ObjectId>,
     /// Cards exiled face down (CR 406.3): no player may look at them.
     pub(crate) face_down: Vec<ObjectId>,
     /// Delayed triggered abilities waiting for their event (CR 603.7).
@@ -251,6 +257,8 @@ impl Game {
             counters: Vec::new(),
             pending_triggers: Vec::new(),
             leaving_batch: Vec::new(),
+            linked: Vec::new(),
+            copies: Vec::new(),
             face_down: Vec::new(),
             delayed: Vec::new(),
             cast_this_turn: Vec::new(),
@@ -460,6 +468,12 @@ impl Game {
         if !self.face_down.is_empty() {
             self.face_down.hash(&mut h);
         }
+        if !self.linked.is_empty() {
+            self.linked.hash(&mut h);
+        }
+        if !self.copies.is_empty() {
+            self.copies.hash(&mut h);
+        }
         if !self.cast_this_turn.is_empty() {
             self.cast_this_turn.hash(&mut h);
         }
@@ -583,7 +597,7 @@ impl Game {
         });
     }
 
-    fn zone_vec_mut(&mut self, zone: ZoneId) -> &mut Vec<ObjectId> {
+    pub(crate) fn zone_vec_mut(&mut self, zone: ZoneId) -> &mut Vec<ObjectId> {
         match zone {
             ZoneId::Library(p) => &mut self.players[p.0 as usize].library,
             ZoneId::Hand(p) => &mut self.players[p.0 as usize].hand,
@@ -625,6 +639,14 @@ impl Game {
         if old.zone == ZoneId::Exile && !self.face_down.is_empty() {
             self.face_down.retain(|x| *x != id);
         }
+        // CR 400.7: a new object; links to the old one end (CR 607.2a).
+        if old.zone == ZoneId::Battlefield && !self.linked.is_empty() {
+            self.linked.retain(|(s, _, _)| *s != id);
+        }
+        let was_copy = !self.copies.is_empty() && self.copies.contains(&id);
+        if was_copy {
+            self.copies.retain(|x| *x != id);
+        }
         self.objects.free(id);
         self.drop_counters(id);
         let controller = match to {
@@ -651,6 +673,10 @@ impl Game {
                 let v = self.zone_vec_mut(to);
                 if top { v.push(new) } else { v.insert(0, new) }
             }
+        }
+        // A copy stays a copy as it moves (it's cast from exile, CR 707.12).
+        if was_copy {
+            self.copies.push(new);
         }
         self.log(Event::ZoneChange {
             def: old.def,

@@ -192,6 +192,8 @@ pub enum CastCost {
     Normal,
     /// The spell's alternative cost with this index.
     Alternative(u8),
+    /// "Without paying its mana cost" (CR 118.9), when an effect casts it.
+    WithoutPaying,
 }
 
 /// How one hybrid or Phyrexian mana symbol is paid (CR 107.4e–f).
