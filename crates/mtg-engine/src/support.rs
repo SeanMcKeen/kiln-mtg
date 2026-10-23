@@ -117,6 +117,7 @@ pub(crate) fn check(def: &CardDef) -> Check {
             }) => {}
             Ability::Static(s) => rule_static(s)?,
             Ability::Replacement(r) => replacement(r)?,
+            Ability::OpeningHand(o) => effect(&o.effect)?,
             // Whole-ability escapes need a hook per ability kind; none is needed yet.
             Ability::Escape(e) => {
                 return Err(format!(
@@ -265,9 +266,14 @@ fn effect(e: &Effect) -> Check {
         Effect::AddMana {
             mana,
             spend_only_on,
+            uncounterable,
+            to,
         } => {
-            if spend_only_on.is_some() {
-                return Err("mana with spending restrictions (M5)".into());
+            if let Some(p) = to {
+                player(p)?;
+            }
+            if *uncounterable && spend_only_on.is_none() {
+                return Err("an uncounterable rider without a spending restriction".into());
             }
             match mana {
                 // Only meaningful in a triggered ability (checked in `check`).
@@ -545,7 +551,9 @@ fn quantity(q: &Quantity) -> Check {
             QuantityExpr::PowerOf(o)
             | QuantityExpr::ManaValueOf(o)
             | QuantityExpr::CountersOn { what: o, .. } => object(o),
-            QuantityExpr::CardsInLibrary(p) => player(p),
+            QuantityExpr::CardsInLibrary(p) | QuantityExpr::CountOf { controller: p, .. } => {
+                player(p)
+            }
             QuantityExpr::Plus(q, _) | QuantityExpr::Neg(q) => quantity(q),
             QuantityExpr::OpponentsDealtCombatDamageThisTurn
             | QuantityExpr::TriggeringAmount
@@ -582,7 +590,7 @@ fn condition(c: &Condition) -> Check {
         }
         Condition::Not(c) => condition(c),
         Condition::TopOfLibraryMatches { who, .. } => player(who),
-        Condition::YourTurn | Condition::ThisTapped => Ok(()),
+        Condition::YourTurn | Condition::ThisTapped | Condition::UnusedThisTurn => Ok(()),
     }
 }
 

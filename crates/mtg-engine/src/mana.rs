@@ -483,11 +483,7 @@ impl Game {
             self.def(r.def).abilities.get(usize::from(r.ability))
         {
             let ctx = EffectCtx::new(r, source, p);
-            x.effect.walk(&mut |e| {
-                if let mtg_cards::ir::Effect::AddMana { mana, .. } = e {
-                    out.extend(self.dynamic_mana_bags(mana, &ctx));
-                }
-            });
+            out.extend(self.mana_effect_bags(&x.effect, &ctx));
         }
         out.sort_unstable();
         out.dedup();
@@ -632,10 +628,17 @@ impl Game {
 
     /// Executes a payment plan: activate its sources, then spend from the pool.
     /// Pushes tasks, so callers push their continuation first.
-    pub(crate) fn execute_plan(&mut self, p: PlayerId, plan: &PaymentPlan) {
+    /// `spell`: the spell being cast, whose restricted mana may be spent (CR 106.6).
+    pub(crate) fn execute_plan(
+        &mut self,
+        p: PlayerId,
+        plan: &PaymentPlan,
+        spell: Option<ObjectId>,
+    ) {
         self.tasks.push(Task::SpendMana {
             player: p,
             spend: plan.spend,
+            spell,
         });
         for (source, ability, bag) in plan.activations.iter().rev() {
             self.activate_mana(*source, *ability, Some(*bag));
@@ -643,13 +646,102 @@ impl Game {
     }
 
     /// Spends mana from a player's pool (the last step of a payment plan).
-    pub(crate) fn spend_mana(&mut self, p: PlayerId, spend: [u32; 6]) {
-        let pool = &mut self.player_mut(p).pool;
+    pub(crate) fn spend_mana(&mut self, p: PlayerId, spend: [u32; 6], spell: Option<ObjectId>) {
         for t in ManaType::ALL {
             let n = spend[t.index()];
+            let pool = &mut self.player_mut(p).pool;
             debug_assert!(pool.get(t) >= n, "plan spends more {t} than the pool holds");
             pool.0[t.index()] = pool.get(t).saturating_sub(n);
+            self.consume_restricted(p, t, n, spell);
         }
+    }
+
+    // ---- restricted mana (CR 106.6) ---------------------------------------
+
+    /// The spending restriction of mana made by `ability`, if any.
+    fn restriction_of(&self, ability: AbilityRef) -> Option<mtg_cards::ir::ObjectFilter> {
+        let mut found = None;
+        if let Some(e) = crate::effects::root(&self.pool, ability) {
+            e.walk(&mut |x| {
+                if let mtg_cards::ir::Effect::AddMana {
+                    spend_only_on: Some(f),
+                    ..
+                } = x
+                {
+                    found = Some(f.clone());
+                }
+            });
+        }
+        found
+    }
+
+    /// Whether restricted mana `r` may pay for `spell` (a spell being cast).
+    fn restriction_allows(
+        &self,
+        r: &crate::state::RestrictedMana,
+        spell: Option<ObjectId>,
+    ) -> bool {
+        match (spell, self.restriction_of(r.ability)) {
+            (Some(s), Some(f)) => self.matches_filter(s, &f, r.player, None),
+            _ => false,
+        }
+    }
+
+    /// The pool `p` can spend now: restricted mana counts only for a spell
+    /// it may be spent on.
+    pub(crate) fn usable_pool(&self, p: PlayerId, spell: Option<ObjectId>) -> ManaPool {
+        let mut pool = self.player(p).pool;
+        for r in self.restricted.iter().filter(|r| r.player == p) {
+            if !self.restriction_allows(r, spell) {
+                pool.0[r.mana.index()] = pool.0[r.mana.index()].saturating_sub(1);
+            }
+        }
+        pool
+    }
+
+    /// Spending `n` mana of type `t`: restricted units usable for `spell`
+    /// go first. That choice is never worse for the player (what remains is
+    /// at least as flexible), and it applies riders ("can't be countered").
+    pub(crate) fn consume_restricted(
+        &mut self,
+        p: PlayerId,
+        t: ManaType,
+        n: u32,
+        spell: Option<ObjectId>,
+    ) {
+        if self.restricted.is_empty() {
+            return;
+        }
+        let mut left = n;
+        let mut i = 0;
+        while left > 0 && i < self.restricted.len() {
+            let r = &self.restricted[i];
+            if r.player == p && r.mana == t && self.restriction_allows(r, spell) {
+                let r = self.restricted.remove(i);
+                if r.uncounterable
+                    && let Some(s) = spell
+                    && !self.uncounterable.contains(&s)
+                {
+                    self.uncounterable.push(s);
+                }
+                left -= 1;
+            } else {
+                i += 1;
+            }
+        }
+    }
+
+    /// Whether `id` is a spell now being cast (not an ability, not resolving).
+    pub(crate) fn spell_being_cast(&self, id: ObjectId) -> bool {
+        self.tasks
+            .iter()
+            .any(|t| matches!(t, Task::Cast(c) if c.spell == id))
+            && self
+                .stack
+                .iter()
+                .rev()
+                .find(|s| s.object == id)
+                .is_some_and(|s| s.ability.is_none())
     }
 }
 

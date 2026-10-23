@@ -161,6 +161,24 @@ impl Game {
         // 9. Commanders (CR 903).
         self.commander_invariant()?;
 
+        // 10. Restricted mana (CR 106.6) is part of the pool.
+        for p in &self.players {
+            for t in crate::card::ManaType::ALL {
+                let restricted = self
+                    .restricted
+                    .iter()
+                    .filter(|r| r.player == p.id && r.mana == t)
+                    .count();
+                if restricted > p.pool.get(t) as usize {
+                    return Err(format!(
+                        "invariant 10: {} has {restricted} restricted {t} but {} in the pool",
+                        p.id,
+                        p.pool.get(t)
+                    ));
+                }
+            }
+        }
+
         // Stack items refer to live objects on the stack, and so on.
         for s in self.stack.iter().filter(|s| s.is_spell()) {
             if self.obj(s.object).is_none_or(|o| o.zone != ZoneId::Stack) {

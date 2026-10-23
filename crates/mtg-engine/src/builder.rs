@@ -60,6 +60,7 @@ pub struct GameBuilder {
     active: PlayerId,
     step: Step,
     seed: u64,
+    pregame: bool,
 }
 
 impl GameBuilder {
@@ -82,6 +83,7 @@ impl GameBuilder {
             active: PlayerId(0),
             step: Step::PrecombatMain,
             seed: 0,
+            pregame: false,
         }
     }
 
@@ -123,6 +125,15 @@ impl GameBuilder {
     /// A commander of `p` (CR 903.3), starting `at`.
     pub fn commander(mut self, p: PlayerId, card: DefId, at: CommanderAt) -> Self {
         self.seats[p.0 as usize].commanders.push((card, at));
+        self
+    }
+
+    /// The game starts just after mulligans, with opening-hand actions
+    /// (CR 103.6); `starting` plays first.
+    pub fn pregame(mut self, starting: PlayerId) -> Self {
+        self.pregame = true;
+        self.active = starting;
+        self.turn = 0;
         self
     }
 
@@ -300,7 +311,19 @@ impl GameBuilder {
             combat_damaged: 0,
             drew_in_draw_step: false,
             cmd,
+            restricted: Vec::new(),
+            uncounterable: Vec::new(),
         };
+        if self.pregame {
+            game.turn.number = 0;
+            game.turn.step = Step::Untap;
+            game.starting_player = self.active;
+            for p in &mut game.players {
+                p.last_turn = 0;
+            }
+            let order = game.turn_order_from(self.active).into_iter().collect();
+            game.tasks = vec![Task::BeginTurn, Task::Pregame { order, next: 0 }];
+        }
         if matches!(
             self.step,
             Step::DeclareAttackers

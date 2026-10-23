@@ -423,7 +423,11 @@ impl CardDef {
                         ability: u8::try_from(i)
                             .map_err(|_| unsupported("more than 255 abilities".into()))?,
                         bags,
-                        tap_only: x.cost == [CostPart::Tap] && choice_free(&x.effect),
+                        // Restricted mana (CR 106.6) isn't offered by payment plans:
+                        // plans don't know what it may pay for.
+                        tap_only: x.cost == [CostPart::Tap]
+                            && choice_free(&x.effect)
+                            && !restricted_mana(&x.effect),
                         dynamic: dynamic_mana(&x.effect),
                     });
                 }
@@ -486,6 +490,17 @@ impl CardDef {
         .any(|t| self.is(*t))
     }
 
+    /// Its opening-hand action (CR 103.6), with its ability index.
+    pub fn opening_hand(&self) -> Option<(u8, &ir::OpeningHand)> {
+        self.abilities
+            .iter()
+            .enumerate()
+            .find_map(|(i, a)| match a {
+                Ability::OpeningHand(o) => Some((u8::try_from(i).ok()?, o)),
+                _ => None,
+            })
+    }
+
     /// Whether some activated ability works from the hand (CR 113.6b).
     pub fn has_hand_abilities(&self) -> bool {
         self.abilities
@@ -535,8 +550,17 @@ fn could_add_mana(e: &ir::Effect) -> bool {
         E::AddMana { .. } => true,
         E::Seq(v) => v.iter().any(could_add_mana),
         E::May(x) => could_add_mana(x),
+        E::If {
+            then, otherwise, ..
+        } => could_add_mana(then) || otherwise.as_deref().is_some_and(could_add_mana),
         _ => false,
     }
+}
+
+/// "Add A. If [condition], instead add B" (Gemstone Caverns): both branches add mana.
+fn conditional_mana(e: &ir::Effect) -> bool {
+    matches!(e, ir::Effect::If { then, otherwise: Some(o), .. }
+        if matches!(**then, ir::Effect::AddMana { .. }) && matches!(**o, ir::Effect::AddMana { .. }))
 }
 
 /// Whether a mana ability's effect needs no choices once its mana is fixed:
@@ -547,6 +571,9 @@ fn choice_free(e: &ir::Effect) -> bool {
     match e {
         E::AddMana { .. } => true,
         E::Seq(v) => v.iter().all(choice_free),
+        E::If {
+            then, otherwise, ..
+        } => choice_free(then) && otherwise.as_deref().is_none_or(choice_free),
         E::DealDamage {
             to: R::Player(P::You),
             ..
@@ -557,8 +584,26 @@ fn choice_free(e: &ir::Effect) -> bool {
     }
 }
 
+/// Whether an effect adds mana with a spending restriction (CR 106.6).
+fn restricted_mana(e: &ir::Effect) -> bool {
+    let mut found = false;
+    e.walk(&mut |x| {
+        found |= matches!(
+            x,
+            ir::Effect::AddMana {
+                spend_only_on: Some(_),
+                ..
+            }
+        );
+    });
+    found
+}
+
 /// Whether an effect adds mana whose output depends on the game state.
 fn dynamic_mana(e: &ir::Effect) -> bool {
+    if conditional_mana(e) {
+        return true;
+    }
     let mut found = false;
     e.walk(&mut |x| {
         found |= matches!(x, ir::Effect::AddMana { mana, .. } if is_dynamic_spec(mana));
@@ -588,6 +633,10 @@ pub type ManaAlternatives = SmallVec<[SmallVec<[ManaUnit; 2]>; 1]>;
 /// `AddMana` is supported so far.
 fn ability_mana_output(e: &ir::Effect) -> Result<ManaAlternatives, String> {
     use ir::Effect as E;
+    if conditional_mana(e) {
+        // A placeholder: the game picks the branch (`ManaAbility::dynamic`).
+        return Ok(smallvec::smallvec![SmallVec::from_elem(ANY_COLOR, 1)]);
+    }
     let adds: Vec<&ManaSpec> = match e {
         E::AddMana { mana, .. } => vec![mana],
         E::Seq(v) => v
@@ -681,6 +730,8 @@ pub fn tap_for(t: ManaType) -> Ability {
         effect: ir::Effect::AddMana {
             mana: ManaSpec::Fixed(t.symbol().to_owned()),
             spend_only_on: None,
+            uncounterable: false,
+            to: None,
         },
         timing: ir::Timing::Any,
         once_per_turn: false,
@@ -1049,6 +1100,8 @@ pub fn token_def(spec: &ir::TokenSpec) -> Result<CardDef, Unsupported> {
                     ir::Effect::AddMana {
                         mana: ManaSpec::AnyColor(Quantity::Fixed(1)),
                         spend_only_on: None,
+                        uncounterable: false,
+                        to: None,
                     },
                 ),
                 // CR 111.10b

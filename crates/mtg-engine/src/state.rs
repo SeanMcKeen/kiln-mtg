@@ -166,6 +166,19 @@ impl ManaPool {
     }
 }
 
+/// Mana in a pool that can be spent only on some spells (CR 106.6). The
+/// units are also counted in the player's [`ManaPool`]; this records which
+/// of them carry the restriction.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) struct RestrictedMana {
+    pub player: PlayerId,
+    pub mana: crate::card::ManaType,
+    /// The mana ability or spell that made it (its `spend_only_on`).
+    pub ability: crate::effects::AbilityRef,
+    /// "... and that spell can't be countered".
+    pub uncounterable: bool,
+}
+
 /// Why a player lost (CR 104.3, 704.5).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum LossReason {

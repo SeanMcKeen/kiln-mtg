@@ -1,0 +1,8 @@
+card: Wild Growth
+faces:
+  - abilities:
+      - keyword: { enchant: { object: { types: [land] } } }
+      # A triggered mana ability (CR 605.1b): it resolves immediately.
+      - triggered:
+          trigger: { taps_for_mana: { by: any, what: { attached: true } } }
+          effect: { add_mana: { mana: { fixed: "{G}" }, to: triggering } }

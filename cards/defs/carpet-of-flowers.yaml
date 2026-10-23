@@ -1,0 +1,12 @@
+card: Carpet of Flowers
+faces:
+  - abilities:
+      # Not a mana ability: it targets (CR 605.1b), so it uses the stack.
+      - triggered:
+          trigger: { beginning_of: { step: main, whose: you } }
+          condition: unused_this_turn
+          targets: [{ what: { player: opponent } }]
+          effect:
+            may:
+              add_mana:
+                mana: { any_one_color: { count_of: { filter: { subtypes: [Island] }, controller: { target: 0 } } } }

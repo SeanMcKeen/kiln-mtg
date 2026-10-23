@@ -63,6 +63,8 @@ pub(crate) struct ManualPayTask {
 struct CostShape {
     symbols: Vec<ManaSymbol>,
     other: Vec<CostPart>,
+    /// A spell's cost (restricted mana may count, CR 106.6), not an ability's.
+    spell: bool,
 }
 
 /// How each kind of hybrid or Phyrexian symbol may be paid (CR 107.4e–f).
@@ -166,6 +168,7 @@ fn cost_shape(def: &CardDef, ability: Option<u8>, cost: CastCost) -> Option<Cost
             return Some(CostShape {
                 symbols: Vec::new(),
                 other: Vec::new(),
+                spell: false,
             });
         }
         let mut symbols: Vec<ManaSymbol> = Vec::new();
@@ -180,7 +183,11 @@ fn cost_shape(def: &CardDef, ability: Option<u8>, cost: CastCost) -> Option<Cost
                 other_part => other.push(other_part.clone()),
             }
         }
-        return Some(CostShape { symbols, other });
+        return Some(CostShape {
+            symbols,
+            other,
+            spell: false,
+        });
     }
     let spell = def.spell();
     let mut symbols: Vec<ManaSymbol> = Vec::new();
@@ -209,7 +216,11 @@ fn cost_shape(def: &CardDef, ability: Option<u8>, cost: CastCost) -> Option<Cost
     if let Some(s) = spell {
         add(&s.additional_costs, &mut symbols);
     }
-    Some(CostShape { symbols, other })
+    Some(CostShape {
+        symbols,
+        other,
+        spell: true,
+    })
 }
 
 /// Whether non-mana cost parts use X ("pay X life").
@@ -287,7 +298,7 @@ impl Game {
             .skip(pays.len())
             .map(symbol_options)
             .collect();
-        let pool = self.player(p).pool;
+        let pool = self.usable_pool(p, shape.spell.then_some(ctx.source));
         let sources = self.mana_sources(p, except);
         let life = self.player(p).life;
         // Try every completion of the open symbols (a spell has only a few).
@@ -324,7 +335,9 @@ impl Game {
         shape: &CostShape,
         except: Option<ObjectId>,
     ) -> u32 {
-        let pool = self.player(p).pool.total();
+        let pool = self
+            .usable_pool(p, shape.spell.then_some(ctx.source))
+            .total();
         let sources = u32::try_from(self.mana_sources(p, except).len()).unwrap_or(u32::MAX);
         let cap = if cost_uses_x(&shape.other) {
             1_000
@@ -815,9 +828,10 @@ impl Game {
                 if req.is_paid() {
                     return self.advance(t, CastStage::PayOther);
                 }
+                let spell = item.ability.is_none().then_some(t.spell);
                 let plans = enumerate_plans(
                     &req,
-                    &self.player(t.caster).pool,
+                    &self.usable_pool(t.caster, spell),
                     &self.mana_sources(t.caster, except),
                 );
                 self.tasks.push(Task::Cast(t));
@@ -1016,7 +1030,11 @@ impl Game {
             DecisionKind::PayMana { plans, .. } => {
                 self.advance(t, CastStage::PayOther);
                 if let Some(plan) = plans.get(option) {
-                    self.execute_plan(t.caster, plan);
+                    let spell = self
+                        .item(t.spell)
+                        .is_some_and(|i| i.ability.is_none())
+                        .then_some(t.spell);
+                    self.execute_plan(t.caster, plan, spell);
                 } else if let Some(item) = self.item(t.spell) {
                     let def = self.def(item.source_def);
                     let remaining = self.cast_requirement(def, item).0;
@@ -1035,7 +1053,7 @@ impl Game {
 
     /// Manual payment steps that keep the payment completable.
     pub(crate) fn manual_steps(&self, t: &ManualPayTask) -> Vec<ManaStep> {
-        let pool = self.player(t.payer).pool;
+        let pool = self.usable_pool(t.payer, self.spell_being_cast(t.spell).then_some(t.spell));
         let sources = self.mana_sources(t.payer, t.except);
         let mut steps = Vec::new();
         for m in ManaType::ALL {
@@ -1111,6 +1129,8 @@ impl Game {
             ManaStep::Spend(m) => {
                 if t.remaining.pay_one(m) {
                     self.player_mut(t.payer).pool.0[m.index()] -= 1;
+                    let spell = self.spell_being_cast(t.spell).then_some(t.spell);
+                    self.consume_restricted(t.payer, m, 1, spell);
                 }
                 self.tasks.push(Task::ManualPay(t));
             }

@@ -706,6 +706,8 @@ fn clause(c: &mut Cur, ctx: &mut Ctx) -> Option<Effect> {
         return mana_spec(c).map(|mana| Effect::AddMana {
             mana,
             spend_only_on: None,
+            uncounterable: false,
+            to: None,
         });
     }
     if c.lit("shuffle your library") || c.word("shuffle") {

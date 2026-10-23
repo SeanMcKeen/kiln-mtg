@@ -1,0 +1,19 @@
+card: Gemstone Caverns
+faces:
+  - abilities:
+      - opening_hand:
+          not_starting_player: true
+          effect:
+            seq:
+              - move: { what: { one: this }, to: battlefield }
+              - put_counters: { what: { one: this }, counter: luck, amount: 1 }
+              # "If you do, exile a card from your hand."
+              - exile: { what: { chosen_from: { who: you, zone: hand, filter: {}, count: 1 } } }
+      # "Add {C}. If it has a luck counter on it, instead add one mana of any color."
+      - activated:
+          cost: [tap]
+          effect:
+            if:
+              condition: { at_least: [{ counters_on: { what: this, counter: luck } }, 1] }
+              then: { add_mana: { mana: { any_color: 1 } } }
+              otherwise: { add_mana: { mana: { fixed: "{C}" } } }

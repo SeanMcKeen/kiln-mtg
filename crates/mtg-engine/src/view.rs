@@ -284,6 +284,7 @@ impl Game {
                         CardPurpose::PutIntoGraveyard => "Put into graveyard",
                         CardPurpose::PutCounters => "Put counters on",
                         CardPurpose::Copy => "Copy",
+                        CardPurpose::BeginOnBattlefield => "Begin the game with",
                     };
                     format!("{verb} {}", who(id))
                 }

@@ -278,7 +278,19 @@ pub(crate) fn root(pool: &CardPool, a: AbilityRef) -> Option<&Effect> {
         Ability::Activated(x) => Some(&x.effect),
         Ability::Triggered(t) => Some(&t.effect),
         Ability::Replacement(r) => Some(&r.instead),
+        Ability::OpeningHand(o) => Some(&o.effect),
         _ => None,
+    }
+}
+
+/// CR 400.7j: when an effect moves its own source to a public zone, later
+/// parts of the effect find the new object ("this").
+fn follow_source(ctx: &mut EffectCtx, old: ObjectId, new: Option<ObjectId>, to: ZoneId) {
+    if let Some(new) = new
+        && ctx.source == old
+        && !matches!(to, ZoneId::Hand(_) | ZoneId::Library(_))
+    {
+        ctx.source = new;
     }
 }
 
@@ -437,7 +449,7 @@ impl Game {
                     // The plan's activations and spending run before the effect resumes.
                     t.frames.push(Frame::Pay { who, parts, next });
                     self.tasks.push(Task::Effect(t));
-                    self.execute_plan(who, plan);
+                    self.execute_plan(who, plan, None);
                     return;
                 } else {
                     let remaining = parts
@@ -858,8 +870,14 @@ impl Game {
                     self.lose_life(p, n);
                 }
             }
-            Effect::AddMana { mana, .. } => {
-                let who = t.ctx.each.unwrap_or(t.ctx.controller);
+            Effect::AddMana { mana, to, .. } => {
+                let who = match to {
+                    Some(r) => match self.player_ref(&t.ctx, r) {
+                        Some(p) => p,
+                        None => return Flow::Continue,
+                    },
+                    None => t.ctx.each.unwrap_or(t.ctx.controller),
+                };
                 let options = match (t.ctx.forced_mana, mana) {
                     (Some(bag), _) => vec![bag],
                     (None, ManaSpec::Colorless(q)) => {
@@ -1406,6 +1424,28 @@ impl Game {
                     .map_or(0, |id| i64::from(self.counters_on(id, *counter))),
                 // Rejected by `support::check` until combat history is tracked (M4).
                 QuantityExpr::TriggeringAmount => i64::from(ctx.triggering_amount.unwrap_or(0)),
+                QuantityExpr::CountOf { filter, controller } => {
+                    let Some(p) = self.player_ref(ctx, controller) else {
+                        return 0;
+                    };
+                    let mut f = filter.clone();
+                    f.controller = mtg_cards::ir::PlayerRel::Any;
+                    i64::try_from(
+                        self.battlefield
+                            .iter()
+                            .filter(|id| {
+                                self.obj(**id).is_some_and(|o| o.controller == p)
+                                    && self.matches_filter(
+                                        **id,
+                                        &f,
+                                        ctx.controller,
+                                        Some(ctx.source),
+                                    )
+                            })
+                            .count(),
+                    )
+                    .unwrap_or(0)
+                }
                 QuantityExpr::Neg(q) => -self.quantity(ctx, q),
                 QuantityExpr::OpponentsDealtCombatDamageThisTurn => {
                     i64::from((self.combat_damaged & !(1u8 << ctx.controller.0)).count_ones())
@@ -1439,6 +1479,10 @@ impl Game {
             Condition::YourTurn => self.turn.active == ctx.controller,
             Condition::ThisTapped => self.obj(ctx.source).is_some_and(|o| o.tapped),
             Condition::AtLeast(a, b) => self.quantity(ctx, a) >= self.quantity(ctx, b),
+            // Recorded when the ability adds mana (see `mana_added`).
+            Condition::UnusedThisTurn => !self
+                .activated_this_turn
+                .contains(&(ctx.source, ctx.ability.ability)),
             Condition::TopOfLibraryMatches { who, filter } => self
                 .player_ref(ctx, who)
                 .and_then(|p| self.player(p).library.last().copied())
@@ -1535,6 +1579,39 @@ impl Game {
                 }
             }
             other => mana_bags(other),
+        }
+    }
+
+    /// The mana a mana ability's effect would make now: its `AddMana`, or the
+    /// branch of an "if ..., instead" that applies.
+    pub(crate) fn mana_effect_bags(&self, e: &Effect, ctx: &EffectCtx) -> Vec<ManaBag> {
+        match e {
+            Effect::AddMana { mana, .. } => {
+                if crate::card::is_dynamic_spec(mana) {
+                    self.dynamic_mana_bags(mana, ctx)
+                } else {
+                    mana_bags(mana)
+                }
+            }
+            Effect::Seq(v) => v
+                .iter()
+                .flat_map(|x| self.mana_effect_bags(x, ctx))
+                .collect(),
+            Effect::If {
+                condition,
+                then,
+                otherwise,
+            } => {
+                if self.condition(ctx, condition) {
+                    self.mana_effect_bags(then, ctx)
+                } else {
+                    otherwise
+                        .as_deref()
+                        .map(|o| self.mana_effect_bags(o, ctx))
+                        .unwrap_or_default()
+                }
+            }
+            _ => Vec::new(),
         }
     }
 
@@ -1720,7 +1797,9 @@ impl Game {
         if let Some(k) = self.known(ctx, id) {
             ctx.lki.push(k);
         }
-        self.move_object(id, to, top)
+        let new = self.move_object(id, to, top);
+        follow_source(ctx, id, new, to);
+        new
     }
 
     /// The zone a destination means for `id` (its owner's zones).
@@ -1791,13 +1870,14 @@ impl Game {
                 let tapped = to == Destination::BattlefieldTapped;
                 // CR 110.2: it enters under the control of the player putting
                 // it there; CR 110.5b: tapped if the effect says so.
-                self.move_object_with(id, ZoneId::Battlefield, true, |g, new| {
+                let new = self.move_object_with(id, ZoneId::Battlefield, true, |g, new| {
                     if let Some(n) = g.objects.get_mut(new) {
                         n.controller = who;
                         n.tapped |= tapped;
                     }
                     g.bump_layers();
                 });
+                follow_source(ctx, id, new, ZoneId::Battlefield);
             }
         }
     }
@@ -1869,7 +1949,10 @@ impl Game {
             return;
         };
         // CR 101.2: "can't be countered" takes precedence.
-        if o.zone != ZoneId::Stack || self.def(o.def).cant_be_countered() {
+        if o.zone != ZoneId::Stack
+            || self.def(o.def).cant_be_countered()
+            || self.uncounterable.contains(&id)
+        {
             return;
         }
         self.log(Event::Countered { object: id });
@@ -2183,6 +2266,42 @@ impl Game {
     /// the permanent as "tapped for mana" (Kinnan, CR 605.1b).
     fn mana_added(&mut self, ctx: &EffectCtx, who: PlayerId, bag: &ManaBag) {
         self.add_mana_bag(who, bag, ctx.source);
+        // "if you haven't added mana with this ability this turn": now it has.
+        if bag.iter().any(|n| *n > 0)
+            && matches!(
+                self.def(ctx.ability.def).abilities.get(usize::from(ctx.ability.ability)),
+                Some(Ability::Triggered(t)) if t.condition == Some(Condition::UnusedThisTurn)
+            )
+        {
+            self.activated_this_turn
+                .push((ctx.source, ctx.ability.ability));
+        }
+        // CR 106.6: "Spend this mana only to ..." marks the units it made.
+        let mut restricted = None;
+        if let Some(e) = root(&self.pool, ctx.ability) {
+            e.walk(&mut |x| {
+                if let Effect::AddMana {
+                    spend_only_on: Some(_),
+                    uncounterable,
+                    ..
+                } = x
+                {
+                    restricted = Some(*uncounterable);
+                }
+            });
+        }
+        if let Some(uncounterable) = restricted {
+            for t in ManaType::ALL {
+                for _ in 0..bag[t.index()] {
+                    self.restricted.push(crate::state::RestrictedMana {
+                        player: who,
+                        mana: t,
+                        ability: ctx.ability,
+                        uncounterable,
+                    });
+                }
+            }
+        }
         if ctx.tapped_for_mana && self.pool.has_triggers() {
             self.log(Event::TappedForMana {
                 player: who,
@@ -2565,7 +2684,7 @@ impl Game {
         cost.iter().all(|part| match part {
             CostPart::Mana(_) | CostPart::ManaRepeated { .. } => payable(
                 &self.part_req(ctx, part),
-                &self.player(who).pool,
+                &self.usable_pool(who, None),
                 &self.mana_sources(who, except),
             ),
             // CR 119.4: life can be paid only if the life total is at least the amount.
@@ -2648,7 +2767,7 @@ impl Game {
                 }
                 let plans = enumerate_plans(
                     &req,
-                    &self.player(who).pool,
+                    &self.usable_pool(who, None),
                     &self.mana_sources(who, except),
                 );
                 let spell = t.ctx.source;

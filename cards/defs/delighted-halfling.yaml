@@ -1,0 +1,12 @@
+card: Delighted Halfling
+faces:
+  - abilities:
+      - activated: { cost: [tap], effect: { add_mana: { mana: { fixed: "{C}" } } } }
+      - activated:
+          cost: [tap]
+          effect:
+            add_mana:
+              mana: { any_color: 1 }
+              # "Spend this mana only to cast a legendary spell, and that spell can't be countered."
+              spend_only_on: { supertypes: [legendary] }
+              uncounterable: true

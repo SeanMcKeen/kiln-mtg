@@ -267,6 +267,8 @@ pub enum CardPurpose {
     PutCounters,
     /// Enter as a copy of it (CR 707.9, 614.1c).
     Copy,
+    /// Take its opening-hand action: begin the game with it on the battlefield (CR 103.6).
+    BeginOnBattlefield,
 }
 
 pub use crate::card::ManaBag;

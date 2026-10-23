@@ -157,6 +157,8 @@ pub(crate) enum Task {
     SpendMana {
         player: PlayerId,
         spend: [u32; 6],
+        /// The spell being cast, whose restricted mana may be spent (CR 106.6).
+        spell: Option<ObjectId>,
     },
     /// CR 608.2n: the last step of an ability's resolution.
     FinishAbility {
@@ -169,6 +171,12 @@ pub(crate) enum Task {
     Draw(crate::replacement::DrawTask),
     /// Proposing and answering a shortcut for a detected loop (CR 732.2).
     Shortcut(crate::loops::ShortcutTask),
+    /// CR 103.6: opening-hand actions, the starting player first, then each
+    /// other player in turn order.
+    Pregame {
+        order: SmallVec<[PlayerId; 8]>,
+        next: usize,
+    },
 }
 
 /// A game in progress (or finished).
@@ -249,6 +257,10 @@ pub struct Game {
     pub(crate) drew_in_draw_step: bool,
     /// Commanders and the command zone (CR 903); empty outside Commander games.
     pub(crate) cmd: crate::commander::CommanderState,
+    /// Restricted mana in pools (CR 106.6), and spells made uncounterable by
+    /// the mana spent on them.
+    pub(crate) restricted: Vec<crate::state::RestrictedMana>,
+    pub(crate) uncounterable: Vec<ObjectId>,
 }
 
 impl Game {
@@ -331,6 +343,8 @@ impl Game {
             combat_damaged: 0,
             drew_in_draw_step: false,
             cmd: crate::commander::CommanderState::default(),
+            restricted: Vec::new(),
+            uncounterable: Vec::new(),
         };
         // CR 903.6: each commander starts the game in the command zone.
         for (seat, defs) in setup.commanders.iter().enumerate() {
@@ -395,6 +409,10 @@ impl Game {
         }
         game.log(Event::GameStarted { starting_player });
         game.tasks.push(Task::BeginTurn);
+        if game.pool.iter().any(|(_, d)| d.opening_hand().is_some()) {
+            let order = game.turn_order_from(starting_player).into_iter().collect();
+            game.tasks.push(Task::Pregame { order, next: 0 });
+        }
         game.tasks.push(Task::MulliganRound);
         game.tasks.push(Task::DrawOpeningHands);
         game.run();
@@ -605,6 +623,12 @@ impl Game {
         if !self.cmd.is_empty() {
             self.cmd.hash(&mut h);
         }
+        if !self.restricted.is_empty() {
+            self.restricted.hash(&mut h);
+        }
+        if !self.uncounterable.is_empty() {
+            self.uncounterable.hash(&mut h);
+        }
         h.finish()
     }
 
@@ -783,6 +807,9 @@ impl Game {
             if top { v.push(new) } else { v.insert(0, new) }
         }
         self.commander_moved(id, Some(new), to);
+        if !self.uncounterable.is_empty() {
+            self.uncounterable.retain(|x| *x != id);
+        }
         // A copy stays a copy as it moves (it's cast from exile, CR 707.12).
         if was_copy {
             self.copies.push(new);
@@ -947,6 +974,7 @@ impl Game {
         pl.hand.clear();
         pl.graveyard.clear();
         pl.pool.clear();
+        self.restricted.retain(|r| r.player != p);
         // CR 800.4a: effects giving them control of objects end.
         self.end_effects(
             |e| matches!(e.effect, crate::layers::LayerEffect::Control { to, .. } if to == p),
@@ -1075,11 +1103,16 @@ impl Game {
             Task::Cleanup { discarded } => self.cleanup(discarded),
             Task::Sba(t) => self.sba_step(t),
             Task::Effect(t) => self.effect_step(t),
-            Task::SpendMana { player, spend } => self.spend_mana(player, spend),
+            Task::SpendMana {
+                player,
+                spend,
+                spell,
+            } => self.spend_mana(player, spend, spell),
             Task::FinishAbility { source, ability } => self.finish_ability(source, ability),
             Task::StackTriggers(t) => self.stack_triggers_step(t),
             Task::Draw(t) => self.draw_task_step(t),
             Task::Shortcut(t) => self.shortcut_step(t),
+            Task::Pregame { order, next } => self.pregame_step(order, next),
             Task::FinishSpell { object } => {
                 if let Some(o) = self.obj(object).copied()
                     && o.zone == ZoneId::Stack
@@ -1168,11 +1201,86 @@ impl Game {
                 kind
                 @ (DecisionKind::ProposeShortcut { .. } | DecisionKind::RespondShortcut { .. }),
             ) => self.shortcut_answer(t, kind, option),
+            (Task::Pregame { order, next }, DecisionKind::ChooseCard { cards, .. }) => {
+                self.pregame_answer(order, next, cards[option]);
+            }
             (Task::Draw(t), DecisionKind::ChooseReplacement { .. }) => {
                 self.draw_task_answer(&t, option);
             }
             (task, kind) => unreachable!("decision {kind:?} answered for task {task:?}"),
         }
+    }
+
+    // ---- opening-hand actions (CR 103.6) -------------------------------------
+
+    /// Cards in `p`'s hand whose opening-hand action `p` may take.
+    fn pregame_candidates(&self, p: PlayerId) -> Vec<ObjectId> {
+        self.player(p)
+            .hand
+            .iter()
+            .copied()
+            .filter(|id| {
+                self.obj_def(*id)
+                    .and_then(|d| d.opening_hand())
+                    .is_some_and(|(_, o)| !o.not_starting_player || p != self.starting_player)
+            })
+            .collect()
+    }
+
+    fn pregame_step(&mut self, order: SmallVec<[PlayerId; 8]>, next: usize) {
+        let Some(&p) = order.get(next) else {
+            return;
+        };
+        let candidates = self.pregame_candidates(p);
+        if !self.in_game(p) || candidates.is_empty() {
+            self.tasks.push(Task::Pregame {
+                order,
+                next: next + 1,
+            });
+            return;
+        }
+        let source = candidates[0];
+        let cards = std::iter::once(None)
+            .chain(candidates.into_iter().map(Some))
+            .collect();
+        self.tasks.push(Task::Pregame { order, next });
+        // In any order, one at a time; stopping ends this player's actions.
+        self.decide(
+            p,
+            DecisionKind::ChooseCard {
+                source,
+                purpose: crate::decision::CardPurpose::BeginOnBattlefield,
+                cards,
+            },
+            "103.6",
+        );
+    }
+
+    fn pregame_answer(
+        &mut self,
+        order: SmallVec<[PlayerId; 8]>,
+        next: usize,
+        card: Option<ObjectId>,
+    ) {
+        let Some(card) = card else {
+            self.tasks.push(Task::Pregame {
+                order,
+                next: next + 1,
+            });
+            return;
+        };
+        let p = order[next];
+        self.tasks.push(Task::Pregame { order, next });
+        let Some((ability, def)) = self
+            .obj(card)
+            .and_then(|o| Some((self.def(o.def).opening_hand()?.0, o.def)))
+        else {
+            return;
+        };
+        let ctx =
+            crate::effects::EffectCtx::new(crate::effects::AbilityRef { def, ability }, card, p);
+        self.tasks
+            .push(Task::Effect(Box::new(crate::effects::EffectTask::new(ctx))));
     }
 
     // ---- mulligans (CR 103.5) ---------------------------------------------
@@ -1385,6 +1493,7 @@ impl Game {
         for p in &mut self.players {
             p.pool.clear();
         }
+        self.restricted.clear();
         let next = match self.turn.step {
             Step::Untap => Step::Upkeep,
             // CR 614.10: "skip your draw step".

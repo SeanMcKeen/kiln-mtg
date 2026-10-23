@@ -1,0 +1,16 @@
+scenario: mtg-scenario/1
+name: "Wild Growth: whenever the enchanted land is tapped for mana, its controller adds an additional {G}"
+cr: ["605.1b", "106.12a", "303.4a"]
+verifies: [Wild Growth]
+players:
+  - battlefield: [Forest, Island]
+    hand: [Wild Growth]
+  - {}
+script:
+  - choose: Cast Wild Growth
+  - choose: Target Island (P1)
+  - choose: Pay with Forest
+  - pass_all
+  - choose: "Tap Island for {U}"
+expect:
+  pool: { P1: "{U}{G}" }

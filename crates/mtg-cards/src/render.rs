@@ -105,6 +105,7 @@ fn ability(a: &Ability) -> String {
             _ => "<replacement>".into(),
         },
         Ability::Escape(e) => format!("<escape {}>", e.function),
+        Ability::OpeningHand(_) => "<opening hand>".into(),
     }
 }
 

@@ -49,6 +49,19 @@ pub enum Ability {
     Replacement(ReplacementAbility),
     /// Behaviour implemented by a named Rust function (the escape hatch).
     Escape(Escape),
+    /// "If this card is in your opening hand, you may [effect]" (CR 103.6:
+    /// Leyline of the Void, Gemstone Caverns).
+    OpeningHand(OpeningHand),
+}
+
+/// An opening-hand action (CR 103.6).
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OpeningHand {
+    /// "and you're not the starting player".
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub not_starting_player: bool,
+    pub effect: Effect,
 }
 
 /// A named Rust implementation, with the Oracle text it covers.
@@ -537,8 +550,16 @@ pub enum Effect {
     /// CR 106.3
     AddMana {
         mana: ManaSpec,
+        /// "Spend this mana only to cast [spells]" (CR 106.6).
         #[serde(default, skip_serializing_if = "Option::is_none")]
         spend_only_on: Option<ObjectFilter>,
+        /// "... and that spell can't be countered" (Delighted Halfling).
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        uncounterable: bool,
+        /// Who gets the mana, if not the controller ("its controller adds",
+        /// Wild Growth: the player who tapped the land).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        to: Option<PlayerRef>,
     },
     /// CR 701.23. A search for "a card" (an empty filter) must find one if
     /// possible (701.23d); a filter states a quality, so finding nothing is
@@ -788,6 +809,12 @@ pub enum CounterKind {
     Loyalty,
     #[serde(rename = "age")]
     Age,
+    #[serde(rename = "luck")]
+    Luck,
+    #[serde(rename = "wish")]
+    Wish,
+    #[serde(rename = "chorus")]
+    Chorus,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -1000,6 +1027,12 @@ pub enum QuantityExpr {
     },
     /// "That much": the amount from the trigger event (life gained or lost).
     TriggeringAmount,
+    /// "the number of [objects] [player] controls" (Carpet of Flowers: Islands
+    /// target opponent controls).
+    CountOf {
+        filter: ObjectFilter,
+        controller: PlayerRef,
+    },
     /// The negation of a quantity ("-X/-X").
     Neg(Box<Quantity>),
 }
@@ -1015,6 +1048,8 @@ pub enum Condition {
     ThisTapped,
     /// left ≥ right.
     AtLeast(Quantity, Quantity),
+    /// "if you haven't added mana with this ability this turn" (Carpet of Flowers).
+    UnusedThisTurn,
     /// "If [the top card of who's library] is a [filter] card".
     TopOfLibraryMatches {
         who: PlayerRef,
@@ -1108,6 +1143,7 @@ impl CardIr {
                     Ability::Activated(x) => collect_escapes(&x.effect, &mut out),
                     Ability::Triggered(t) => collect_escapes(&t.effect, &mut out),
                     Ability::Replacement(r) => collect_escapes(&r.instead, &mut out),
+                    Ability::OpeningHand(o) => collect_escapes(&o.effect, &mut out),
                     Ability::Keyword(_) | Ability::Static(_) => {}
                 }
             }

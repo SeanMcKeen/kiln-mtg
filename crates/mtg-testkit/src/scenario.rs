@@ -437,6 +437,11 @@ pub fn build(s: &Scenario, pool: &Arc<CardPool>) -> Result<Game, ScenarioError> 
         }
     }
     let active = player_id(&s.turn.active, n).map_err(ScenarioError::Setup)?;
+    // `step: pregame`: the game starts after mulligans, with opening-hand
+    // actions (CR 103.6); `active` is the starting player.
+    if s.turn.step == "pregame" {
+        return Ok(b.pregame(active).build());
+    }
     let step = step_of(&s.turn.step).map_err(ScenarioError::Setup)?;
     Ok(b.turn(s.turn.number, active, step).build())
 }
