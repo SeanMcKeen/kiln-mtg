@@ -1,0 +1,15 @@
+scenario: mtg-scenario/1
+name: "Hallowed Fountain: as it enters, pay 2 life; it enters untapped"
+cr: ["614.12", "614.1a", "305.1"]
+verifies: ["Hallowed Fountain"]
+players:
+  - hand: ["Hallowed Fountain"]
+  - {}
+script:
+  - choose: Play Hallowed Fountain
+  - check: { decision: { player: P1, kind: optional, options: ["No", "Yes"] } }
+  - choose: "Yes"
+expect:
+  life: { P1: 18 }
+  tapped: { "Hallowed Fountain": false }
+  zones: { P1.battlefield: ["Hallowed Fountain"] }

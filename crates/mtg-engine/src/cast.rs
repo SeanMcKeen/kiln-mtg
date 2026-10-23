@@ -471,6 +471,13 @@ impl Game {
             return false;
         }
         let ctx = cast_ctx(def_id, def, Some(ability), source, p);
+        // CR 602.5b: "Activate only if ...".
+        if x.condition
+            .as_ref()
+            .is_some_and(|c| !self.condition(&ctx, c))
+        {
+            return false;
+        }
         let except = taps_source(def, Some(ability)).then_some(source);
         cost_shape(def, Some(ability), CastCost::Normal)
             .is_some_and(|shape| self.shape_payable(p, &ctx, &shape, 0, &[], except))

@@ -81,10 +81,12 @@ pub(crate) fn check(def: &CardDef) -> Check {
                 if x.timing != Timing::Any || x.once_per_turn {
                     return Err("mana abilities with timing restrictions".into());
                 }
+                activated_extras(x)?;
                 cast_cost(&x.cost)?;
                 effect(&x.effect)?;
             }
             Ability::Activated(x) => {
+                activated_extras(x)?;
                 if matches!(x.effect, Effect::Modal { .. }) {
                     return Err("modal activated abilities".into());
                 }
@@ -489,6 +491,7 @@ fn trigger(t: &mtg_cards::ir::Trigger) -> Check {
         | T::Discards { .. }
         | T::BeginningOf { .. }
         | T::Attacks(_)
+        | T::BecomesTapped(_)
         | T::DealsCombatDamageToPlayer(_) => Ok(()),
     }
 }
@@ -544,6 +547,20 @@ fn quantity(q: &Quantity) -> Check {
             | QuantityExpr::Var(_) => Ok(()),
         },
     }
+}
+
+/// An activated ability's restrictions beyond cost and timing.
+fn activated_extras(x: &mtg_cards::ir::ActivatedAbility) -> Check {
+    if let Some(c) = &x.condition {
+        condition(c)?;
+    }
+    if x.zone.is_some() {
+        return Err("abilities that work from other zones (M6 6.3)".into());
+    }
+    if x.cost_reduction.is_some() {
+        return Err("activation cost reductions (M6 6.3)".into());
+    }
+    Ok(())
 }
 
 fn condition(c: &Condition) -> Check {

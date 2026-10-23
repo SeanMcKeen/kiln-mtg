@@ -949,6 +949,9 @@ fn activated(line: &str) -> Option<Ability> {
         effect,
         timing,
         once_per_turn: once,
+        condition: None,
+        zone: None,
+        cost_reduction: None,
     }))
 }
 

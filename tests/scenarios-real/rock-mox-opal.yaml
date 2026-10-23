@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: "Mox Opal: metalcraft, activate only with three or more artifacts"
+cr: ["602.5b", "605.1a"]
+verifies: [Mox Opal]
+players:
+  - battlefield: [Mox Opal, Sol Ring]
+    hand: [Mana Vault]
+  - {}
+script:
+  - check:
+      decision: { player: P1, kind: priority, options_exclude: [Tap Mox Opal for mana] }
+  - choose: "Tap Sol Ring for {C}{C}"
+  - choose: Cast Mana Vault
+  - choose: Pay with 1 from pool
+  - pass_all
+  - choose: Tap Mox Opal for mana
+  - choose: "Add {B}"
+expect:
+  pool: { P1: "{B}{C}" }

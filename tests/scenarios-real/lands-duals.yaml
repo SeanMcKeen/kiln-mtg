@@ -1,0 +1,30 @@
+scenario: mtg-scenario/1
+name: "Dual lands: two basic land types give both mana abilities (CR 305.6)"
+cr: ["305.6", "106.1"]
+verifies: [Underground Sea, Volcanic Island, Tropical Island, Bayou, Badlands, Taiga, Savannah, Scrubland, Tundra, Plateau]
+players:
+  - battlefield: [Underground Sea, Volcanic Island, Tropical Island, Bayou, Badlands, Taiga, Savannah, Scrubland, Tundra, Plateau]
+  - {}
+script:
+  - check: { decision: { player: P1, kind: priority, options_include: ["Tap Underground Sea for {U}", "Tap Underground Sea for {B}"] } }
+  - choose: "Tap Underground Sea for {U}"
+  - check: { decision: { player: P1, kind: priority, options_include: ["Tap Volcanic Island for {U}", "Tap Volcanic Island for {R}"] } }
+  - choose: "Tap Volcanic Island for {U}"
+  - check: { decision: { player: P1, kind: priority, options_include: ["Tap Tropical Island for {U}", "Tap Tropical Island for {G}"] } }
+  - choose: "Tap Tropical Island for {G}"
+  - check: { decision: { player: P1, kind: priority, options_include: ["Tap Bayou for {B}", "Tap Bayou for {G}"] } }
+  - choose: "Tap Bayou for {B}"
+  - check: { decision: { player: P1, kind: priority, options_include: ["Tap Badlands for {B}", "Tap Badlands for {R}"] } }
+  - choose: "Tap Badlands for {B}"
+  - check: { decision: { player: P1, kind: priority, options_include: ["Tap Taiga for {R}", "Tap Taiga for {G}"] } }
+  - choose: "Tap Taiga for {R}"
+  - check: { decision: { player: P1, kind: priority, options_include: ["Tap Savannah for {W}", "Tap Savannah for {G}"] } }
+  - choose: "Tap Savannah for {G}"
+  - check: { decision: { player: P1, kind: priority, options_include: ["Tap Scrubland for {W}", "Tap Scrubland for {B}"] } }
+  - choose: "Tap Scrubland for {W}"
+  - check: { decision: { player: P1, kind: priority, options_include: ["Tap Tundra for {W}", "Tap Tundra for {U}"] } }
+  - choose: "Tap Tundra for {W}"
+  - check: { decision: { player: P1, kind: priority, options_include: ["Tap Plateau for {W}", "Tap Plateau for {R}"] } }
+  - choose: "Tap Plateau for {R}"
+expect:
+  pool: { P1: "{W}{W}{U}{U}{B}{B}{R}{R}{G}{G}" }

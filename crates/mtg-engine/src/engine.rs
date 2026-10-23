@@ -1616,17 +1616,24 @@ impl Game {
             }
             Action::PlayLand(id) => {
                 // CR 116.2a: a special action; the player keeps priority (CR 117.3c).
-                if let Some(new) = self.move_object(id, ZoneId::Battlefield, true) {
+                self.turn.passes = 0;
+                self.tasks.push(Task::Priority { checked: false });
+                self.player_mut(p).lands_played += 1;
+                // CR 614.1a, 614.12: an "as this enters" choice replaces the
+                // move (shock lands); the replacement's effect puts it there.
+                if self.replace_entering(id, p, &[]) {
+                    self.log(Event::LandPlayed {
+                        player: p,
+                        object: id,
+                    });
+                } else if let Some(new) = self.move_object(id, ZoneId::Battlefield, true) {
                     // The player who plays it controls it (it may be another's card).
                     self.set_controller(new, p);
-                    self.player_mut(p).lands_played += 1;
                     self.log(Event::LandPlayed {
                         player: p,
                         object: new,
                     });
                 }
-                self.turn.passes = 0;
-                self.tasks.push(Task::Priority { checked: false });
             }
             Action::Cast(id) => {
                 self.turn.passes = 0;

@@ -1,0 +1,7 @@
+card: "Grim Monolith"
+faces:
+  - abilities:
+      - static:
+          effect: { doesnt_untap: { this: true } }
+      - activated: { cost: [tap], effect: { add_mana: { mana: { fixed: "{C}{C}{C}" } } } }
+      - activated: { cost: [{ mana: "{4}" }], effect: { untap: { one: this } } }

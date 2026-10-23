@@ -426,6 +426,7 @@ impl Game {
                 .iter()
                 .enumerate()
                 .filter(|(_, (_, m))| m.tap_only)
+                .filter(|(_, (r, _))| self.activation_condition_holds(*r, id, p))
                 .filter_map(|(i, (r, m))| {
                     Some((u8::try_from(i).ok()?, self.mana_ability_bags(*r, m, p)))
                 })
@@ -444,6 +445,22 @@ impl Game {
             });
         }
         out
+    }
+
+    /// CR 602.5b: whether ability `r` of `source`'s "Activate only if" holds.
+    pub(crate) fn activation_condition_holds(
+        &self,
+        r: AbilityRef,
+        source: ObjectId,
+        p: PlayerId,
+    ) -> bool {
+        match self.ability_at(r) {
+            Some(mtg_cards::ir::Ability::Activated(x)) => x
+                .condition
+                .as_ref()
+                .is_none_or(|c| self.condition(&EffectCtx::new(r, source, p), c)),
+            _ => true,
+        }
     }
 
     /// The outcomes of one activation of mana ability `m` (ability `r`)
@@ -589,6 +606,13 @@ impl Game {
             return false;
         }
         let ctx = EffectCtx::new(r, source, p);
+        // CR 602.5b: "Activate only if ..." (Mox Opal's metalcraft).
+        if x.condition
+            .as_ref()
+            .is_some_and(|c| !self.condition(&ctx, c))
+        {
+            return false;
+        }
         self.can_pay(&ctx, p, &x.cost)
     }
 

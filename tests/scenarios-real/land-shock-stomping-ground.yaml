@@ -1,0 +1,15 @@
+scenario: mtg-scenario/1
+name: "Stomping Ground: as it enters, pay 2 life; it enters untapped"
+cr: ["614.12", "614.1a", "305.1"]
+verifies: ["Stomping Ground"]
+players:
+  - hand: ["Stomping Ground"]
+  - {}
+script:
+  - choose: Play Stomping Ground
+  - check: { decision: { player: P1, kind: optional, options: ["No", "Yes"] } }
+  - choose: "Yes"
+expect:
+  life: { P1: 18 }
+  tapped: { "Stomping Ground": false }
+  zones: { P1.battlefield: ["Stomping Ground"] }

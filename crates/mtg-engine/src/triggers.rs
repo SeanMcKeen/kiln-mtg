@@ -434,6 +434,14 @@ impl Game {
                 (step_is(*step, *now) && self.player_rel(*whose, you, active))
                     .then(|| seen(None, Some(active)))
             }
+            (Trigger::BecomesTapped(f), Event::Tapped { object }) => {
+                let ok = if f.this {
+                    *object == source
+                } else {
+                    self.matches_filter(*object, f, you, Some(source))
+                };
+                ok.then(|| seen(Some(*object), None))
+            }
             (Trigger::Attacks(f), Event::AttackerDeclared { object, defending }) => {
                 let ok = if f.this {
                     *object == source

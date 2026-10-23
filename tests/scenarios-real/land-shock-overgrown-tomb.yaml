@@ -1,0 +1,15 @@
+scenario: mtg-scenario/1
+name: "Overgrown Tomb: as it enters, pay 2 life or not; unpaid, it enters tapped"
+cr: ["614.12", "614.1a", "305.1"]
+verifies: ["Overgrown Tomb"]
+players:
+  - hand: ["Overgrown Tomb"]
+  - {}
+script:
+  - choose: Play Overgrown Tomb
+  - check: { decision: { player: P1, kind: optional, options: ["No", "Yes"] } }
+  - choose: "No"
+expect:
+  life: { P1: 20 }
+  tapped: { "Overgrown Tomb": true }
+  zones: { P1.battlefield: ["Overgrown Tomb"] }

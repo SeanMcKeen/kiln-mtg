@@ -132,6 +132,17 @@ pub struct ActivatedAbility {
     /// "Activate only once each turn" (CR 602.5b).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub once_per_turn: bool,
+    /// "Activate only if [condition]" (CR 602.5b; Mox Opal's metalcraft).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub condition: Option<Condition>,
+    /// The zone the ability works from, if not the battlefield (CR 113.6b,
+    /// 113.6j, 113.6m): `hand` for channel and the Spirit Guides.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub zone: Option<ZoneName>,
+    /// "This ability costs {1} less to activate for each [quantity]": generic
+    /// mana only (CR 601.2f via 602.2b).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cost_reduction: Option<Quantity>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
@@ -258,6 +269,8 @@ pub enum Trigger {
         whose: PlayerRel,
     },
     Attacks(ObjectFilter),
+    /// "Whenever [object] becomes tapped" (CR 110.5; City of Brass).
+    BecomesTapped(ObjectFilter),
     /// "Whenever [source] deals combat damage to a player".
     DealsCombatDamageToPlayer(ObjectFilter),
     /// Several trigger conditions for one ability ("When ~ enters and whenever …").

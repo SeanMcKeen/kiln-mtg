@@ -660,6 +660,9 @@ pub fn tap_for(t: ManaType) -> Ability {
         },
         timing: ir::Timing::Any,
         once_per_turn: false,
+        condition: None,
+        zone: None,
+        cost_reduction: None,
     })
 }
 
@@ -922,6 +925,9 @@ fn equip(cost: Vec<CostPart>) -> Ability {
         },
         timing: ir::Timing::Sorcery,
         once_per_turn: false,
+        condition: None,
+        zone: None,
+        cost_reduction: None,
     })
 }
 
@@ -1005,6 +1011,9 @@ pub fn token_def(spec: &ir::TokenSpec) -> Result<CardDef, Unsupported> {
             effect,
             timing: ir::Timing::Any,
             once_per_turn: false,
+            condition: None,
+            zone: None,
+            cost_reduction: None,
         })
     };
     let (ch, abilities) = match spec {
