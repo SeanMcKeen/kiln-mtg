@@ -175,6 +175,8 @@ pub enum LossReason {
     DrewFromEmptyLibrary,
     /// CR 704.5c
     Poison,
+    /// CR 704.6c: 21 or more combat damage from one commander.
+    CommanderDamage,
     /// CR 104.3a
     Conceded,
     /// An effect says the player loses (CR 104.3e).

@@ -1,0 +1,18 @@
+scenario: mtg-scenario/1
+name: "Without a commander on the battlefield, the free alternative cost isn't available"
+cr: ["903.3d", "118.9"]
+players:
+  - battlefield: [Test Mountain]
+    hand: [Test Flare]
+  - hand: [Test Guardianship]
+    commanders: [Test Commander]
+script:
+  - choose: Cast Test Flare
+  - choose: Target P2
+  - choose: Pay with Test Mountain
+  - pass: 1
+  - check:
+      decision:
+        player: P2
+        kind: priority
+        options_exclude: [Cast Test Guardianship]

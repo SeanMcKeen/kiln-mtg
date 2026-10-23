@@ -36,7 +36,8 @@ expect:
 ```
 
 ## Setup
-- `players[]`: `life`, `hand`, `library` (top first), `graveyard` and `battlefield`. A battlefield entry is either a card name or `{ card, tapped, damage, sick }`, where `sick` means summoning sick (CR 302.6).
+- `players[]`: `life`, `hand`, `library` (top first), `graveyard` and `battlefield`. A battlefield entry is either a card name or `{ card, tapped, damage, sick, counters }`, where `sick` means summoning sick (CR 302.6).
+- `players[].commanders` (M6): a name starts in the command zone (CR 903.6), or `{ card, zone, casts, tapped, sick }` with `zone` one of `command` (default), `battlefield`, `hand`, `graveyard`, `exile`, and `casts` the times already cast from the command zone (the tax, CR 903.8). Quote names containing commas.
 - **An omitted `library` holds 20 filler lands ("Test Wastes")**, so draws don't end the game. `library: []` means an empty library.
 - `turn`: `number`, `active` (`P1`…), and `step`. The game begins at that step and performs its turn-based actions first. Combat scenarios start at `declare_attackers` and script the attacks.
 - Card names are resolved in the card pool. In M2 that's the synthetic test set (`CardPool::test_set`). An unknown name is an error.
@@ -56,16 +57,18 @@ Option labels come from `Game::option_label`, for example:
 - "Target Test Bear (P2)", "Pay with Test Mountain, Test Forest", "Pay manually", "Spend {R}"
 - "Test Bear attacks P3", "Test Wall blocks Test Bear (P1)", "1 damage to P2"
 - "Discard Test Bolt", "Keep Test Champion [2]" (for same-name permanents, `[k]` is the 1-based position)
+- "Put Test Commander into the command zone", "Leave Test Commander in graveyard", "Put Test Commander into hand" (CR 903.9a–b, kind `commander_zone`)
 
 ## Expectations
 - `result`: `in_progress`, `draw` or `win P2`.
 - `life`: per player.
-- `zones`: `P1.hand`, `P1.library`, `P1.graveyard`, `P1.battlefield` (permanents P1 controls), `stack`, `exile`. Each is compared as a multiset of card names.
+- `zones`: `P1.hand`, `P1.library`, `P1.graveyard`, `P1.battlefield` (permanents P1 controls), `stack`, `exile`, `command`. Each is compared as a multiset of card names.
+- `commander_damage`: player → commander name → combat damage dealt (CR 903.10a).
 - `tapped`: card name → expected state.
 - `step`: the current step.
 - `decision`: `player`, `kind` (`priority`, `declare_blocker`, `assign_damage`, …), `options` (exact, in order), `options_include` and `options_exclude`.
 
 ## Not yet
-- Board-state attributes beyond M2's: `counters`, `attached_to`, `face_down`, `controller`, `commander`.
+- Board-state attributes: `attached_to`, `face_down`, `controller`.
 - `events_include` / `events_exclude`.
 - Real card names, which need the M3 card IR.

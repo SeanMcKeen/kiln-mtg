@@ -357,6 +357,8 @@ impl Policy for GreedyPolicy {
             DecisionKind::Optional { kind, .. } => match kind {
                 OptionalKind::May | OptionalKind::IfDoes | OptionalKind::PayUnless => 1,
             },
+            // Keep the commander available (CR 903.9).
+            DecisionKind::CommanderZone { .. } => 1,
             // As much X as can be paid.
             DecisionKind::ChooseNumber { min, max, .. } => usize::try_from(max - min).unwrap_or(0),
             DecisionKind::ChooseMode { modes, .. } => {

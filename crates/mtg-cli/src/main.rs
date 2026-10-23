@@ -189,9 +189,13 @@ struct FuzzArgs {
     threads: Option<usize>,
     #[arg(long, default_value_t = 60)]
     deck_size: usize,
-    /// Starting life (CR 103.4).
-    #[arg(long, default_value_t = 20)]
-    life: i64,
+    /// Starting life (CR 103.4); default 20, or 40 with `--commander` (CR 103.4c).
+    #[arg(long)]
+    life: Option<i64>,
+    /// Commander games: each seat gets a legendary creature from the pool
+    /// that fits its deck's colors as its commander (CR 903).
+    #[arg(long)]
+    commander: bool,
     /// Random policy's chance to pass priority, per mille.
     #[arg(long, default_value_t = 500)]
     pass: u64,
@@ -412,6 +416,9 @@ fn fuzz(a: &FuzzArgs) -> Result<ExitCode> {
         let (pool, _) = lib.pool();
         let label = format!("{} ({} supported cards incl. tokens)", db.id(), pool.len());
         (pool, label)
+    } else if a.commander {
+        // The M3 synthetic cards include legendary creatures to command.
+        (CardPool::m3_test_set(), "synthetic M3 test set".to_owned())
     } else {
         (CardPool::test_set(), "synthetic M2 test set".to_owned())
     };
@@ -420,7 +427,7 @@ fn fuzz(a: &FuzzArgs) -> Result<ExitCode> {
         games: a.games,
         seed: a.seed,
         rules: GameRules {
-            starting_life: a.life,
+            starting_life: a.life.unwrap_or(if a.commander { 40 } else { 20 }),
             turn_limit: Some(a.turn_limit),
             log_events: false,
             ..GameRules::default()
@@ -431,6 +438,7 @@ fn fuzz(a: &FuzzArgs) -> Result<ExitCode> {
             replay_every: a.replay_every,
         },
         threads: a.threads,
+        commanders: a.commander,
     };
     let (players, deck_size, real, seed) = (
         a.players,
@@ -492,6 +500,12 @@ fn fuzz(a: &FuzzArgs) -> Result<ExitCode> {
             if a.views { "on" } else { "off" },
             stats.replays_checked
         );
+        let endings: Vec<String> = stats
+            .endings
+            .iter()
+            .map(|(k, n)| format!("{k} {n}"))
+            .collect();
+        println!("  endings: {}", endings.join(", "));
         println!(
             "  violations {}, replay divergences {}, panics {}",
             stats.violation_count, stats.replay_failure_count, stats.panic_count

@@ -51,6 +51,9 @@ impl Game {
         for &id in &self.exile {
             note(id, ZoneId::Exile)?;
         }
+        for &id in &self.cmd.zone {
+            note(id, ZoneId::Command)?;
+        }
         // Abilities on the stack aren't objects in a zone; their `object` is the source.
         for s in self.stack.iter().filter(|s| s.is_spell()) {
             note(s.object, ZoneId::Stack)?;
@@ -141,8 +144,9 @@ impl Game {
         // 6. Conservation: each in-game player owns exactly their deck's cards.
         for p in self.players.iter().filter(|p| p.in_game()) {
             let i = p.id.0 as usize;
+            // Commanders aren't part of the deck list (CR 903.6).
             if let (Some(&n), Some(&have)) = (deck_sizes.get(i), owned.get(i))
-                && have != n
+                && have != n + self.commanders_owned(p.id)
             {
                 return Err(format!(
                     "invariant 6: {} owns {have} objects, deck had {n}",
@@ -150,6 +154,9 @@ impl Game {
                 ));
             }
         }
+
+        // 9. Commanders (CR 903).
+        self.commander_invariant()?;
 
         // Stack items refer to live objects on the stack, and so on.
         for s in self.stack.iter().filter(|s| s.is_spell()) {
@@ -188,6 +195,7 @@ mod tests {
             decks,
             seed: 4,
             first_player: None,
+            commanders: Vec::new(),
         };
         (
             Game::new(pool, &setup).unwrap_or_else(|e| panic!("{e}")),

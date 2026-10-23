@@ -25,6 +25,19 @@ pub struct PermanentOpts {
     pub counters: Vec<(mtg_cards::ir::CounterKind, u32)>,
 }
 
+/// Where a commander starts in a built game.
+#[derive(Debug, Clone)]
+pub enum CommanderAt {
+    /// The command zone (CR 903.6), already cast this many times from it (CR 903.8).
+    Command {
+        casts: u32,
+    },
+    Battlefield(PermanentOpts),
+    Hand,
+    Graveyard,
+    Exile,
+}
+
 #[derive(Debug, Clone)]
 struct SeatSpec {
     life: i64,
@@ -33,6 +46,7 @@ struct SeatSpec {
     hand: Vec<DefId>,
     graveyard: Vec<DefId>,
     battlefield: Vec<(DefId, PermanentOpts)>,
+    commanders: Vec<(DefId, CommanderAt)>,
     in_game: bool,
 }
 
@@ -57,6 +71,7 @@ impl GameBuilder {
             hand: Vec::new(),
             graveyard: Vec::new(),
             battlefield: Vec::new(),
+            commanders: Vec::new(),
             in_game: true,
         };
         Self {
@@ -105,6 +120,12 @@ impl GameBuilder {
         self
     }
 
+    /// A commander of `p` (CR 903.3), starting `at`.
+    pub fn commander(mut self, p: PlayerId, card: DefId, at: CommanderAt) -> Self {
+        self.seats[p.0 as usize].commanders.push((card, at));
+        self
+    }
+
     /// The game starts at `step` of turn `number`, `active`'s turn.
     pub fn turn(mut self, number: u32, active: PlayerId, step: Step) -> Self {
         self.turn = number.max(1);
@@ -125,6 +146,8 @@ impl GameBuilder {
         let mut players = Vec::with_capacity(n);
         let mut battlefield = Vec::new();
         let mut counters = Vec::new();
+        let mut exile = Vec::new();
+        let mut cmd = crate::commander::CommanderState::default();
         let mut next_ts = 0u64;
         for (i, seat) in self.seats.iter().enumerate() {
             let id = PlayerId(u8::try_from(i).unwrap_or(0));
@@ -154,11 +177,45 @@ impl GameBuilder {
                 .iter()
                 .map(|d| make(*d, ZoneId::Hand(id), &PermanentOpts::default()))
                 .collect();
-            let graveyard = seat
+            let mut graveyard: Vec<_> = seat
                 .graveyard
                 .iter()
                 .map(|d| make(*d, ZoneId::Graveyard(id), &PermanentOpts::default()))
                 .collect();
+            let mut hand: Vec<_> = hand;
+            for (def, at) in &seat.commanders {
+                let none = PermanentOpts::default();
+                let (zone, opts, casts) = match at {
+                    CommanderAt::Command { casts } => (ZoneId::Command, &none, *casts),
+                    CommanderAt::Battlefield(o) => (ZoneId::Battlefield, o, 0),
+                    CommanderAt::Hand => (ZoneId::Hand(id), &none, 0),
+                    CommanderAt::Graveyard => (ZoneId::Graveyard(id), &none, 0),
+                    CommanderAt::Exile => (ZoneId::Exile, &none, 0),
+                };
+                let obj = make(*def, zone, opts);
+                match zone {
+                    ZoneId::Command => cmd.zone.push(obj),
+                    ZoneId::Battlefield => {
+                        counters.extend(
+                            opts.counters
+                                .iter()
+                                .filter(|(_, n)| *n > 0)
+                                .map(|(k, n)| (obj, *k, *n)),
+                        );
+                        battlefield.push(obj);
+                    }
+                    ZoneId::Hand(_) => hand.push(obj),
+                    ZoneId::Graveyard(_) => graveyard.push(obj),
+                    _ => exile.push(obj),
+                }
+                cmd.commanders.push(crate::commander::Commander {
+                    owner: id,
+                    def: *def,
+                    object: Some(obj),
+                    casts,
+                    damage: vec![0; n],
+                });
+            }
             for (d, opts) in &seat.battlefield {
                 let obj = make(*d, ZoneId::Battlefield, opts);
                 counters.extend(
@@ -203,7 +260,7 @@ impl GameBuilder {
             objects,
             battlefield,
             stack: Vec::new(),
-            exile: Vec::new(),
+            exile,
             turn: TurnState {
                 number: self.turn,
                 active: self.active,
@@ -242,6 +299,7 @@ impl GameBuilder {
             cast_this_turn: Vec::new(),
             combat_damaged: 0,
             drew_in_draw_step: false,
+            cmd,
         };
         if matches!(
             self.step,

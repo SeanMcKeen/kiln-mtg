@@ -148,7 +148,15 @@ impl Game {
         }
         let reps = self.draw_replacements(t.player, &t.applied);
         match reps.as_slice() {
-            [] => self.draw(t.player),
+            [] => {
+                // CR 903.9b: a commander drawn may go to the command zone instead.
+                if let Some((owner, kind)) = self.draw_question(t.player) {
+                    self.tasks.push(Task::Draw(t));
+                    self.decide(owner, kind, "903.9b");
+                } else {
+                    self.draw(t.player);
+                }
+            }
             [r] => self.apply_draw_replacement(&t, *r),
             _ => {
                 let player = t.player;

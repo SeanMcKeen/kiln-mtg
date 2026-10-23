@@ -501,9 +501,13 @@ impl Game {
             return;
         };
         let any_color = self.exile_permission(card).is_some_and(|(_, any)| any);
+        let tax = self.command_zone_tax(card);
         let Some(spell) = self.move_object(card, ZoneId::Stack, true) else {
             return;
         };
+        if let Some(tax) = tax {
+            self.commander_cast(spell, tax);
+        }
         // CR 601.2a: the player casting it controls it (it may be another's card).
         self.set_controller(spell, p);
         if any_color {
@@ -889,6 +893,13 @@ impl Game {
         object: ObjectId,
     ) -> Option<CostShape> {
         let mut shape = cost_shape(def, ability, cost)?;
+        // CR 903.8: commander tax, an additional cost whatever cost is paid.
+        if ability.is_none() {
+            let tax = self.commander_tax(object);
+            if tax > 0 {
+                shape.symbols.push(ManaSymbol::Generic(tax));
+            }
+        }
         let any_color = ability.is_none()
             && (self.any_color_spells.contains(&object)
                 || self.exile_permission(object).is_some_and(|(_, any)| any));

@@ -1,0 +1,14 @@
+card: "Thrasios, Triton Hero"
+faces:
+  - abilities:
+      - activated:
+          cost: [{ mana: "{4}" }]
+          effect:
+            seq:
+              - scry: { who: you, amount: 1 }
+              - reveal: { top_of_library: { owner: you, count: 1 } }
+              - if:
+                  condition: { top_of_library_matches: { who: you, filter: { types: [land] } } }
+                  then: { move: { what: { top_of_library: { owner: you, count: 1 } }, to: battlefield_tapped } }
+                  otherwise: { draw: { who: you, amount: 1 } }
+      - keyword: partner

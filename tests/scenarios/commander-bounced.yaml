@@ -1,0 +1,23 @@
+scenario: mtg-scenario/1
+name: "A commander that would go to its owner's hand may go to the command zone instead (T41)"
+cr: ["903.9b", "614.1a"]
+players:
+  - battlefield: [Test Island, Test Wastes]
+    hand: [Test Bounce]
+  - commanders: [{ card: Test Commander, zone: battlefield }]
+script:
+  - choose: Cast Test Bounce
+  - choose: Target Test Commander (P2)
+  - choose: Pay with Test Island, Test Wastes
+  - pass_all
+  - check:
+      decision:
+        player: P2
+        kind: commander_zone
+        options: [Put Test Commander into hand, Put Test Commander into the command zone]
+  - { player: P2, choose: Put Test Commander into the command zone }
+expect:
+  zones:
+    command: [Test Commander]
+    P2.hand: []
+    P2.battlefield: []

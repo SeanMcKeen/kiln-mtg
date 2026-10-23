@@ -71,6 +71,7 @@ fn setup(seed: u64) -> (Arc<CardPool>, GameSetup) {
             decks,
             seed,
             first_player: None,
+            commanders: Vec::new(),
         },
     )
 }

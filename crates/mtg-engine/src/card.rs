@@ -218,6 +218,10 @@ pub struct ManaAbility {
     /// The cost is exactly {T} and the effect needs no choices besides the
     /// mana, so automatic payment plans and payability checks may use it (B-D8).
     pub tap_only: bool,
+    /// The output depends on the game (the commander's color identity), so
+    /// `bags` is a placeholder and the game computes it when asked.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub dynamic: bool,
 }
 
 impl ManaAbility {
@@ -277,6 +281,10 @@ pub struct Characteristics {
     pub colors: Colors,
     pub power: Option<i32>,
     pub toughness: Option<i32>,
+    /// CR 903.4: from the card data. Made-up cards leave it empty and get
+    /// their colors and their cost's colors.
+    #[serde(default)]
+    pub color_identity: Colors,
 }
 
 /// A card definition: characteristics plus IR abilities, with derived indexes.
@@ -290,6 +298,9 @@ pub struct CardDef {
     pub colors: Colors,
     pub power: Option<i32>,
     pub toughness: Option<i32>,
+    /// CR 903.4: the card's color identity (Commander).
+    #[serde(default)]
+    pub color_identity: Colors,
     /// Abilities in printed order, then intrinsic ones (CR 305.6).
     pub abilities: Vec<Ability>,
     /// Derived: the keyword bitset, for fast combat checks.
@@ -413,6 +424,7 @@ impl CardDef {
                             .map_err(|_| unsupported("more than 255 abilities".into()))?,
                         bags,
                         tap_only: x.cost == [CostPart::Tap] && choice_free(&x.effect),
+                        dynamic: dynamic_mana(&x.effect),
                     });
                 }
                 _ => {}
@@ -427,6 +439,11 @@ impl CardDef {
                 mode_slots.extend(modes.iter().map(target_slots));
             }
         }
+        let color_identity = ch.color_identity.union(ch.colors).union(
+            ch.mana_cost
+                .as_ref()
+                .map_or(Colors::COLORLESS, ManaCost::colors),
+        );
         let def = CardDef {
             name: ch.name,
             oracle_id: ch.oracle_id,
@@ -435,6 +452,7 @@ impl CardDef {
             colors: ch.colors,
             power: ch.power,
             toughness: ch.toughness,
+            color_identity,
             abilities,
             keywords,
             mana_abilities,
@@ -532,6 +550,21 @@ fn choice_free(e: &ir::Effect) -> bool {
     }
 }
 
+/// Whether an effect adds mana whose output depends on the game state.
+fn dynamic_mana(e: &ir::Effect) -> bool {
+    let mut found = false;
+    e.walk(&mut |x| {
+        found |= matches!(
+            x,
+            ir::Effect::AddMana {
+                mana: ManaSpec::CommanderIdentity,
+                ..
+            }
+        );
+    });
+    found
+}
+
 /// Ways the mana of a mana ability or spell can come out.
 pub type ManaAlternatives = SmallVec<[SmallVec<[ManaUnit; 2]>; 1]>;
 
@@ -580,11 +613,8 @@ pub(crate) fn mana_output(spec: &ManaSpec) -> Result<ManaAlternatives, String> {
                 out.push(SmallVec::from_elem(ManaType::of_color(c).bit(), n));
             }
         }
-        ManaSpec::CommanderIdentity => {
-            return Err(
-                "mana of the commander's color identity needs the command zone (M6)".into(),
-            );
-        }
+        // A placeholder: the game narrows it to the identity (`dynamic`).
+        ManaSpec::CommanderIdentity => out.push(SmallVec::from_elem(ANY_COLOR, 1)),
         ManaSpec::ColorOf(_) => {
             return Err("mana whose type depends on another object (M4)".into());
         }
@@ -679,6 +709,7 @@ impl Characteristics {
             colors: f.colors,
             power,
             toughness,
+            color_identity: rec.color_identity,
         })
     }
 }
@@ -1424,6 +1455,7 @@ pub fn synthetic(
         type_line: tl(types),
         power: pt.map(|(p, _)| p),
         toughness: pt.map(|(_, t)| t),
+        color_identity: Colors::COLORLESS,
     }
 }
 
@@ -1545,7 +1577,9 @@ mod tests {
         assert_eq!(birds[0].as_slice(), &[ANY_COLOR]);
         let lotus = units(ManaSpec::AnyOneColor(Quantity::Fixed(3))).unwrap_or_default();
         assert_eq!(lotus.len(), 5);
-        assert!(units(ManaSpec::CommanderIdentity).is_err());
+        // A placeholder the game narrows to the commander's identity (M6 plan C6).
+        let tower = units(ManaSpec::CommanderIdentity).unwrap_or_default();
+        assert_eq!(tower[0].as_slice(), &[ANY_COLOR]);
     }
 
     #[test]

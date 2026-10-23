@@ -39,6 +39,16 @@ pub struct GameRules {
     pub log_events: bool,
 }
 
+impl GameRules {
+    /// Commander rules: 40 starting life (CR 103.4c).
+    pub fn commander() -> Self {
+        Self {
+            starting_life: 40,
+            ..Self::default()
+        }
+    }
+}
+
 impl Default for GameRules {
     fn default() -> Self {
         Self {
@@ -60,6 +70,10 @@ pub struct GameSetup {
     pub seed: u64,
     /// CR 103.1: who plays first. `None` = chosen at random with the game RNG.
     pub first_player: Option<PlayerId>,
+    /// Each seat's commanders (CR 903.3), not part of the deck list; empty
+    /// outside Commander games.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub commanders: Vec<Vec<DefId>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -72,6 +86,8 @@ pub enum SetupError {
     UnknownDef { seat: usize, def: DefId },
     #[error("first player {0} isn't a seat in this game")]
     BadFirstPlayer(PlayerId),
+    #[error("seat {seat} has {count} commanders; at most 2 are allowed (CR 903.3, 702.124)")]
+    TooManyCommanders { seat: usize, count: usize },
 }
 
 /// Why a game ended without a rules result.
@@ -231,6 +247,8 @@ pub struct Game {
     /// The active player has drawn in this turn's draw step (tracked only
     /// when the pool has triggers; see `draw`).
     pub(crate) drew_in_draw_step: bool,
+    /// Commanders and the command zone (CR 903); empty outside Commander games.
+    pub(crate) cmd: crate::commander::CommanderState,
 }
 
 impl Game {
@@ -243,9 +261,20 @@ impl Game {
         if n > 8 {
             return Err(SetupError::TooManyPlayers(n));
         }
-        for (seat, deck) in setup.decks.iter().enumerate() {
+        for (seat, deck) in setup.decks.iter().chain(&setup.commanders).enumerate() {
             if let Some(def) = deck.iter().find(|d| d.0 as usize >= pool.len()) {
-                return Err(SetupError::UnknownDef { seat, def: *def });
+                return Err(SetupError::UnknownDef {
+                    seat: seat % n,
+                    def: *def,
+                });
+            }
+        }
+        for (seat, c) in setup.commanders.iter().enumerate() {
+            if c.len() > 2 {
+                return Err(SetupError::TooManyCommanders {
+                    seat,
+                    count: c.len(),
+                });
             }
         }
         let mut rng = GameRng::new(setup.seed);
@@ -301,7 +330,33 @@ impl Game {
             cast_this_turn: Vec::new(),
             combat_damaged: 0,
             drew_in_draw_step: false,
+            cmd: crate::commander::CommanderState::default(),
         };
+        // CR 903.6: each commander starts the game in the command zone.
+        for (seat, defs) in setup.commanders.iter().enumerate() {
+            let owner = PlayerId(u8::try_from(seat).unwrap_or(0));
+            for &def in defs {
+                let id = game.objects.alloc(GameObject {
+                    def,
+                    owner,
+                    controller: owner,
+                    zone: ZoneId::Command,
+                    tapped: false,
+                    damage: 0,
+                    deathtouch_damage: false,
+                    control_since: 0,
+                    timestamp: 0,
+                });
+                game.cmd.zone.push(id);
+                game.cmd.commanders.push(crate::commander::Commander {
+                    owner,
+                    def,
+                    object: Some(id),
+                    casts: 0,
+                    damage: vec![0; n],
+                });
+            }
+        }
         for (seat, deck) in setup.decks.iter().enumerate() {
             let id = PlayerId(u8::try_from(seat).unwrap_or(0));
             // CR 103.3: decks are shuffled to become libraries. Objects are
@@ -424,7 +479,7 @@ impl Game {
                 .filter(|s| s.is_spell())
                 .map(|s| s.object)
                 .collect(),
-            ZoneId::Command => Vec::new(),
+            ZoneId::Command => self.cmd.zone.clone(),
         }
     }
 
@@ -547,6 +602,9 @@ impl Game {
         if self.combat_damaged != 0 {
             self.combat_damaged.hash(&mut h);
         }
+        if !self.cmd.is_empty() {
+            self.cmd.hash(&mut h);
+        }
         h.finish()
     }
 
@@ -638,9 +696,8 @@ impl Game {
             ZoneId::Graveyard(p) => &mut self.players[p.0 as usize].graveyard,
             ZoneId::Battlefield => &mut self.battlefield,
             ZoneId::Exile => &mut self.exile,
-            ZoneId::Stack | ZoneId::Command => {
-                unreachable!("stack and command zones are handled separately")
-            }
+            ZoneId::Command => &mut self.cmd.zone,
+            ZoneId::Stack => unreachable!("the stack is handled separately"),
         }
     }
 
@@ -652,7 +709,7 @@ impl Game {
     fn detach(&mut self, id: ObjectId, zone: ZoneId) {
         if zone == ZoneId::Stack {
             self.stack.retain(|s| !(s.is_spell() && s.object == id));
-        } else if zone != ZoneId::Command {
+        } else {
             self.zone_vec_mut(zone).retain(|x| *x != id);
         }
         if zone == ZoneId::Battlefield
@@ -680,6 +737,8 @@ impl Game {
         entering: impl FnOnce(&mut Self, ObjectId),
     ) -> Option<ObjectId> {
         let old = *self.objects.get(id)?;
+        // CR 903.9b: the owner may have chosen the command zone instead.
+        let to = self.commander_destination(id, to);
         // Last known information (CR 603.10, 608.2h) before the object leaves,
         // including what it was copying (CR 707.2).
         let (power, toughness) = (self.power(id), self.toughness(id));
@@ -719,13 +778,11 @@ impl Game {
             control_since: self.turn.number,
             timestamp,
         });
-        match to {
-            ZoneId::Stack | ZoneId::Command => {}
-            _ => {
-                let v = self.zone_vec_mut(to);
-                if top { v.push(new) } else { v.insert(0, new) }
-            }
+        if to != ZoneId::Stack {
+            let v = self.zone_vec_mut(to);
+            if top { v.push(new) } else { v.insert(0, new) }
         }
+        self.commander_moved(id, Some(new), to);
         // A copy stays a copy as it moves (it's cast from exile, CR 707.12).
         if was_copy {
             self.copies.push(new);
@@ -829,6 +886,7 @@ impl Game {
             .collect();
         for (id, zone) in owned {
             self.detach(id, zone);
+            self.commander_moved(id, None, zone);
             self.objects.free(id);
             self.drop_counters(id);
         }
@@ -1020,6 +1078,14 @@ impl Game {
             (Task::Sba(t), DecisionKind::LegendRule { candidates }) => {
                 self.sba_answer(t, candidates[option]);
             }
+            (Task::Sba(t), DecisionKind::CommanderZone { .. }) => {
+                self.commander_offer_answer(option == 1);
+                self.tasks.push(Task::Sba(t));
+            }
+            (Task::Draw(t), DecisionKind::CommanderZone { commander, .. }) => {
+                self.commander_answer(commander, option == 1);
+                self.tasks.push(Task::Draw(t));
+            }
             (Task::Effect(t), kind) => self.effect_answer(t, kind, option),
             (Task::StackTriggers(t), DecisionKind::OrderTriggers { .. }) => {
                 self.stack_triggers_answer(t, option);
@@ -1196,7 +1262,7 @@ impl Game {
                     && active == self.starting_player;
                 self.tasks.push(Task::Priority { checked: false });
                 if self.active_in_game() && !skip {
-                    if self.pool.has_replacements() {
+                    if self.pool.has_replacements() || self.draw_question(active).is_some() {
                         self.tasks.push(Task::Draw(crate::replacement::DrawTask {
                             player: active,
                             applied: SmallVec::new(),
@@ -1367,6 +1433,7 @@ impl Game {
         }
         let actions = self.priority_actions(holder);
         self.tasks.push(Task::Priority { checked: true });
+        self.clear_commander_answers();
         self.decide(holder, DecisionKind::Priority { actions }, "117.1");
     }
 
@@ -1387,6 +1454,17 @@ impl Game {
                 }
             } else if self.can_cast(p, id, sorcery_timing) {
                 actions.push(Action::Cast(id));
+            }
+        }
+        // CR 903.8: a player may cast a commander they own from the command zone.
+        if !self.cmd.is_empty() {
+            for &id in &self.cmd.zone {
+                if self.obj(id).is_some_and(|o| o.owner == p)
+                    && self.is_commander(id)
+                    && self.can_cast(p, id, sorcery_timing)
+                {
+                    actions.push(Action::Cast(id));
+                }
             }
         }
         // Cards in exile `p` may play (CR 607.2a; Opposition Agent).
@@ -1708,6 +1786,10 @@ impl Game {
                 }
                 if combat && self.pool.has_triggers() {
                     self.combat_damaged |= 1 << p.0;
+                }
+                // CR 903.10a: combat damage from a commander is tallied.
+                if combat && !self.cmd.is_empty() {
+                    self.record_commander_damage(source, p, amount);
                 }
                 self.log(Event::Damage {
                     source,

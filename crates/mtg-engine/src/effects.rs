@@ -393,6 +393,13 @@ impl Game {
             .frames
             .pop()
             .unwrap_or_else(|| unreachable!("an effect decision always has its frame on top"));
+        // CR 903.9b: recorded, then the frame runs again and makes the move.
+        if let DecisionKind::CommanderZone { commander, .. } = kind {
+            self.commander_answer(commander, option == 1);
+            t.frames.push(frame);
+            self.tasks.push(Task::Effect(t));
+            return;
+        }
         match (frame, kind) {
             (Frame::Ask { kind, node, .. }, DecisionKind::Optional { .. }) => {
                 let yes = option == 1;
@@ -458,7 +465,11 @@ impl Game {
                     match &p.then {
                         AfterPick::Place(to) => {
                             let to = *to;
-                            self.place(&mut t.ctx, id, to, p.who);
+                            let who = p.who;
+                            t.frames.push(Frame::Pick(p));
+                            self.place_or_defer(&mut t, id, to, who);
+                            self.tasks.push(Task::Effect(t));
+                            return;
                         }
                         AfterPick::ScryBottom => {
                             self.place(&mut t.ctx, id, Destination::BottomOfLibrary, p.who);
@@ -557,6 +568,13 @@ impl Game {
             }
             Frame::Pay { who, parts, next } => self.pay_step(t, who, parts, next),
             Frame::Place { ids, to, who } => {
+                // CR 903.9b: each commander's owner answers before the move.
+                if let Some((owner, kind)) =
+                    self.commander_question(ids.iter().copied(), |id| self.destination_zone(id, to))
+                {
+                    t.frames.push(Frame::Place { ids, to, who });
+                    return Flow::Decide(owner, kind, "903.9b");
+                }
                 for id in ids {
                     self.place(&mut t.ctx, id, to, who);
                 }
@@ -729,9 +747,9 @@ impl Game {
                     return Flow::Continue;
                 }
                 let who = t.ctx.each.unwrap_or(t.ctx.controller);
-                for id in self.set_now(&t.ctx, what) {
-                    self.place(&mut t.ctx, id, to, who);
-                }
+                // One simultaneous move; commander owners answer first (CR 903.9b).
+                let ids = self.set_now(&t.ctx, what);
+                t.frames.push(Frame::Place { ids, to, who });
             }
             Effect::Pump {
                 what,
@@ -760,6 +778,13 @@ impl Game {
                     );
                 }
             }
+            Effect::Reveal(what) => {
+                let objects = self.set_now(&t.ctx, what);
+                if !objects.is_empty() {
+                    let player = self.obj(objects[0]).map_or(t.ctx.controller, |o| o.owner);
+                    self.log(Event::Revealed { player, objects });
+                }
+            }
             Effect::RevealUntil {
                 who,
                 filter,
@@ -767,7 +792,7 @@ impl Game {
                 rest_to,
             } => {
                 if let Some(p) = self.player_ref(&t.ctx, who) {
-                    self.reveal_until(&mut t.ctx, p, filter, *found_to, *rest_to);
+                    self.reveal_until(t, p, filter, *found_to, *rest_to);
                 }
             }
             Effect::Sacrifice { who, what } => {
@@ -856,6 +881,7 @@ impl Game {
                                 .collect()
                         })
                         .unwrap_or_default(),
+                    (None, ManaSpec::CommanderIdentity) => self.dynamic_mana_bags(mana, who),
                     (None, _) => mana_bags(mana),
                 };
                 match options.as_slice() {
@@ -1386,9 +1412,13 @@ impl Game {
             Condition::YourTurn => self.turn.active == ctx.controller,
             Condition::ThisTapped => self.obj(ctx.source).is_some_and(|o| o.tapped),
             Condition::AtLeast(a, b) => self.quantity(ctx, a) >= self.quantity(ctx, b),
+            Condition::TopOfLibraryMatches { who, filter } => self
+                .player_ref(ctx, who)
+                .and_then(|p| self.player(p).library.last().copied())
+                .is_some_and(|top| self.matches_card(ctx, top, filter)),
             Condition::Not(c) => !self.condition(ctx, c),
-            // Rejected by `support::check` until the command zone exists (M6).
-            Condition::ControlCommander => false,
+            // CR 903.3d: a commander on the battlefield the controller controls.
+            Condition::ControlCommander => self.controls_commander(ctx.controller),
         }
     }
 
@@ -1535,6 +1565,35 @@ impl Game {
         self.move_object(id, to, top)
     }
 
+    /// The zone a destination means for `id` (its owner's zones).
+    fn destination_zone(&self, id: ObjectId, to: Destination) -> Option<ZoneId> {
+        let owner = self.obj(id)?.owner;
+        Some(match to {
+            Destination::TopOfLibrary | Destination::BottomOfLibrary => ZoneId::Library(owner),
+            Destination::Hand => ZoneId::Hand(owner),
+            Destination::Graveyard => ZoneId::Graveyard(owner),
+            Destination::Exile => ZoneId::Exile,
+            Destination::Battlefield | Destination::BattlefieldTapped => ZoneId::Battlefield,
+        })
+    }
+
+    /// [`Game::place`], unless a commander's owner must first answer
+    /// CR 903.9b: then a `Place` frame asks and moves it after this step.
+    fn place_or_defer(&mut self, t: &mut EffectTask, id: ObjectId, to: Destination, who: PlayerId) {
+        let needs = self
+            .destination_zone(id, to)
+            .is_some_and(|z| self.commander_choice_needed(id, z).is_some());
+        if needs {
+            t.frames.push(Frame::Place {
+                ids: vec![id],
+                to,
+                who,
+            });
+        } else {
+            self.place(&mut t.ctx, id, to, who);
+        }
+    }
+
     /// Puts an object into a destination. Cards already in their owner's
     /// library are reordered in place (moving within a zone isn't a zone change).
     fn place(&mut self, ctx: &mut EffectCtx, id: ObjectId, to: Destination, who: PlayerId) {
@@ -1562,19 +1621,25 @@ impl Game {
             Destination::Exile => {
                 self.fx_move(ctx, id, ZoneId::Exile, true);
             }
-            Destination::Battlefield => {
+            Destination::Battlefield | Destination::BattlefieldTapped => {
                 // CR 614.1a: "if this would enter, … instead" (R4: it runs after this effect).
                 let applied = ctx.applied.clone();
                 if self.replace_entering(id, who, &applied) {
                     return;
                 }
-                // CR 110.2: it enters under the control of the player putting it there.
-                if let Some(new) = self.fx_move(ctx, id, ZoneId::Battlefield, true)
-                    && let Some(n) = self.objects.get_mut(new)
-                {
-                    n.controller = who;
-                    self.bump_layers();
+                if let Some(k) = self.known(ctx, id) {
+                    ctx.lki.push(k);
                 }
+                let tapped = to == Destination::BattlefieldTapped;
+                // CR 110.2: it enters under the control of the player putting
+                // it there; CR 110.5b: tapped if the effect says so.
+                self.move_object_with(id, ZoneId::Battlefield, true, |g, new| {
+                    if let Some(n) = g.objects.get_mut(new) {
+                        n.controller = who;
+                        n.tapped |= tapped;
+                    }
+                    g.bump_layers();
+                });
             }
         }
     }
@@ -1742,7 +1807,9 @@ impl Game {
     /// replacement effect would change it (M4 plan R2).
     fn draws(&mut self, t: &mut EffectTask, p: PlayerId, n: u32) -> Flow {
         for i in 0..n {
-            if !self.draw_replacements(p, &t.ctx.applied).is_empty() {
+            if !self.draw_replacements(p, &t.ctx.applied).is_empty()
+                || self.draw_question(p).is_some()
+            {
                 let left = n - i - 1;
                 if left > 0 {
                     t.frames.push(Frame::Draws { who: p, left });
@@ -1774,9 +1841,8 @@ impl Game {
             control_since: self.turn.number,
             timestamp,
         });
-        match o.zone {
-            ZoneId::Stack | ZoneId::Command => {}
-            zone => self.zone_vec_mut(zone).push(copy),
+        if o.zone != ZoneId::Stack {
+            self.zone_vec_mut(o.zone).push(copy);
         }
         self.copies.push(copy);
         self.log(Event::CopyCreated {
@@ -2033,7 +2099,7 @@ impl Game {
     /// Reveal from the top until a match (Demonic Consultation's shape).
     fn reveal_until(
         &mut self,
-        ctx: &mut EffectCtx,
+        t: &mut EffectTask,
         p: PlayerId,
         filter: &ObjectFilter,
         found_to: Destination,
@@ -2043,7 +2109,7 @@ impl Game {
         let mut found = None;
         for id in self.player(p).library.iter().rev().copied() {
             revealed.push(id);
-            if self.matches_card(ctx, id, filter) {
+            if self.matches_card(&t.ctx, id, filter) {
                 found = Some(id);
                 break;
             }
@@ -2057,14 +2123,14 @@ impl Game {
             .filter(|id| Some(*id) != found)
             .collect();
         if let Some(f) = found {
-            self.place(ctx, f, found_to, p);
+            self.place_or_defer(t, f, found_to, p);
         }
         if rest_to == Destination::BottomOfLibrary {
             // The rest go to the bottom in a random order.
             self.rng.shuffle(&mut rest);
         }
         for id in rest {
-            self.place(ctx, id, rest_to, p);
+            self.place_or_defer(t, id, rest_to, p);
         }
     }
 
@@ -2096,7 +2162,7 @@ impl Game {
                 match &p.then {
                     AfterPick::Place(to) => {
                         let to = *to;
-                        self.place(&mut t.ctx, id, to, p.who);
+                        self.place_or_defer(t, id, to, p.who);
                     }
                     _ => p.picked.push(id),
                 }
@@ -2240,7 +2306,7 @@ impl Game {
                     }
                 } else {
                     for id in picked {
-                        self.place(&mut t.ctx, id, to, who);
+                        self.place_or_defer(t, id, to, who);
                     }
                 }
             }
@@ -2258,7 +2324,7 @@ impl Game {
                     self.order_rest(t, who, rest, order);
                 } else {
                     for id in picked {
-                        self.place(&mut t.ctx, id, to, who);
+                        self.place_or_defer(t, id, to, who);
                     }
                     self.order_rest(t, who, rest, order);
                 }
@@ -2574,7 +2640,9 @@ fn exact_pick(
 fn purpose_for(to: Destination) -> CardPurpose {
     match to {
         Destination::Hand => CardPurpose::ReturnToHand,
-        Destination::Battlefield => CardPurpose::PutOntoBattlefield,
+        Destination::Battlefield | Destination::BattlefieldTapped => {
+            CardPurpose::PutOntoBattlefield
+        }
         Destination::TopOfLibrary => CardPurpose::PutOnTop,
         Destination::BottomOfLibrary => CardPurpose::PutOnBottom,
         Destination::Graveyard => CardPurpose::PutIntoGraveyard,

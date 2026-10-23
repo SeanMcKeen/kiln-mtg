@@ -28,7 +28,7 @@ use std::sync::Arc;
 
 use mtg_core::PlayerId;
 use mtg_engine::{
-    CardPool, DecisionKind, Game, GameBuilder, GameResult, PermanentOpts, Step, ZoneId,
+    CardPool, CommanderAt, DecisionKind, Game, GameBuilder, GameResult, PermanentOpts, Step, ZoneId,
 };
 use serde::Deserialize;
 
@@ -68,6 +68,32 @@ pub struct PlayerSpec {
     pub graveyard: Vec<String>,
     #[serde(default)]
     pub battlefield: Vec<PermSpec>,
+    /// Commanders (CR 903.3): a name starts in the command zone.
+    #[serde(default)]
+    pub commanders: Vec<CommanderSpec>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+pub enum CommanderSpec {
+    Name(String),
+    Full {
+        card: String,
+        /// `command` (default), `battlefield`, `hand`, `graveyard` or `exile`.
+        #[serde(default = "default_command")]
+        zone: String,
+        /// Times already cast from the command zone (CR 903.8).
+        #[serde(default)]
+        casts: u32,
+        #[serde(default)]
+        tapped: bool,
+        #[serde(default)]
+        sick: bool,
+    },
+}
+
+fn default_command() -> String {
+    "command".into()
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -163,6 +189,9 @@ pub struct Expect {
     /// for a noncreature, for the first permanent with that name.
     #[serde(default)]
     pub pt: BTreeMap<String, Option<[i32; 2]>>,
+    /// Player → commander name → combat damage it has dealt them (CR 903.10a).
+    #[serde(default)]
+    pub commander_damage: BTreeMap<String, BTreeMap<String, u32>>,
     pub step: Option<String>,
     pub decision: Option<DecisionExpect>,
 }
@@ -283,6 +312,7 @@ pub fn kind_name(k: &DecisionKind) -> &'static str {
         DecisionKind::AssignDamage { .. } => "assign_damage",
         DecisionKind::Discard { .. } => "discard",
         DecisionKind::LegendRule { .. } => "legend_rule",
+        DecisionKind::CommanderZone { .. } => "commander_zone",
         DecisionKind::Optional { .. } => "optional",
         DecisionKind::ChooseCard { .. } => "choose_card",
         DecisionKind::ChooseMana { .. } => "choose_mana",
@@ -371,6 +401,37 @@ pub fn build(s: &Scenario, pool: &Arc<CardPool>) -> Result<Game, ScenarioError> 
                 ),
             };
             b = b.permanent(id, card(name)?, opts);
+        }
+        for c in &p.commanders {
+            let (name, at) = match c {
+                CommanderSpec::Name(n) => (n.as_str(), CommanderAt::Command { casts: 0 }),
+                CommanderSpec::Full {
+                    card,
+                    zone,
+                    casts,
+                    tapped,
+                    sick,
+                } => {
+                    let at = match zone.as_str() {
+                        "command" => CommanderAt::Command { casts: *casts },
+                        "battlefield" => CommanderAt::Battlefield(PermanentOpts {
+                            tapped: *tapped,
+                            summoning_sick: *sick,
+                            ..PermanentOpts::default()
+                        }),
+                        "hand" => CommanderAt::Hand,
+                        "graveyard" => CommanderAt::Graveyard,
+                        "exile" => CommanderAt::Exile,
+                        other => {
+                            return Err(ScenarioError::Setup(format!(
+                                "unknown commander zone {other:?}"
+                            )));
+                        }
+                    };
+                    (card.as_str(), at)
+                }
+            };
+            b = b.commander(id, card(name)?, at);
         }
     }
     let active = player_id(&s.turn.active, n).map_err(ScenarioError::Setup)?;
@@ -479,6 +540,22 @@ fn check_expect(game: &Game, e: &Expect, at: &str) -> Result<(), ScenarioError> 
             return Err(fail(format!("{p} life is {actual}, expected {life}")));
         }
     }
+    for (p, by_commander) in &e.commander_damage {
+        let id = player_id(p, n).map_err(fail)?;
+        for (name, want) in by_commander {
+            let index = game
+                .commanders()
+                .iter()
+                .position(|c| game.card_pool().get(c.def).name == *name)
+                .ok_or_else(|| fail(format!("no commander named {name:?}")))?;
+            let actual = game.commander_damage(index, id);
+            if actual != *want {
+                return Err(fail(format!(
+                    "{name} has dealt {p} {actual} commander damage, expected {want}"
+                )));
+            }
+        }
+    }
     for (key, want) in &e.zones {
         let ids = match key.split_once('.') {
             Some((p, zone)) => {
@@ -498,6 +575,7 @@ fn check_expect(game: &Game, e: &Expect, at: &str) -> Result<(), ScenarioError> 
             None => match key.as_str() {
                 "stack" => game.objects_in(ZoneId::Stack),
                 "exile" => game.objects_in(ZoneId::Exile),
+                "command" => game.objects_in(ZoneId::Command),
                 "battlefield" => game.objects_in(ZoneId::Battlefield),
                 other => {
                     return Err(fail(format!(

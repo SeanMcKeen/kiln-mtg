@@ -5,12 +5,13 @@
 //! results are collected in index order, so the output doesn't depend on
 //! scheduling (ADR-0005, NFR-D1).
 
+use std::collections::BTreeMap;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
 use std::time::Instant;
 
-use mtg_core::PlayerId;
-use mtg_engine::rng::{game_seed, splitmix64};
+use mtg_core::{CardType, Colors, PlayerId};
+use mtg_engine::rng::{GameRng, game_seed, splitmix64};
 use mtg_engine::{CardPool, DefId, Game, GameResult, GameRules, GameSetup, Recorder};
 use mtg_policy::Policy;
 use rayon::prelude::*;
@@ -40,6 +41,66 @@ pub struct BatchConfig {
     pub checks: Checks,
     /// Worker threads; `None` = all cores.
     pub threads: Option<usize>,
+    /// Give each seat a commander that fits its deck ([`pick_commander`]).
+    #[serde(default)]
+    pub commanders: bool,
+}
+
+/// How each player left and how the game ended (see [`GameOutcome::endings`]).
+pub fn endings(game: &Game) -> Vec<String> {
+    use mtg_engine::PlayerStatus;
+    let mut out: Vec<String> = (0..game.player_count())
+        .filter_map(|i| {
+            match game
+                .player_state(PlayerId(u8::try_from(i).unwrap_or(0)))
+                .status
+            {
+                PlayerStatus::Lost(r) => Some(format!("loss:{r:?}")),
+                _ => None,
+            }
+        })
+        .collect();
+    match game.result() {
+        Some(GameResult::Win { player, .. }) => {
+            // An effect win (CR 104.2b) ends the game with opponents still in it;
+            // otherwise the winner is the last player standing (CR 104.2a).
+            let others_in = (0..game.player_count())
+                .map(|i| PlayerId(u8::try_from(i).unwrap_or(0)))
+                .any(|p| p != *player && game.player_state(p).status == PlayerStatus::Playing);
+            out.push(
+                if others_in {
+                    "win:effect"
+                } else {
+                    "win:last_standing"
+                }
+                .to_owned(),
+            );
+        }
+        Some(GameResult::Draw { .. }) => out.push("draw".to_owned()),
+        _ => {}
+    }
+    out
+}
+
+/// A commander for a generated deck: a legendary creature card from the
+/// pool whose color identity fits the deck's (CR 903.3, 903.5c), chosen with
+/// `seed`; `None` if none fits.
+pub fn pick_commander(pool: &CardPool, deck: &[DefId], seed: u64) -> Option<DefId> {
+    let colors = deck.iter().fold(Colors::COLORLESS, |c, d| {
+        c.union(pool.get(*d).color_identity)
+    });
+    let fits: Vec<DefId> = pool
+        .iter()
+        .filter(|(_, d)| {
+            d.is_legendary()
+                && d.is(CardType::Creature)
+                && !d.token
+                && d.mana_cost.is_some()
+                && d.color_identity.is_subset_of(colors)
+        })
+        .map(|(id, _)| id)
+        .collect();
+    (!fits.is_empty()).then(|| fits[GameRng::new(seed).index(fits.len())])
 }
 
 /// The outcome of one game.
@@ -56,6 +117,10 @@ pub struct GameOutcome {
     pub replay_checked: bool,
     pub replay_error: Option<String>,
     pub panic: Option<String>,
+    /// How players left and how the game ended: `loss:<reason>` per losing
+    /// player, then `win:effect` (CR 104.2b), `win:last_standing` (CR 104.2a)
+    /// or `draw` (CR 104.4a).
+    pub endings: Vec<String>,
 }
 
 /// Aggregate statistics.
@@ -77,6 +142,8 @@ pub struct BatchStats {
     pub replay_failure_count: u64,
     pub panic_count: u64,
     pub elapsed_ms: u64,
+    /// Counts of [`GameOutcome::endings`] entries (M6 plan C15: win types).
+    pub endings: BTreeMap<String, u64>,
 }
 
 impl BatchStats {
@@ -86,6 +153,9 @@ impl BatchStats {
 
     fn add(&mut self, o: &GameOutcome) {
         self.games += 1;
+        for e in &o.endings {
+            *self.endings.entry(e.clone()).or_default() += 1;
+        }
         self.total_turns += u64::from(o.turns);
         self.total_decisions += o.decisions;
         self.total_policy_calls += o.policy_calls;
@@ -150,6 +220,7 @@ pub fn run_game(
         replay_checked: false,
         replay_error: None,
         panic: None,
+        endings: Vec::new(),
     };
     let mut game = match Game::new(Arc::clone(pool), &setup) {
         Ok(g) => g,
@@ -218,6 +289,7 @@ pub fn run_game(
     }
     outcome.result = game.result().copied();
     outcome.turns = game.turn().number;
+    outcome.endings = endings(&game);
     let replay = record.then(|| recorder.finish(&game, setup));
     (outcome, replay)
 }
@@ -235,11 +307,25 @@ where
             .into_par_iter()
             .map(|index| {
                 let seed = game_seed(cfg.seed, index);
+                let decks = decks(index);
+                let commanders = if cfg.commanders {
+                    decks
+                        .iter()
+                        .enumerate()
+                        .map(|(seat, d)| {
+                            let s = splitmix64(seed ^ (0xC0_33A4D3 + seat as u64));
+                            pick_commander(pool, d, s).into_iter().collect()
+                        })
+                        .collect()
+                } else {
+                    Vec::new()
+                };
                 let setup = GameSetup {
                     rules: cfg.rules.clone(),
-                    decks: decks(index),
+                    decks,
                     seed,
                     first_player: None,
+                    commanders,
                 };
                 let check_replay = cfg
                     .checks
@@ -274,6 +360,7 @@ where
                         replay_checked: false,
                         replay_error: None,
                         panic: Some(msg),
+                        endings: Vec::new(),
                     }
                 });
                 o.index = index;

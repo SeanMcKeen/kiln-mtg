@@ -44,6 +44,9 @@ pub struct VisibleObject {
     pub counters: Vec<(CounterKind, u32)>,
     /// CR 111.
     pub token: bool,
+    /// A commander (CR 903.3; public information).
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub commander: bool,
 }
 
 /// A spell or ability on the stack (public, CR 400.2).
@@ -85,6 +88,9 @@ pub struct ViewSnapshot {
     pub stack: Vec<StackEntry>,
     pub graveyards: Vec<Vec<VisibleObject>>,
     pub exile: Vec<VisibleObject>,
+    /// The command zone (CR 408; public, CR 400.2).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub command: Vec<VisibleObject>,
 }
 
 /// Mana as symbols, e.g. `{C}{C}`.
@@ -113,6 +119,7 @@ impl Game {
             .iter()
             .chain(&snap.battlefield)
             .chain(&snap.exile)
+            .chain(&snap.command)
             .map(|o| o.id)
             .collect();
         // An ability's source may have left play (CR 113.7a); only spells are stack objects.
@@ -172,13 +179,15 @@ impl Game {
                 Action::Cast(id) => format!("Cast {}", name(id)),
                 Action::ActivateMana { source, ability } => {
                     let list = self.mana_abilities_of(source);
-                    let m = list.get(ability as usize).map(|(_, m)| *m);
-                    let verb = if m.is_some_and(|m| m.tap_only) {
+                    let m = list.get(ability as usize).copied();
+                    let verb = if m.is_some_and(|(_, m)| m.tap_only) {
                         "Tap"
                     } else {
                         "Activate"
                     };
-                    let what = match m.map(|m| m.bags.as_slice()) {
+                    let controller = self.obj(source).map_or(d.player, |o| o.controller);
+                    let bags = m.map(|(r, m)| self.mana_ability_bags(r, m, controller));
+                    let what = match bags.as_deref() {
                         Some([bag]) => bag_text(bag),
                         _ => "mana".to_owned(),
                     };
@@ -238,6 +247,20 @@ impl Game {
             // Same-name permanents are told apart by position (1-based, battlefield order).
             DecisionKind::LegendRule { candidates } => {
                 format!("Keep {} [{}]", name(candidates[i]), i + 1)
+            }
+            DecisionKind::CommanderZone { commander, to } => {
+                let zone = match to {
+                    ZoneId::Hand(_) => "hand",
+                    ZoneId::Library(_) => "library",
+                    ZoneId::Graveyard(_) => "graveyard",
+                    _ => "exile",
+                };
+                let already = self.obj(*commander).is_some_and(|o| o.zone == *to);
+                match (i, already) {
+                    (0, true) => format!("Leave {} in {zone}", name(*commander)),
+                    (0, false) => format!("Put {} into {zone}", name(*commander)),
+                    _ => format!("Put {} into the command zone", name(*commander)),
+                }
             }
             DecisionKind::Optional { kind, .. } => match (kind, i) {
                 (OptionalKind::May | OptionalKind::IfDoes, 0) => "No".into(),
@@ -439,6 +462,7 @@ impl<'g> PlayerView<'g> {
             blocking: combat.and_then(|c| c.blocks.iter().find(|(b, _)| *b == id).map(|(_, a)| *a)),
             counters: self.game.counters_of(id),
             token: def.token,
+            commander: self.game.is_commander(id),
         })
     }
 
@@ -514,6 +538,7 @@ impl<'g> PlayerView<'g> {
                 .map(|p| objs(&p.graveyard))
                 .collect(),
             exile: objs(&self.game.exile),
+            command: objs(&self.game.cmd.zone),
         }
     }
 }

@@ -37,6 +37,7 @@ fn greedy_beats_random() {
             decks: vec![test_deck(&pool, pair, 60), test_deck(&pool, pair, 60)],
             seed: game_seed(77, i),
             first_player: None,
+            commanders: Vec::new(),
         };
         let mut policies: Vec<Box<dyn Policy>> = (0..2)
             .map(|s| {

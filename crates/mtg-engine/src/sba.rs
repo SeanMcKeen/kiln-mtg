@@ -96,6 +96,14 @@ impl Game {
                 losers.push((p.id, LossReason::Poison)); // CR 704.5c
             }
         }
+        // CR 704.6c: 21 or more combat damage from one commander.
+        if !self.cmd.is_empty() {
+            for p in self.commander_damage_losers() {
+                if self.in_game(p) && !losers.iter().any(|(q, _)| *q == p) {
+                    losers.push((p, LossReason::CommanderDamage));
+                }
+            }
+        }
         let mut dying = Vec::new();
         for &id in &self.battlefield {
             if !self.is_creature(id) {
@@ -129,26 +137,36 @@ impl Game {
 
     /// Whether any SBA would be performed now (used by cleanup, CR 514.3a).
     pub(crate) fn sba_pending(&self) -> bool {
-        self.sba_checks().any() || !self.legend_groups().is_empty()
+        self.sba_checks().any()
+            || !self.legend_groups().is_empty()
+            || self.commander_offer_pending()
     }
 
     pub(crate) fn sba_step(&mut self, mut t: SbaTask) {
         if !t.started {
             t.started = true;
             t.groups = self.legend_groups();
+            self.begin_commander_offers();
         }
         if let Some((p, candidates)) = t.groups.first().cloned() {
             self.tasks.push(Task::Sba(t));
             self.decide(p, DecisionKind::LegendRule { candidates }, "704.5j");
             return;
         }
+        // CR 903.9a: the owner may put the commander into the command zone.
+        if let Some((p, kind)) = self.next_commander_offer() {
+            self.tasks.push(Task::Sba(t));
+            self.decide(p, kind, "903.9a");
+            return;
+        }
+        let to_command = self.take_accepted_offers();
         // Perform everything simultaneously (CR 704.3).
         let checks = self.sba_checks();
         let mut legend_out: Vec<ObjectId> = Vec::new();
         for (_, group) in self.legend_groups() {
             legend_out.extend(group.into_iter().filter(|id| !t.kept.contains(id)));
         }
-        let performed = checks.any() || !legend_out.is_empty();
+        let performed = checks.any() || !legend_out.is_empty() || !to_command.is_empty();
         let SbaChecks {
             losers,
             dying,
@@ -159,6 +177,9 @@ impl Game {
         } = checks;
         for id in unattach {
             self.unattach(id);
+        }
+        for id in to_command {
+            self.move_object(id, ZoneId::Command, true);
         }
         for id in tokens {
             self.cease_to_exist(id);

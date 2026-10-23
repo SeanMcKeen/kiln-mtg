@@ -426,7 +426,9 @@ impl Game {
                 .iter()
                 .enumerate()
                 .filter(|(_, (_, m))| m.tap_only)
-                .filter_map(|(i, (_, m))| Some((u8::try_from(i).ok()?, m.bags.clone())))
+                .filter_map(|(i, (r, m))| {
+                    Some((u8::try_from(i).ok()?, self.mana_ability_bags(*r, m, p)))
+                })
                 .collect();
             if abilities.is_empty() {
                 continue;
@@ -442,6 +444,54 @@ impl Game {
             });
         }
         out
+    }
+
+    /// The outcomes of one activation of mana ability `m` (ability `r`)
+    /// controlled by `p`: precomputed, or computed now for dynamic mana.
+    pub(crate) fn mana_ability_bags(
+        &self,
+        r: AbilityRef,
+        m: &crate::card::ManaAbility,
+        p: PlayerId,
+    ) -> SmallVec<[crate::card::ManaBag; 1]> {
+        if !m.dynamic {
+            return m.bags.clone();
+        }
+        let mut out = SmallVec::new();
+        if let Some(mtg_cards::ir::Ability::Activated(x)) =
+            self.def(r.def).abilities.get(usize::from(r.ability))
+        {
+            x.effect.walk(&mut |e| {
+                if let mtg_cards::ir::Effect::AddMana { mana, .. } = e {
+                    out.extend(self.dynamic_mana_bags(mana, p));
+                }
+            });
+        }
+        out
+    }
+
+    /// Outcomes of a mana spec that depends on the game, for player `p`.
+    pub(crate) fn dynamic_mana_bags(
+        &self,
+        spec: &mtg_cards::ir::ManaSpec,
+        p: PlayerId,
+    ) -> Vec<crate::card::ManaBag> {
+        match spec {
+            // CR 903.4f: no commander, no mana; a colorless identity, none either.
+            mtg_cards::ir::ManaSpec::CommanderIdentity => self
+                .commander_identity(p)
+                .map(|id| {
+                    id.iter()
+                        .map(|c| {
+                            let mut b = [0; 6];
+                            b[ManaType::of_color(c).index()] = 1;
+                            b
+                        })
+                        .collect()
+                })
+                .unwrap_or_default(),
+            other => crate::effects::mana_bags(other),
+        }
     }
 
     /// The mana abilities object `id` has now (CR 605.1a), after the layers:

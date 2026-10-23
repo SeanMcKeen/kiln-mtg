@@ -1,0 +1,16 @@
+scenario: mtg-scenario/1
+name: "Commander tax: a commander cast once from the command zone costs {2} more the next time"
+cr: ["903.8", "601.2f"]
+players:
+  - battlefield: [Test Forest, Test Forest, Test Forest]
+    commanders: [{ card: Test Commander, casts: 1 }]
+  - {}
+script:
+  # {1}{G} plus {2} of tax: three lands aren't enough, so it isn't offered.
+  - check:
+      decision:
+        player: P1
+        kind: priority
+        options_exclude: [Cast Test Commander]
+expect:
+  zones: { command: [Test Commander] }

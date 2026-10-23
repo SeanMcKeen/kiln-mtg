@@ -239,6 +239,7 @@ fn effect(e: &Effect) -> Check {
         | Effect::Tap(what)
         | Effect::Untap(what) => set(what),
         Effect::RevealUntil { who, .. } | Effect::Shuffle(who) => player(who),
+        Effect::Reveal(what) => set(what),
         Effect::Sacrifice { who, what } => {
             player(who)?;
             set(what)
@@ -552,12 +553,13 @@ fn quantity(q: &Quantity) -> Check {
 
 fn condition(c: &Condition) -> Check {
     match c {
-        Condition::ControlCommander => Err("commanders (M6)".into()),
+        Condition::ControlCommander => Ok(()),
         Condition::AtLeast(a, b) => {
             quantity(a)?;
             quantity(b)
         }
         Condition::Not(c) => condition(c),
+        Condition::TopOfLibraryMatches { who, .. } => player(who),
         Condition::YourTurn | Condition::ThisTapped => Ok(()),
     }
 }

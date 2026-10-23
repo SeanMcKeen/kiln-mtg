@@ -15,6 +15,7 @@ fn new_game(players: usize) -> Game {
         decks,
         seed: 11,
         first_player: Some(PlayerId(0)),
+        commanders: Vec::new(),
     };
     Game::new(pool, &setup).unwrap_or_else(|e| panic!("{e}"))
 }
@@ -103,6 +104,7 @@ fn setup_rejects_bad_input() {
         decks: vec![vec![]],
         seed: 0,
         first_player: None,
+        commanders: Vec::new(),
     };
     assert!(Game::new(Arc::clone(&pool), &one).is_err());
     let bad_def = GameSetup {
@@ -110,6 +112,7 @@ fn setup_rejects_bad_input() {
         decks: vec![vec![mtg_engine::DefId(9999)], vec![]],
         seed: 0,
         first_player: None,
+        commanders: Vec::new(),
     };
     assert!(Game::new(Arc::clone(&pool), &bad_def).is_err());
     let bad_first = GameSetup {
@@ -117,6 +120,7 @@ fn setup_rejects_bad_input() {
         decks: vec![vec![], vec![]],
         seed: 0,
         first_player: Some(PlayerId(5)),
+        commanders: Vec::new(),
     };
     assert!(Game::new(pool, &bad_first).is_err());
 }

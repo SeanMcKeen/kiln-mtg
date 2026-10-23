@@ -39,6 +39,7 @@ fn record(players: usize, seed: u64) -> Replay {
         decks,
         seed,
         first_player: None,
+        commanders: Vec::new(),
     };
     let mut policies: Vec<Box<dyn Policy>> = (0..players)
         .map(|_| Box::new(RandomPolicy::new(600)) as Box<dyn Policy>)

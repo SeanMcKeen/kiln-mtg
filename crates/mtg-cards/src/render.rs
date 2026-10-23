@@ -388,6 +388,7 @@ fn effect(e: &Effect, t: &[TargetSpec]) -> String {
             };
             let dest = match to {
                 Destination::Battlefield => "put it onto the battlefield",
+                Destination::BattlefieldTapped => "put it onto the battlefield tapped",
                 _ => "put it into your hand",
             };
             format!(

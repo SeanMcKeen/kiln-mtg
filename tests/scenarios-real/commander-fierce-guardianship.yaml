@@ -1,0 +1,23 @@
+scenario: mtg-scenario/1
+name: "Fierce Guardianship is free while its caster controls a commander (T43)"
+cr: ["903.3d", "118.9", "701.6a"]
+verifies: [Fierce Guardianship]
+players:
+  - battlefield: [Mountain]
+    hand: [Lightning Bolt]
+  - hand: [Fierce Guardianship]
+    commanders: [{ card: "Kinnan, Bonder Prodigy", zone: battlefield }]
+script:
+  - choose: Cast Lightning Bolt
+  - choose: Target P2
+  - choose: Pay with Mountain
+  - pass: 1
+  # P2 has no lands; the free alternative cost is the only way to cast it.
+  - { player: P2, choose: Cast Fierce Guardianship }
+  - { player: P2, choose: Target Lightning Bolt }
+  - pass_all
+expect:
+  life: { P2: 20 }
+  zones:
+    P1.graveyard: [Lightning Bolt]
+    P2.graveyard: [Fierce Guardianship]

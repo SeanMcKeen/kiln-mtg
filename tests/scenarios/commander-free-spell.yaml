@@ -1,0 +1,22 @@
+scenario: mtg-scenario/1
+name: "\"If you control a commander, you may cast this spell without paying its mana cost\" (T43)"
+cr: ["903.3d", "118.9"]
+players:
+  - battlefield: [Test Mountain]
+    hand: [Test Flare]
+  - hand: [Test Guardianship]
+    commanders: [{ card: Test Commander, zone: battlefield }]
+script:
+  - choose: Cast Test Flare
+  - choose: Target P2
+  - choose: Pay with Test Mountain
+  - pass: 1
+  # P2 has no lands: the only way to cast it is the free alternative cost.
+  - { player: P2, choose: Cast Test Guardianship }
+  - { player: P2, choose: Target Test Flare }
+  - pass_all
+expect:
+  life: { P2: 20 }
+  zones:
+    P1.graveyard: [Test Flare]
+    P2.graveyard: [Test Guardianship]

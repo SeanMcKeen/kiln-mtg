@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
 use crate::card::{DefId, ManaType};
-use crate::state::Target;
+use crate::state::{Target, ZoneId};
 
 /// Monotonic id of a decision within a game (R7). A choice must echo it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -121,6 +121,10 @@ pub enum DecisionKind {
     },
     /// CR 704.5j: choose the legendary permanent to keep.
     LegendRule { candidates: Vec<ObjectId> },
+    /// CR 903.9a–b: the owner chooses whether a commander goes to the
+    /// command zone. `to` is the zone it's in (903.9a) or would be put into
+    /// (903.9b). Option 0 leaves it there; option 1 puts it into the command zone.
+    CommanderZone { commander: ObjectId, to: ZoneId },
     /// A yes/no choice while an effect resolves (CR 608.2d): option 0 declines, option 1 accepts.
     Optional {
         source: ObjectId,
@@ -292,7 +296,7 @@ impl PendingDecision {
             DecisionKind::DeclareBlocker { attackers, .. } => attackers.len(),
             DecisionKind::AssignDamage { recipients, .. } => recipients.len(),
             DecisionKind::LegendRule { candidates } => candidates.len(),
-            DecisionKind::Optional { .. } => 2,
+            DecisionKind::Optional { .. } | DecisionKind::CommanderZone { .. } => 2,
             DecisionKind::ChooseCard { cards, .. } => cards.len(),
             DecisionKind::ChooseMana { options, .. } => options.len(),
             DecisionKind::ChooseName { names, .. } => names.len(),
@@ -317,7 +321,8 @@ impl PendingDecision {
             DecisionKind::Mulligan { .. }
             | DecisionKind::Priority { .. }
             | DecisionKind::DeclareAttacker { .. }
-            | DecisionKind::Optional { .. } => true,
+            | DecisionKind::Optional { .. }
+            | DecisionKind::CommanderZone { .. } => true,
             DecisionKind::ChooseCard { cards, .. } => cards.first().is_some_and(Option::is_none),
             DecisionKind::ChooseTarget { targets, .. } => {
                 targets.first().is_some_and(Option::is_none)

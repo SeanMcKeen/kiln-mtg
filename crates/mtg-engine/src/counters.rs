@@ -145,6 +145,7 @@ impl Game {
             return;
         };
         self.detach_object(id, zone);
+        self.commander_moved(id, None, zone);
         self.objects.free(id);
         self.drop_counters(id);
         self.bump_layers();

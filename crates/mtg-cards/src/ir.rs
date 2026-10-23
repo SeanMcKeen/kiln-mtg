@@ -476,6 +476,8 @@ pub enum Effect {
         counter: CounterKind,
         amount: Quantity,
     },
+    /// "Reveal [objects]" (CR 701.20a), e.g. the top card of a library.
+    Reveal(ObjectSet),
     /// "Reveal cards from the top of [who]'s library until you reveal a card
     /// matching [filter]. Put that card into [found_to] and the rest into [rest_to]."
     RevealUntil {
@@ -709,6 +711,8 @@ pub enum ZoneName {
 pub enum Destination {
     Hand,
     Battlefield,
+    /// "Put it onto the battlefield tapped" (CR 110.5b).
+    BattlefieldTapped,
     TopOfLibrary,
     BottomOfLibrary,
     Graveyard,
@@ -967,6 +971,11 @@ pub enum Condition {
     ThisTapped,
     /// left ≥ right.
     AtLeast(Quantity, Quantity),
+    /// "If [the top card of who's library] is a [filter] card".
+    TopOfLibraryMatches {
+        who: PlayerRef,
+        filter: ObjectFilter,
+    },
     /// "If you do" bookkeeping is in [`Effect::IfDoes`], not here.
     Not(Box<Condition>),
 }

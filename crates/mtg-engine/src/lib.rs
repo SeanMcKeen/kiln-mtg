@@ -10,6 +10,7 @@ pub mod builder;
 pub mod card;
 mod cast;
 mod combat;
+mod commander;
 mod counters;
 pub mod decision;
 pub mod decks;
@@ -31,10 +32,11 @@ mod targets;
 pub mod triggers;
 pub mod view;
 
-pub use builder::{GameBuilder, PermanentOpts};
+pub use builder::{CommanderAt, GameBuilder, PermanentOpts};
 pub use card::{
     CardDef, CardPool, Characteristics, DefId, Keywords, ManaAbility, ManaType, Unsupported,
 };
+pub use commander::{COMMANDER_DAMAGE_LIMIT, Commander};
 pub use decision::{
     Action, Choice, ChoiceError, DamageRecipient, DecisionId, DecisionKind, ManaStep, PaymentPlan,
     PendingDecision,

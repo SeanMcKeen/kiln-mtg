@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: "Partner commanders keep separate commander-damage tallies (T42)"
+cr: ["903.10a", "702.124c", "704.6c"]
+players:
+  - commanders:
+      - { card: Test Partner Red, zone: battlefield }
+      - { card: Test Partner Blue, zone: battlefield }
+  - life: 40
+turn: { number: 3, active: P1, step: declare_attackers }
+script:
+  - choose: Test Partner Red attacks P2
+  - choose: Test Partner Blue attacks P2
+  - pass_all
+  - pass_all
+  - pass_all
+expect:
+  # 21 damage in all, but no single commander dealt 21: P2 is still in.
+  result: in_progress
+  life: { P2: 19 }
+  commander_damage: { P2: { Test Partner Red: 11, Test Partner Blue: 10 } }
