@@ -313,6 +313,8 @@ impl GameBuilder {
             cmd,
             restricted: Vec::new(),
             uncounterable: Vec::new(),
+            object_vars: Vec::new(),
+            unasked_entering: 0,
         };
         if self.pregame {
             game.turn.number = 0;

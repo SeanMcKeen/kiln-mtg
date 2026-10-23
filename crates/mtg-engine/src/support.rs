@@ -118,6 +118,16 @@ pub(crate) fn check(def: &CardDef) -> Check {
             Ability::Static(s) => rule_static(s)?,
             Ability::Replacement(r) => replacement(r)?,
             Ability::OpeningHand(o) => effect(&o.effect)?,
+            Ability::AsEnters { choose, .. } => match choose {
+                mtg_cards::ir::ChoiceSpec::Color | mtg_cards::ir::ChoiceSpec::Number { .. } => {
+                    if def.is(mtg_core::CardType::Land) {
+                        return Err("lands with an \"as this enters, choose\" ability".into());
+                    }
+                }
+                mtg_cards::ir::ChoiceSpec::CardName => {
+                    return Err("choosing a card name as a permanent enters".into());
+                }
+            },
             // Whole-ability escapes need a hook per ability kind; none is needed yet.
             Ability::Escape(e) => {
                 return Err(format!(

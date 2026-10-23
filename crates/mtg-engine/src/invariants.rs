@@ -161,6 +161,14 @@ impl Game {
         // 9. Commanders (CR 903).
         self.commander_invariant()?;
 
+        // 11. Every permanent with an "as this enters, choose" ability entered with its choice.
+        if self.unasked_entering > 0 {
+            return Err(format!(
+                "invariant 11: {} permanent(s) entered without their CR 614.12 choice",
+                self.unasked_entering
+            ));
+        }
+
         // 10. Restricted mana (CR 106.6) is part of the pool.
         for p in &self.players {
             for t in crate::card::ManaType::ALL {

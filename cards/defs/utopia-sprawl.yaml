@@ -1,0 +1,9 @@
+card: Utopia Sprawl
+faces:
+  - abilities:
+      - keyword: { enchant: { object: { types: [land], subtypes: [Forest] } } }
+      - as_enters: { choose: color, store: chosen_color }
+      # A triggered mana ability (CR 605.1b).
+      - triggered:
+          trigger: { taps_for_mana: { by: any, what: { attached: true } } }
+          effect: { add_mana: { mana: { chosen_color: chosen_color }, to: triggering } }

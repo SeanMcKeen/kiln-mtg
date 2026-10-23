@@ -413,6 +413,18 @@ impl Game {
             self.tasks.push(Task::Effect(t));
             return;
         }
+        // CR 614.12: likewise for "as this enters, choose".
+        if matches!(frame, Frame::Place { .. })
+            && matches!(
+                kind,
+                DecisionKind::ChooseColor { .. } | DecisionKind::ChooseNumber { .. }
+            )
+        {
+            self.record_entering_choice(&kind, option);
+            t.frames.push(frame);
+            self.tasks.push(Task::Effect(t));
+            return;
+        }
         match (frame, kind) {
             (Frame::Ask { kind, node, .. }, DecisionKind::Optional { .. }) => {
                 let yes = option == 1;
@@ -587,6 +599,16 @@ impl Game {
                 {
                     t.frames.push(Frame::Place { ids, to, who });
                     return Flow::Decide(owner, kind, "903.9b");
+                }
+                // CR 614.12: "as this enters, choose" before it's put onto the battlefield.
+                if matches!(
+                    to,
+                    Destination::Battlefield | Destination::BattlefieldTapped
+                ) && let Some((p, kind)) =
+                    ids.iter().find_map(|id| self.entering_question(*id, who))
+                {
+                    t.frames.push(Frame::Place { ids, to, who });
+                    return Flow::Decide(p, kind, "614.12");
                 }
                 for id in ids {
                     self.place(&mut t.ctx, id, to, who);
@@ -1413,11 +1435,14 @@ impl Game {
                     .map(|(_, n)| i64::from(*n))
                     .max()
                     .unwrap_or(0),
+                // The effect's own choices, then the source's "as this enters" choice.
                 QuantityExpr::Var(name) => ctx
                     .vars
                     .iter()
                     .find(|(k, _)| k == name)
-                    .map_or(0, |(_, v)| *v),
+                    .map(|(_, v)| *v)
+                    .or_else(|| self.object_var(ctx.source, name))
+                    .unwrap_or(0),
                 QuantityExpr::Plus(q, n) => self.quantity(ctx, q) + n,
                 QuantityExpr::CountersOn { what, counter } => self
                     .object_ref(ctx, what)
@@ -1526,6 +1551,11 @@ impl Game {
                     .fold(mtg_core::Colors::COLORLESS, mtg_core::Colors::union),
             ),
             ManaSpec::OpponentLandColors => one_each(self.opponent_land_colors(ctx.controller)),
+            ManaSpec::ChosenColor(name) => self
+                .object_var(ctx.source, name)
+                .and_then(|i| Color::ALL.get(usize::try_from(i).ok()?).copied())
+                .map(|c| one_each(mtg_core::Colors::single(c)))
+                .unwrap_or_default(),
             ManaSpec::Times { mana, times } => {
                 let times = n(times);
                 let Some(unit) = crate::card::mana_output(&ManaSpec::Fixed(mana.clone()))
@@ -1613,6 +1643,14 @@ impl Game {
             }
             _ => Vec::new(),
         }
+    }
+
+    /// A choice made as `id` entered (CR 614.12).
+    pub(crate) fn object_var(&self, id: ObjectId, name: &str) -> Option<i64> {
+        self.object_vars
+            .iter()
+            .find(|(o, k, _)| *o == id && k == name)
+            .map(|(_, _, v)| *v)
     }
 
     /// CR 106.7: the colors lands `p`'s opponents control could produce.
@@ -1819,7 +1857,11 @@ impl Game {
     fn place_or_defer(&mut self, t: &mut EffectTask, id: ObjectId, to: Destination, who: PlayerId) {
         let needs = self
             .destination_zone(id, to)
-            .is_some_and(|z| self.commander_choice_needed(id, z).is_some());
+            .is_some_and(|z| self.commander_choice_needed(id, z).is_some())
+            || (matches!(
+                to,
+                Destination::Battlefield | Destination::BattlefieldTapped
+            ) && self.entering_question(id, who).is_some());
         if needs {
             t.frames.push(Frame::Place {
                 ids: vec![id],

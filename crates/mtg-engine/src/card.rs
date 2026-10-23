@@ -490,6 +490,14 @@ impl CardDef {
         .any(|t| self.is(*t))
     }
 
+    /// Its "as this enters, choose" ability (CR 614.12): what and under which name.
+    pub fn as_enters(&self) -> Option<(&ir::ChoiceSpec, &str)> {
+        self.abilities.iter().find_map(|a| match a {
+            Ability::AsEnters { choose, store } => Some((choose, store.as_str())),
+            _ => None,
+        })
+    }
+
     /// Its opening-hand action (CR 103.6), with its ability index.
     pub fn opening_hand(&self) -> Option<(u8, &ir::OpeningHand)> {
         self.abilities
@@ -620,6 +628,7 @@ pub(crate) fn is_dynamic_spec(spec: &ManaSpec) -> bool {
         | ManaSpec::ColorOf(_)
         | ManaSpec::ColorsAmong(_)
         | ManaSpec::OpponentLandColors
+        | ManaSpec::ChosenColor(_)
         | ManaSpec::Times { .. } => true,
         ManaSpec::AnyColor(q) | ManaSpec::AnyOneColor(q) | ManaSpec::Colorless(q) => variable(q),
         ManaSpec::Fixed(_) | ManaSpec::OneOf(_) | ManaSpec::TypeProducedByTrigger => false,
@@ -690,6 +699,7 @@ pub(crate) fn mana_output(spec: &ManaSpec) -> Result<ManaAlternatives, String> {
         | ManaSpec::ColorOf(_)
         | ManaSpec::ColorsAmong(_)
         | ManaSpec::OpponentLandColors
+        | ManaSpec::ChosenColor(_)
         | ManaSpec::Times { .. } => unreachable!("dynamic specs return above"),
         ManaSpec::TypeProducedByTrigger => {
             return Err("mana of the triggering permanent's type outside a trigger".into());

@@ -261,6 +261,12 @@ pub struct Game {
     /// the mana spent on them.
     pub(crate) restricted: Vec<crate::state::RestrictedMana>,
     pub(crate) uncounterable: Vec<ObjectId>,
+    /// Choices made as permanents entered (CR 614.12): (object, name, value;
+    /// a color is its index in `Color::ALL`). Recorded for the card about to
+    /// enter, then carried to the permanent. A move onto the battlefield
+    /// without the choice counts in `unasked_entering` (invariant 11).
+    pub(crate) object_vars: Vec<(ObjectId, String, i64)>,
+    pub(crate) unasked_entering: u32,
 }
 
 impl Game {
@@ -345,6 +351,8 @@ impl Game {
             cmd: crate::commander::CommanderState::default(),
             restricted: Vec::new(),
             uncounterable: Vec::new(),
+            object_vars: Vec::new(),
+            unasked_entering: 0,
         };
         // CR 903.6: each commander starts the game in the command zone.
         for (seat, defs) in setup.commanders.iter().enumerate() {
@@ -629,6 +637,9 @@ impl Game {
         if !self.uncounterable.is_empty() {
             self.uncounterable.hash(&mut h);
         }
+        if !self.object_vars.is_empty() {
+            self.object_vars.hash(&mut h);
+        }
         h.finish()
     }
 
@@ -810,6 +821,22 @@ impl Game {
         if !self.uncounterable.is_empty() {
             self.uncounterable.retain(|x| *x != id);
         }
+        // CR 614.12: an "as this enters" choice goes with it onto the
+        // battlefield; anything else forgets it (CR 400.7).
+        if to == ZoneId::Battlefield && self.def(old.def).as_enters().is_some() {
+            let mut carried = false;
+            for v in &mut self.object_vars {
+                if v.0 == id {
+                    v.0 = new;
+                    carried = true;
+                }
+            }
+            if !carried {
+                self.unasked_entering += 1;
+            }
+        } else if !self.object_vars.is_empty() {
+            self.object_vars.retain(|v| v.0 != id);
+        }
         // A copy stays a copy as it moves (it's cast from exile, CR 707.12).
         if was_copy {
             self.copies.push(new);
@@ -968,6 +995,11 @@ impl Game {
             self.objects.free(id);
             self.drop_counters(id);
         }
+        // Phased-out permanents they owned left too (CR 702.26d: still on the battlefield).
+        let objects = &self.objects;
+        self.phased_out.retain(|(id, _)| objects.get(*id).is_some());
+        self.object_vars
+            .retain(|(id, _, _)| objects.get(*id).is_some());
         self.bump_layers();
         let pl = self.player_mut(p);
         pl.library.clear();
@@ -1201,6 +1233,13 @@ impl Game {
                 kind
                 @ (DecisionKind::ProposeShortcut { .. } | DecisionKind::RespondShortcut { .. }),
             ) => self.shortcut_answer(t, kind, option),
+            (
+                Task::Resolve,
+                kind @ (DecisionKind::ChooseColor { .. } | DecisionKind::ChooseNumber { .. }),
+            ) => {
+                self.record_entering_choice(&kind, option);
+                self.tasks.push(Task::Resolve);
+            }
             (Task::Pregame { order, next }, DecisionKind::ChooseCard { cards, .. }) => {
                 self.pregame_answer(order, next, cards[option]);
             }
@@ -1209,6 +1248,64 @@ impl Game {
             }
             (task, kind) => unreachable!("decision {kind:?} answered for task {task:?}"),
         }
+    }
+
+    // ---- "as this enters, choose" (CR 614.12) ---------------------------------
+
+    /// The choice `id` needs before it enters under `p`'s control, if its
+    /// card has one and it hasn't been made.
+    pub(crate) fn entering_question(
+        &self,
+        id: ObjectId,
+        p: PlayerId,
+    ) -> Option<(PlayerId, DecisionKind)> {
+        let o = self.obj(id)?;
+        let (spec, store) = self.def(o.def).as_enters()?;
+        if self.object_vars.iter().any(|v| v.0 == id && v.1 == store) {
+            return None;
+        }
+        let kind = match spec {
+            ir::ChoiceSpec::Color => DecisionKind::ChooseColor {
+                source: id,
+                colors: mtg_core::Color::ALL.to_vec(),
+            },
+            ir::ChoiceSpec::Number { min, max } => DecisionKind::ChooseNumber {
+                source: id,
+                min: *min,
+                max: *max,
+            },
+            ir::ChoiceSpec::CardName => return None,
+        };
+        Some((p, kind))
+    }
+
+    /// Records the answer to an [`Game::entering_question`].
+    pub(crate) fn record_entering_choice(&mut self, kind: &DecisionKind, option: usize) {
+        let (id, value) = match kind {
+            DecisionKind::ChooseColor { source, colors } => (
+                *source,
+                mtg_core::Color::ALL
+                    .iter()
+                    .position(|c| *c == colors[option])
+                    .map_or(0, |i| i as i64),
+            ),
+            DecisionKind::ChooseNumber { source, min, .. } => {
+                (*source, min + i64::try_from(option).unwrap_or(0))
+            }
+            _ => return,
+        };
+        let Some(store) = self
+            .obj(id)
+            .and_then(|o| self.def(o.def).as_enters())
+            .map(|(_, s)| s.to_owned())
+        else {
+            return;
+        };
+        self.log(Event::Chose {
+            player: self.obj(id).map_or(PlayerId(0), |o| o.controller),
+            choice: format!("{store} = {value}"),
+        });
+        self.object_vars.push((id, store, value));
     }
 
     // ---- opening-hand actions (CR 103.6) -------------------------------------
@@ -1798,6 +1895,14 @@ impl Game {
         let spell_obj = self.obj(item.object).copied();
         if item.is_spell() && spell_obj.is_none() {
             self.stack.pop();
+            return;
+        }
+        // CR 614.12: "as this enters, choose ..." is chosen as it resolves.
+        if item.is_spell()
+            && let Some((p, kind)) = self.entering_question(item.object, item.controller)
+        {
+            self.tasks.push(Task::Resolve);
+            self.decide(p, kind, "614.12");
             return;
         }
         let def_id = item.source_def;

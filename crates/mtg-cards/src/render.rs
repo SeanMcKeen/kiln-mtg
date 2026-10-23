@@ -106,6 +106,7 @@ fn ability(a: &Ability) -> String {
         },
         Ability::Escape(e) => format!("<escape {}>", e.function),
         Ability::OpeningHand(_) => "<opening hand>".into(),
+        Ability::AsEnters { .. } => "<as enters, choose>".into(),
     }
 }
 

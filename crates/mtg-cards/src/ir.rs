@@ -52,6 +52,9 @@ pub enum Ability {
     /// "If this card is in your opening hand, you may [effect]" (CR 103.6:
     /// Leyline of the Void, Gemstone Caverns).
     OpeningHand(OpeningHand),
+    /// "As this enters, choose [a color / a number]" (CR 614.12): the choice
+    /// is kept with the permanent under `store`.
+    AsEnters { choose: ChoiceSpec, store: String },
 }
 
 /// An opening-hand action (CR 103.6).
@@ -852,6 +855,8 @@ pub enum ManaSpec {
     OpponentLandColors,
     /// Fixed symbols added [times] times ("Add {G} for each creature you control").
     Times { mana: String, times: Quantity },
+    /// One mana of the color chosen as the source entered (Utopia Sprawl).
+    ChosenColor(String),
 }
 
 // ---- references, filters, quantities ----------------------------------------
@@ -1144,7 +1149,7 @@ impl CardIr {
                     Ability::Triggered(t) => collect_escapes(&t.effect, &mut out),
                     Ability::Replacement(r) => collect_escapes(&r.instead, &mut out),
                     Ability::OpeningHand(o) => collect_escapes(&o.effect, &mut out),
-                    Ability::Keyword(_) | Ability::Static(_) => {}
+                    Ability::Keyword(_) | Ability::Static(_) | Ability::AsEnters { .. } => {}
                 }
             }
         }
