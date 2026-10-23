@@ -1,0 +1,18 @@
+scenario: mtg-scenario/1
+name: "Gilded Drake exchanges control of itself and an opponent's creature"
+cr: ["701.12a", "701.12b", "613.1b"]
+verifies: [Gilded Drake]
+players:
+  - battlefield: [Island, Island]
+    hand: [Gilded Drake]
+  - battlefield: [Test Ogre]
+script:
+  - choose: Cast Gilded Drake
+  - choose: Pay with Island, Island
+  - pass_all
+  - choose: Target Test Ogre (P2)
+  - pass_all
+expect:
+  zones:
+    P1.battlefield: [Island, Island, Test Ogre]
+    P2.battlefield: [Gilded Drake]

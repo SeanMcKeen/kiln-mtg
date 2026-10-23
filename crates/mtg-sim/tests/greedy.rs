@@ -18,6 +18,7 @@ fn greedy_beats_random() {
         invariants: true,
         views: false,
         replay_every: None,
+        concede_per_mille: 0,
     };
     // MTG_GREEDY_GAMES overrides the count (the M3 record used 1,000).
     let games: u64 = std::env::var("MTG_GREEDY_GAMES")

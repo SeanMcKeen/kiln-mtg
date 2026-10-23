@@ -1066,6 +1066,7 @@ fn triggered(line: &str) -> Option<Ability> {
                 condition: None,
                 targets: ctx.targets,
                 effect,
+                resolves_anyway: false,
             }));
         }
         start = split + 2;

@@ -234,6 +234,17 @@ impl Game {
     }
 
     /// Whether `p` is under a player rule now.
+    /// Whether `p` is under `rule`, from an effect or a static ability
+    /// (Platinum Angel).
+    pub(crate) fn player_has_rule(&self, p: PlayerId, rule: mtg_cards::ir::PlayerRuleKind) -> bool {
+        self.has_player_rule(p, rule)
+            || (self.pool.has_rule_statics()
+                && self.active_rule_statics().iter().any(|(_, controller, e)| {
+                    matches!(e, mtg_cards::ir::StaticEffect::PlayerRule { who, rule: r }
+                        if *r == rule && self.player_rel(*who, *controller, p))
+                }))
+    }
+
     pub(crate) fn has_player_rule(&self, p: PlayerId, rule: mtg_cards::ir::PlayerRuleKind) -> bool {
         !self.player_rules.is_empty()
             && self

@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: "Gilded Drake: with no exchange (no target chosen, or the target is gone), it's sacrificed"
+cr: ["701.12a", "608.2b"]
+verifies: [Gilded Drake]
+players:
+  - battlefield: [Island, Island]
+    hand: [Gilded Drake]
+  - battlefield: [Test Ogre]
+script:
+  - choose: Cast Gilded Drake
+  - choose: Pay with Island, Island
+  - pass_all
+  - choose: No more targets
+  - pass_all
+expect:
+  zones:
+    P1.battlefield: [Island, Island]
+    P1.graveyard: [Gilded Drake]
+    P2.battlefield: [Test Ogre]

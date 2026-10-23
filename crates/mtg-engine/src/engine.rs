@@ -862,16 +862,67 @@ impl Game {
     /// The game-over check runs once afterwards, so if everyone remaining
     /// loses at once the game is a draw (CR 104.4a).
     pub(crate) fn players_lose(&mut self, losers: &[(PlayerId, LossReason)]) {
-        for &(p, reason) in losers {
-            if self.in_game(p) {
-                self.player_mut(p).status = PlayerStatus::Lost(reason);
-                self.log(Event::PlayerLost { player: p, reason });
-            }
+        // "You can't lose the game" stops every loss but a concession (CR 104.3a).
+        let losers: SmallVec<[(PlayerId, LossReason); 8]> = losers
+            .iter()
+            .copied()
+            .filter(|&(p, reason)| {
+                self.in_game(p) && (reason == LossReason::Conceded || self.can_lose(p))
+            })
+            .collect();
+        for &(p, reason) in &losers {
+            self.player_mut(p).status = PlayerStatus::Lost(reason);
+            self.log(Event::PlayerLost { player: p, reason });
         }
-        for &(p, _) in losers {
+        for &(p, _) in &losers {
             self.remove_from_game(p);
         }
         self.check_game_over();
+    }
+
+    /// CR 104.3a: `p` concedes; they leave the game at once and lose. The
+    /// pending decision is derived again for the game that remains.
+    /// Returns `false` if `p` isn't in the game or the game is over.
+    pub fn concede(&mut self, p: PlayerId) -> bool {
+        if self.result.is_some() || !self.in_game(p) {
+            return false;
+        }
+        self.pending = None;
+        self.players_lose(&[(p, LossReason::Conceded)]);
+        // The decision's task is on top of the stack and runs again against
+        // the game that remains. A procedure that now needs a player who
+        // left, or has no legal option, can't continue (their objects and
+        // abilities left the game, CR 800.4a): it ends.
+        while self.result.is_none() {
+            if let Some(Task::Priority { checked }) = self.tasks.last_mut() {
+                // Priority comes after state-based actions and triggers (CR 117.5).
+                *checked = false;
+            }
+            self.run();
+            match &self.pending {
+                Some(d) if !self.in_game(d.player) || d.option_count() == 0 => {
+                    self.pending = None;
+                    self.tasks.pop();
+                }
+                _ => break,
+            }
+        }
+        true
+    }
+
+    /// Whether `p` can lose the game now (not under "can't lose").
+    pub(crate) fn can_lose(&self, p: PlayerId) -> bool {
+        !self.player_has_rule(p, mtg_cards::ir::PlayerRuleKind::CantLose)
+    }
+
+    /// Whether `p` can win by an effect: no opponent still in the game has
+    /// "your opponents can't win the game".
+    pub(crate) fn can_win(&self, p: PlayerId) -> bool {
+        !self.players.iter().any(|q| {
+            q.id != p
+                && q.in_game()
+                && self.player_has_rule(q.id, mtg_cards::ir::PlayerRuleKind::OpponentsCantWin)
+        })
     }
 
     /// CR 800.4a: everything the player owns leaves the game. (Spells they
@@ -896,9 +947,31 @@ impl Game {
         pl.hand.clear();
         pl.graveyard.clear();
         pl.pool.clear();
-        // CR 800.4a/d: their abilities on the stack and waiting to go on it cease to exist.
+        // CR 800.4a: effects giving them control of objects end.
+        self.end_effects(
+            |e| matches!(e.effect, crate::layers::LayerEffect::Control { to, .. } if to == p),
+        );
+        // CR 800.4a/d: their abilities on the stack and waiting to go on it
+        // cease to exist, as do their delayed triggers.
         self.pending_triggers.retain(|t| t.controller != p);
         self.stack.retain(|s| s.is_spell() || s.controller != p);
+        self.delayed.retain(|d| d.ctx.controller != p);
+        // CR 800.4a: then anything they still control is exiled.
+        let controlled: Vec<ObjectId> = self
+            .battlefield
+            .iter()
+            .chain(self.phased_out.iter().map(|(id, _)| id))
+            .copied()
+            .chain(self.stack.iter().filter(|s| s.is_spell()).map(|s| s.object))
+            .filter(|id| self.obj(*id).is_some_and(|o| o.controller == p))
+            .collect();
+        for id in controlled {
+            if self.phased_out.iter().any(|(x, _)| *x == id) {
+                self.phased_out.retain(|(x, _)| *x != id);
+                self.battlefield.push(id);
+            }
+            self.move_object(id, ZoneId::Exile, true);
+        }
         self.log(Event::PlayerLeft { player: p });
         self.turn.passes = 0;
         // CR 800.4a: if they had priority, it passes to the next player in turn order.
@@ -1113,7 +1186,14 @@ impl Game {
         if let Some(&p) = order.get(next) {
             // CR 103.5: a player can mulligan until their opening hand would be zero cards.
             let can = self.rules.starting_hand_size > self.bottom_count(self.player(p).mulligans);
-            if can {
+            if !self.in_game(p) {
+                // A player who conceded makes no more declarations.
+                self.tasks.push(Task::MulliganDeclare {
+                    order,
+                    next: next + 1,
+                    takers,
+                });
+            } else if can {
                 let mulligans_taken = self.player(p).mulligans;
                 self.tasks.push(Task::MulliganDeclare {
                     order,
@@ -1599,8 +1679,16 @@ impl Game {
                 .get(i)
                 .is_some_and(|slot| g.target_still_legal(&slot.what, t, item.controller, Some(def)))
         };
+        // "This ability still resolves if its target becomes illegal."
+        let resolves_anyway = item.ability.is_some_and(|i| {
+            matches!(
+                def.abilities.get(usize::from(i)),
+                Some(ir::Ability::Triggered(t)) if t.resolves_anyway
+            )
+        });
         // CR 608.2b: targets are rechecked; if all are illegal, it doesn't resolve.
-        if !item.targets.is_empty()
+        if !resolves_anyway
+            && !item.targets.is_empty()
             && item
                 .targets
                 .iter()

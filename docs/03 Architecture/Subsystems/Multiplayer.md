@@ -2,10 +2,10 @@
 type: subsystem
 status: draft
 cr: ["800", "801", "802", "803", "806"]
-impl_status: not-started
+impl_status: in-progress
 milestone: M6
 tags: [subsystem, multiplayer]
-updated: 2026-10-20
+updated: 2026-10-23
 ---
 
 # Multiplayer
@@ -33,6 +33,14 @@ This subsystem handles N-player games: turn order, attacking multiple players, p
 
 ## Decisions raised
 Re-routed choices from players who've left.
+
+## Implementation (M6 6.2)
+- Leaving (800.4a): owned objects leave; control effects giving the player control end, returning control to the latest remaining effect or the earlier controller; their abilities on the stack, pending triggers and delayed triggers cease to exist; anything they still control is exiled.
+- Concession (104.3a) is `Game::concede(player)`, callable at any time (M6 plan C8). The pending decision is derived again; a procedure that now needs a player who left, or has no legal option, ends. Replays record concessions. The fuzzer can concede at random (`--concede`, per mille).
+- "You can't lose the game" / "Your opponents can't win the game" are player rules, from effects or static abilities (Platinum Angel). A player who can't lose isn't an SBA candidate; concession and last-player-standing (104.2a) still apply.
+- Exchange of control (701.12a–b) for Gilded Drake.
+- Already in place since M2: 800.4d (their triggers), 800.4e (no combat damage to them), 800.4j–k (turns without an active player, skipped turns), and invariant 2 (no decision goes to a player who left).
+- Gaps: [[12 Open Questions]] Q29.
 
 ## Edge cases
 - Thassa's Oracle wins the game for one player, so everyone else loses (CR 104.2).

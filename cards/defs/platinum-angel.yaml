@@ -1,0 +1,6 @@
+card: Platinum Angel
+faces:
+  - abilities:
+      - keyword: flying
+      - static: { effect: { player_rule: { who: you, rule: cant_lose } } }
+      - static: { effect: { player_rule: { who: you, rule: opponents_cant_win } } }

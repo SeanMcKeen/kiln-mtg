@@ -310,6 +310,7 @@ fn child(e: &Effect, i: u8) -> Option<&Effect> {
             1 => otherwise.as_deref(),
             _ => None,
         },
+        Effect::ExchangeControl { otherwise, .. } => (i == 0).then_some(otherwise.as_deref()?),
         _ => None,
     }
 }
@@ -1163,6 +1164,30 @@ impl Game {
                     && let Some(task) = self.cast_during_resolution(p, id)
                 {
                     return Flow::Yield(Box::new(task));
+                }
+            }
+            Effect::ExchangeControl { a, b, otherwise } => {
+                // CR 701.12a-b: both permanents, controlled by different
+                // players who are still in the game; otherwise nothing changes.
+                let x = self.object_refs(&t.ctx, a).first().copied();
+                let y = self.object_refs(&t.ctx, b).first().copied();
+                let pair = x.zip(y).filter(|(x, y)| {
+                    self.on_battlefield_now(*x) && self.on_battlefield_now(*y) && x != y
+                });
+                let controllers = pair.and_then(|(x, y)| {
+                    let (cx, cy) = (self.obj(x)?.controller, self.obj(y)?.controller);
+                    (cx != cy && self.in_game(cx) && self.in_game(cy)).then_some((cx, cy))
+                });
+                match (pair, controllers) {
+                    (Some((x, y)), Some((cx, cy))) => {
+                        self.gain_control(x, cy, crate::layers::Duration::Permanent);
+                        self.gain_control(y, cx, crate::layers::Duration::Permanent);
+                    }
+                    _ => {
+                        if otherwise.is_some() {
+                            t.frames.push(Frame::Run(with(path, 0)));
+                        }
+                    }
                 }
             }
             Effect::LoseGame(who) => {
@@ -2135,7 +2160,11 @@ impl Game {
     }
 
     fn win_by_effect(&mut self, p: PlayerId) {
-        // CR 104.2b: an effect states that a player wins; the game ends.
+        // CR 104.2b: an effect states that a player wins; the game ends,
+        // unless something says that player can't win.
+        if !self.can_win(p) {
+            return;
+        }
         self.log(Event::WonByEffect { player: p });
         self.player_mut(p).status = crate::state::PlayerStatus::Won;
         let turn = self.turn.number;

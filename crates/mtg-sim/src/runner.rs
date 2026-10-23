@@ -30,6 +30,10 @@ pub struct Checks {
     pub views: bool,
     /// Re-run every k-th game from its replay log and compare final hashes.
     pub replay_every: Option<u64>,
+    /// Chance per mille, before each decision, that the deciding player
+    /// concedes (CR 104.3a), to exercise players leaving mid-game.
+    #[serde(default)]
+    pub concede_per_mille: u64,
 }
 
 /// One batch of games.
@@ -236,7 +240,23 @@ pub fn run_game(
         );
     }
     let mut recorder = Recorder::new();
+    let mut concede_rng = GameRng::new(splitmix64(setup.seed ^ 0x00C0_4CED));
     while let Some(d) = game.pending() {
+        if checks.concede_per_mille > 0 && concede_rng.below(1000) < checks.concede_per_mille {
+            let p = d.player;
+            if record {
+                recorder.concede(&mut game, p);
+            } else {
+                game.concede(p);
+            }
+            if checks.invariants
+                && let Err(e) = game.check_invariants(&sizes)
+            {
+                outcome.violation = Some(format!("after {p} conceded: {e}"));
+                break;
+            }
+            continue;
+        }
         let n = d.option_count();
         let option = if n == 1 {
             0

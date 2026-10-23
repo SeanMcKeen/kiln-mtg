@@ -22,6 +22,9 @@ pub struct Replay {
     pub pool_hash: u64,
     pub setup: GameSetup,
     pub choices: Vec<(u64, u32)>,
+    /// Concessions (CR 104.3a): `(k, player)` means `player` conceded before choice `k`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub concessions: Vec<(usize, mtg_core::PlayerId)>,
     pub final_hash: u64,
     pub result: Option<GameResult>,
 }
@@ -58,6 +61,7 @@ pub fn pool_hash(pool: &CardPool) -> u64 {
 #[derive(Debug, Clone)]
 pub struct Recorder {
     choices: Vec<(u64, u32)>,
+    concessions: Vec<(usize, mtg_core::PlayerId)>,
 }
 
 impl Default for Recorder {
@@ -70,7 +74,17 @@ impl Recorder {
     pub fn new() -> Self {
         Self {
             choices: Vec::new(),
+            concessions: Vec::new(),
         }
+    }
+
+    /// `p` concedes now (CR 104.3a); recorded so the replay does the same.
+    pub fn concede(&mut self, game: &mut Game, p: mtg_core::PlayerId) -> bool {
+        let done = game.concede(p);
+        if done {
+            self.concessions.push((self.choices.len(), p));
+        }
+        done
     }
 
     /// Applies `option` to the pending decision and records it.
@@ -95,6 +109,7 @@ impl Recorder {
             pool_hash: pool_hash(game.card_pool()),
             setup,
             choices: self.choices,
+            concessions: self.concessions,
             final_hash: game.state_hash(),
             result: game.result().copied(),
         }
@@ -113,7 +128,13 @@ impl Replay {
         }
         let mut game =
             Game::new(pool, &self.setup).map_err(|e| Divergence::Setup(e.to_string()))?;
+        let concede = |game: &mut Game, index: usize| {
+            for &(_, p) in self.concessions.iter().filter(|(k, _)| *k == index) {
+                game.concede(p);
+            }
+        };
         for (index, &(id, option)) in self.choices.iter().enumerate() {
+            concede(&mut game, index);
             let pending = game.pending().map(|d| d.id.0);
             if pending != Some(id) {
                 return Err(Divergence::Decision {
@@ -132,6 +153,7 @@ impl Replay {
                 error: e.to_string(),
             })?;
         }
+        concede(&mut game, self.choices.len());
         let actual = game.state_hash();
         if actual != self.final_hash {
             return Err(Divergence::FinalHash {

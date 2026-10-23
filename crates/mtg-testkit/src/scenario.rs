@@ -157,6 +157,8 @@ pub enum ScriptStep {
     },
     /// Pass priority `n` times.
     Pass { pass: u32 },
+    /// The player concedes now (CR 104.3a).
+    Concede { concede: String },
     /// Check expectations mid-script.
     Check { check: Box<Expect> },
 }
@@ -494,6 +496,12 @@ pub fn run(s: &Scenario, pool: &Arc<CardPool>) -> Result<Game, ScenarioError> {
             }
             ScriptStep::Check { check } => {
                 check_expect(&game, check, &format!(" at script step {}", i + 1))?;
+            }
+            ScriptStep::Concede { concede } => {
+                let p = player_id(concede, n).map_err(|m| script_err("concede", m))?;
+                if !game.concede(p) {
+                    return Err(script_err("concede", format!("{concede} can't concede")));
+                }
             }
         }
     }

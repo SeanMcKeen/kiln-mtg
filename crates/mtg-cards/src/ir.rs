@@ -158,6 +158,10 @@ pub struct TriggeredAbility {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub targets: Vec<TargetSpec>,
     pub effect: Effect,
+    /// "This ability still resolves if its target becomes illegal" (an
+    /// exception to CR 608.2b; Gilded Drake).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub resolves_anyway: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -340,6 +344,11 @@ pub enum StaticEffect {
     DoesntUntap(ObjectFilter),
     /// "Skip your [step]" (CR 614.1b).
     SkipStep { who: PlayerRel, step: StepName },
+    /// A rule about players: "You can't lose the game" (Platinum Angel).
+    PlayerRule {
+        who: PlayerRel,
+        rule: PlayerRuleKind,
+    },
     /// Named rule modifications.
     Rule(RuleMod),
 }
@@ -386,6 +395,10 @@ pub enum PlayerRuleKind {
     LifeCantChange,
     /// "you gain protection from everything" (CR 702.16j).
     ProtectionFromEverything,
+    /// "You can't lose the game" (CR 104.3a: conceding still works).
+    CantLose,
+    /// "Your opponents can't win the game" (CR 104.2a still applies).
+    OpponentsCantWin,
 }
 
 /// A base power or toughness set by a static ability (CR 613.4b).
@@ -591,6 +604,14 @@ pub enum Effect {
     PlayerRule {
         who: PlayerRef,
         rule: PlayerRuleKind,
+    },
+    /// "Exchange control of [a] and [b]" (CR 701.12a-b); `otherwise` runs if
+    /// no exchange happens ("If you don't or can't make an exchange, ...").
+    ExchangeControl {
+        a: ObjectRef,
+        b: ObjectRef,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        otherwise: Option<Box<Effect>>,
     },
     /// "Attach this to [object]" (CR 701.3).
     Attach {
@@ -1097,6 +1118,7 @@ fn children(e: &Effect) -> Vec<&Effect> {
             v.extend(otherwise.as_deref());
             v
         }
+        Effect::ExchangeControl { otherwise, .. } => otherwise.as_deref().into_iter().collect(),
         _ => Vec::new(),
     }
 }
@@ -1128,6 +1150,13 @@ fn max_target_ref(e: &Effect) -> Option<u8> {
             who: PlayerRef::ControllerOf(ObjectRef::Target(n)) | PlayerRef::Target(n),
             ..
         } => Some(*n),
+        Effect::ExchangeControl { a, b, .. } => [a, b]
+            .into_iter()
+            .filter_map(|r| match r {
+                ObjectRef::Target(n) => Some(*n),
+                _ => None,
+            })
+            .max(),
         _ => None,
     };
     children(e)

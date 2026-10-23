@@ -265,7 +265,7 @@ impl Game {
     // ---- rule statics (M4 plan R5; CR 613.11) ------------------------------------
 
     /// Rule-modifying statics in effect now (CR 613.11), from the layer cache.
-    fn active_rule_statics(&self) -> SmallVec<[(ObjectId, PlayerId, &StaticEffect); 4]> {
+    pub(crate) fn active_rule_statics(&self) -> SmallVec<[(ObjectId, PlayerId, &StaticEffect); 4]> {
         let Some(state) = self.rule_statics() else {
             return SmallVec::new();
         };

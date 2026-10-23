@@ -1,0 +1,22 @@
+scenario: mtg-scenario/1
+name: "T02: Thassa's Oracle's win does nothing while an opponent controls Platinum Angel"
+cr: ["104.2b", "101.2", "104.3a"]
+verifies: [Platinum Angel]
+players:
+  - battlefield: [Island, Island]
+    hand: ["Thassa's Oracle"]
+    library: [Opt]
+  - battlefield: [Platinum Angel]
+script:
+  - choose: "Cast Thassa's Oracle"
+  - choose: Pay with Island, Island
+  - pass_all
+  - pass_all
+  - choose: Take Opt
+  # "Your opponents can't win the game": the game goes on.
+  - check:
+      result: in_progress
+  # Conceding still works under "can't lose" (CR 104.3a); P1 is the last player standing.
+  - concede: P2
+expect:
+  result: win P1

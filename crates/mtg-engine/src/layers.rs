@@ -275,6 +275,22 @@ fn filter_of<'a>(p: Part<'a>) -> Option<&'a ObjectFilter> {
 }
 
 /// Whether a static effect changes characteristics (so the layers handle it).
+/// Rule-modifying statics the engine checks while it offers actions and
+/// applies rules (CR 613.11), cached with the layers.
+pub(crate) fn is_rule_static(e: &StaticEffect) -> bool {
+    matches!(
+        e,
+        StaticEffect::CantCast { .. }
+            | StaticEffect::CantActivate { .. }
+            | StaticEffect::PlayerRule { .. }
+            | StaticEffect::Rule(
+                mtg_cards::ir::RuleMod::CreaturesEnteringDontTrigger
+                    | mtg_cards::ir::RuleMod::ControlOpponentsWhileSearching
+                    | mtg_cards::ir::RuleMod::MayPlayExiledWithThis { .. }
+            )
+    )
+}
+
 pub(crate) fn is_layer_static(e: &StaticEffect) -> bool {
     match e {
         StaticEffect::Multi(v) => v.iter().any(is_layer_static),
@@ -647,17 +663,7 @@ impl Game {
                 let Some(Ability::Static(s)) = self.ability_at(r) else {
                     continue;
                 };
-                let rule = matches!(
-                    s.effect,
-                    StaticEffect::CantCast { .. }
-                        | StaticEffect::CantActivate { .. }
-                        | StaticEffect::Rule(
-                            mtg_cards::ir::RuleMod::CreaturesEnteringDontTrigger
-                                | mtg_cards::ir::RuleMod::ControlOpponentsWhileSearching
-                                | mtg_cards::ir::RuleMod::MayPlayExiledWithThis { .. }
-                        )
-                );
-                if rule
+                if is_rule_static(&s.effect)
                     && s.condition
                         .as_ref()
                         .is_none_or(|c| self.condition(&EffectCtx::new(r, id, controller), c))
@@ -1023,12 +1029,17 @@ impl Game {
 
     /// CR 514.2: "until end of turn" effects end in the cleanup step.
     pub(crate) fn end_turn_effects(&mut self) {
-        // CR 613.1b: control effects ending return control (to the latest
-        // remaining control effect, or to the controller before this one).
-        let ending: Vec<(ObjectId, PlayerId, u64)> = self
+        self.end_effects(|e| e.duration == Duration::EndOfTurn);
+    }
+
+    /// Ends the effects `ending` selects (and effects whose objects are
+    /// gone). CR 613.1b: a control effect ending returns control to the
+    /// latest remaining control effect, or to the controller before it.
+    pub(crate) fn end_effects(&mut self, ending: impl Fn(&ContinuousEffect) -> bool) {
+        let reverting: Vec<(ObjectId, PlayerId, u64)> = self
             .effects
             .iter()
-            .filter(|e| e.duration == Duration::EndOfTurn)
+            .filter(|e| ending(e))
             .filter_map(|e| match e.effect {
                 LayerEffect::Control { from, .. } => {
                     Some((*e.affected.first()?, from, e.timestamp))
@@ -1039,11 +1050,9 @@ impl Game {
         let before = self.effects.len();
         // Also drop effects whose objects no longer exist.
         let objects = &self.objects;
-        self.effects.retain(|e| {
-            e.duration != Duration::EndOfTurn
-                && e.affected.iter().any(|id| objects.get(*id).is_some())
-        });
-        for (id, from, _) in ending {
+        self.effects
+            .retain(|e| !ending(e) && e.affected.iter().any(|id| objects.get(*id).is_some()));
+        for (id, from, _) in reverting {
             let latest = self
                 .effects
                 .iter()

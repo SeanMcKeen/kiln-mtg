@@ -87,7 +87,12 @@ impl Game {
     /// Non-choice SBAs that apply now.
     fn sba_checks(&self) -> SbaChecks {
         let mut losers = Vec::new();
-        for p in self.players.iter().filter(|p| p.in_game()) {
+        // A player who can't lose isn't a candidate, so the check settles.
+        for p in self
+            .players
+            .iter()
+            .filter(|p| p.in_game() && self.can_lose(p.id))
+        {
             if p.life <= 0 {
                 losers.push((p.id, LossReason::ZeroLife)); // CR 704.5a
             } else if p.drew_from_empty {
@@ -99,7 +104,7 @@ impl Game {
         // CR 704.6c: 21 or more combat damage from one commander.
         if !self.cmd.is_empty() {
             for p in self.commander_damage_losers() {
-                if self.in_game(p) && !losers.iter().any(|(q, _)| *q == p) {
+                if self.in_game(p) && self.can_lose(p) && !losers.iter().any(|(q, _)| *q == p) {
                     losers.push((p, LossReason::CommanderDamage));
                 }
             }
@@ -180,6 +185,10 @@ impl Game {
         }
         for id in to_command {
             self.move_object(id, ZoneId::Command, true);
+        }
+        // CR 704.5b looks at draws since the last check.
+        for p in &mut self.players {
+            p.drew_from_empty = false;
         }
         for id in tokens {
             self.cease_to_exist(id);

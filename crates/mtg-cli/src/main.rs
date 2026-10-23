@@ -211,6 +211,9 @@ struct FuzzArgs {
     /// Re-run every k-th game from its replay and compare final hashes.
     #[arg(long)]
     replay_every: Option<u64>,
+    /// Chance per mille, before each decision, that the deciding player concedes.
+    #[arg(long, default_value_t = 0)]
+    concede: u64,
     /// Use real vanilla/French-vanilla cards and basic-type lands from the card DB
     /// instead of the synthetic test set.
     #[arg(long)]
@@ -436,6 +439,7 @@ fn fuzz(a: &FuzzArgs) -> Result<ExitCode> {
             invariants: a.invariants,
             views: a.views,
             replay_every: a.replay_every,
+            concede_per_mille: a.concede,
         },
         threads: a.threads,
         commanders: a.commander,

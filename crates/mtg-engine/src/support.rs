@@ -305,6 +305,11 @@ fn effect(e: &Effect) -> Check {
         }
         Effect::CopySpell { what, .. } => set(what),
         Effect::GainControl { what, .. } => set(what),
+        Effect::ExchangeControl { a, b, otherwise } => {
+            object(a)?;
+            object(b)?;
+            otherwise.as_deref().map_or(Ok(()), effect)
+        }
         Effect::Attach { to } => object(to),
         Effect::PhaseOut { what } => set(what),
         Effect::PlayerRule { who, .. } => player(who),
@@ -388,21 +393,11 @@ fn rule_static(s: &StaticAbility) -> Check {
         return layer_static(&s.effect);
     }
     // Restrictions the engine checks while offering actions (CR 613.11).
-    match &s.effect {
-        StaticEffect::CantCast { .. } | StaticEffect::CantActivate { .. } => {
-            if let Some(c) = &s.condition {
-                condition(c)?;
-            }
-            return Ok(());
+    if crate::layers::is_rule_static(&s.effect) {
+        if let Some(c) = &s.condition {
+            condition(c)?;
         }
-        StaticEffect::Rule(
-            RuleMod::CreaturesEnteringDontTrigger
-            | RuleMod::ControlOpponentsWhileSearching
-            | RuleMod::MayPlayExiledWithThis { .. },
-        ) if s.condition.is_none() => {
-            return Ok(());
-        }
-        _ => {}
+        return Ok(());
     }
     if s.condition.is_some() {
         return Err("static abilities (M5)".into());

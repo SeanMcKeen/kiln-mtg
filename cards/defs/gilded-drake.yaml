@@ -1,0 +1,14 @@
+card: Gilded Drake
+faces:
+  - abilities:
+      - keyword: flying
+      - triggered:
+          trigger: { enters: { this: true } }
+          targets: [{ what: { object: { types: [creature], controller: opponent } }, up_to: 1 }]
+          # "This ability still resolves if its target becomes illegal."
+          resolves_anyway: true
+          effect:
+            exchange_control:
+              a: this
+              b: { target: 0 }
+              otherwise: { sacrifice: { who: you, what: { one: this } } }
