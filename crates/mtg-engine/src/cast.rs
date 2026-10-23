@@ -40,6 +40,8 @@ pub(crate) enum CastStage {
     PayOther,
     /// CR 601.2i
     Done,
+    /// CR 702.33a: whether to pay kicker (after the cost is chosen).
+    Kicker,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -113,6 +115,28 @@ fn requirement(symbols: &[ManaSymbol], x: u32, pays: &[SymbolPay]) -> (CostReq, 
 }
 
 /// The activated ability `i` of a definition.
+/// A spell's kicker cost (CR 702.33a), if it has one.
+fn kicker_cost(def: &CardDef) -> Option<&[CostPart]> {
+    def.abilities.iter().find_map(|a| match a {
+        Ability::Keyword(mtg_cards::ir::Keyword::Kicker(c)) => Some(c.as_slice()),
+        _ => None,
+    })
+}
+
+/// Adds cost parts (mana symbols and other parts) to a cost shape.
+fn add_parts(shape: &mut CostShape, parts: &[CostPart]) {
+    for p in parts {
+        match p {
+            CostPart::Mana(s) => {
+                if let Ok(c) = s.parse::<ManaCost>() {
+                    shape.symbols.extend(c.symbols().iter().cloned());
+                }
+            }
+            other => shape.other.push(other.clone()),
+        }
+    }
+}
+
 /// CR 113.6b: whether an activated ability works in `zone` (the
 /// battlefield unless it states a zone).
 pub(crate) fn ability_works_in(x: &ActivatedAbility, zone: ZoneId) -> bool {
@@ -676,8 +700,11 @@ impl Game {
             CastStage::Cost => {
                 // Abilities have only their activation cost; an effect that
                 // casts a spell "without paying" fixed its cost already.
-                if !item.is_spell() || item.cost == CastCost::WithoutPaying {
+                if !item.is_spell() {
                     return self.advance(t, CastStage::X);
+                }
+                if item.cost == CastCost::WithoutPaying {
+                    return self.advance(t, CastStage::Kicker);
                 }
                 let options = self.cost_options(def, &ctx, t.caster);
                 debug_assert!(!options.is_empty(), "castability guarantees a cost");
@@ -686,7 +713,7 @@ impl Game {
                     if let Some(i) = self.item_mut(t.spell) {
                         i.cost = only;
                     }
-                    return self.advance(t, CastStage::X);
+                    return self.advance(t, CastStage::Kicker);
                 }
                 self.tasks.push(Task::Cast(t));
                 self.decide(
@@ -696,6 +723,30 @@ impl Game {
                         options,
                     },
                     "601.2b",
+                );
+            }
+            // CR 702.33a, 601.2b: kicker is announced with the other costs;
+            // offered only if the total cost with it can be paid.
+            CastStage::Kicker => {
+                let kickable = kicker_cost(def).is_some()
+                    && self
+                        .spell_shape(def, None, item.cost, item.object)
+                        .map(|mut s| {
+                            add_parts(&mut s, kicker_cost(def).unwrap_or(&[]));
+                            s
+                        })
+                        .is_some_and(|s| self.shape_payable(t.caster, &ctx, &s, 0, &[], except));
+                if !kickable {
+                    return self.advance(t, CastStage::X);
+                }
+                self.tasks.push(Task::Cast(t));
+                self.decide(
+                    t.caster,
+                    DecisionKind::Optional {
+                        source: t.spell,
+                        kind: crate::decision::OptionalKind::Kicker,
+                    },
+                    "702.33a",
                 );
             }
             CastStage::X => {
@@ -866,8 +917,14 @@ impl Game {
             CastStage::Done => match item.ability {
                 // CR 601.2i: the spell becomes cast.
                 None => {
-                    if self.pool.has_triggers() {
-                        self.cast_this_turn.push((t.caster, def_id));
+                    if self.pool.tracks_spells() {
+                        let colors = self.chars(t.spell).map_or(def.colors, |c| c.colors());
+                        self.cast_this_turn.push(crate::state::CastRecord {
+                            player: t.caster,
+                            def: def_id,
+                            object: t.spell,
+                            colors,
+                        });
                     }
                     self.log(Event::SpellCast {
                         player: t.caster,
@@ -951,6 +1008,13 @@ impl Game {
             }
             shape.symbols.retain(|s| *s != ManaSymbol::Generic(0));
         }
+        // CR 702.33: a paid kicker is part of the total cost.
+        if ability.is_none()
+            && self.kicked.contains(&object)
+            && let Some(k) = kicker_cost(def)
+        {
+            add_parts(&mut shape, k);
+        }
         // CR 903.8: commander tax, an additional cost whatever cost is paid.
         if ability.is_none() {
             let tax = self.commander_tax(object);
@@ -998,6 +1062,15 @@ impl Game {
             DecisionKind::ChooseCost { options, .. } => {
                 if let Some(i) = self.item_mut(t.spell) {
                     i.cost = options[option];
+                }
+                self.advance(t, CastStage::Kicker);
+            }
+            DecisionKind::Optional {
+                kind: crate::decision::OptionalKind::Kicker,
+                ..
+            } => {
+                if option == 1 && !self.kicked.contains(&t.spell) {
+                    self.kicked.push(t.spell);
                 }
                 self.advance(t, CastStage::X);
             }

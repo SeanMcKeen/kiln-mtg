@@ -238,6 +238,8 @@ pub enum OptionalKind {
     IfDoes,
     /// "… unless [player] pays [cost]" (CR 118.12): whether to pay.
     PayUnless,
+    /// Whether to pay a spell's kicker (CR 702.33a).
+    Kicker,
 }
 
 /// Why a card is being chosen.

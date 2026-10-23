@@ -1,0 +1,8 @@
+card: "Brain Freeze"
+faces:
+  - abilities:
+      - keyword: storm
+      - spell:
+          targets: [{ what: { player: any } }]
+          # Mill three (CR 701.13a).
+          effect: { move: { what: { top_of_library: { owner: { target: 0 }, count: 3 } }, to: graveyard } }

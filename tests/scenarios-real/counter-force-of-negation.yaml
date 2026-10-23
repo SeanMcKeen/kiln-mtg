@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: "Force of Negation: free on an opponent's turn by exiling a blue card; the countered spell is exiled"
+cr: ["118.9", "701.6a", "702.33a"]
+verifies: [Force of Negation]
+players:
+  - battlefield: [Island]
+    hand: [Brainstorm]
+  - hand: [Force of Negation, Opt]
+script:
+  - choose: Cast Brainstorm
+  - choose: Pay with Island
+  - pass: 1
+  - { player: P2, choose: Cast Force of Negation }
+  - { player: P2, choose: Target Brainstorm }
+  - pass_all
+expect:
+  zones:
+    exile: [Opt, Brainstorm]
+    P2.graveyard: [Force of Negation]

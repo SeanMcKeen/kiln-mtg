@@ -59,6 +59,11 @@ pub enum Event {
         object: ObjectId,
         def: DefId,
     },
+    /// A player looked at another player's hand (the cards aren't logged).
+    LookedAtHand {
+        viewer: PlayerId,
+        player: PlayerId,
+    },
     ManaAdded {
         player: PlayerId,
         mana: ManaType,
@@ -250,6 +255,7 @@ impl Event {
             Event::ZoneChange { .. } => "400.7",
             Event::LandPlayed { .. } => "305.1",
             Event::SpellCast { .. } => "601.2i",
+            Event::LookedAtHand { .. } => "402.3",
             Event::ManaAdded { .. } => "605.1a",
             Event::AbilityActivated { .. } => "602.2b",
             Event::Resolved { .. } => "608.2",

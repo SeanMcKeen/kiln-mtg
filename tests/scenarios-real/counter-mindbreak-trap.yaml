@@ -1,0 +1,27 @@
+scenario: mtg-scenario/1
+name: "Mindbreak Trap: free once an opponent cast three spells this turn; exile any number of target spells"
+cr: ["118.9", "601.2c", "107.4f"]
+verifies: [Mindbreak Trap, Gitaxian Probe]
+players:
+  - hand: [Mindbreak Trap]
+  - hand: [Gitaxian Probe, Gitaxian Probe, Gitaxian Probe]
+turn: { number: 3, active: P2, step: precombat_main }
+script:
+  - { player: P2, choose: Cast Gitaxian Probe }
+  - { player: P2, choose: Target P1 }
+  - pass_all
+  - { player: P2, choose: Cast Gitaxian Probe }
+  - { player: P2, choose: Target P1 }
+  - pass_all
+  - { player: P2, choose: Cast Gitaxian Probe }
+  - { player: P2, choose: Target P1 }
+  - pass: 1
+  - choose: Cast Mindbreak Trap
+  - choose: Target Gitaxian Probe
+  - pass_all
+expect:
+  life: { P2: 14 }
+  zones:
+    exile: [Gitaxian Probe]
+    P2.graveyard: [Gitaxian Probe, Gitaxian Probe]
+    P1.graveyard: [Mindbreak Trap]

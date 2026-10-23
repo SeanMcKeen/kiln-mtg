@@ -248,7 +248,7 @@ pub struct Game {
     pub(crate) delayed: Vec<crate::triggers::DelayedTrigger>,
     /// Spells cast this turn, by caster ("first ... each turn"; tracked only
     /// when the pool has triggers).
-    pub(crate) cast_this_turn: Vec<(PlayerId, DefId)>,
+    pub(crate) cast_this_turn: Vec<crate::state::CastRecord>,
     /// Bitmask of players dealt combat damage this turn (tracked only when
     /// the pool has triggers).
     pub(crate) combat_damaged: u8,
@@ -267,6 +267,8 @@ pub struct Game {
     /// without the choice counts in `unasked_entering` (invariant 11).
     pub(crate) object_vars: Vec<(ObjectId, String, i64)>,
     pub(crate) unasked_entering: u32,
+    /// Spells on the stack whose kicker was paid (CR 702.33).
+    pub(crate) kicked: Vec<ObjectId>,
 }
 
 impl Game {
@@ -353,6 +355,7 @@ impl Game {
             uncounterable: Vec::new(),
             object_vars: Vec::new(),
             unasked_entering: 0,
+            kicked: Vec::new(),
         };
         // CR 903.6: each commander starts the game in the command zone.
         for (seat, defs) in setup.commanders.iter().enumerate() {
@@ -640,6 +643,9 @@ impl Game {
         if !self.object_vars.is_empty() {
             self.object_vars.hash(&mut h);
         }
+        if !self.kicked.is_empty() {
+            self.kicked.hash(&mut h);
+        }
         h.finish()
     }
 
@@ -820,6 +826,9 @@ impl Game {
         self.commander_moved(id, Some(new), to);
         if !self.uncounterable.is_empty() {
             self.uncounterable.retain(|x| *x != id);
+        }
+        if !self.kicked.is_empty() {
+            self.kicked.retain(|x| *x != id);
         }
         // CR 614.12: an "as this enters" choice goes with it onto the
         // battlefield; anything else forgets it (CR 400.7).
@@ -1723,10 +1732,40 @@ impl Game {
         self.decide(holder, DecisionKind::Priority { actions }, "117.1");
     }
 
+    /// CR 702.61a: a spell with split second is on the stack.
+    pub(crate) fn split_second_on_stack(&self) -> bool {
+        self.stack.iter().any(|s| {
+            s.is_spell()
+                && self.obj_def(s.object).is_some_and(|d| {
+                    d.abilities
+                        .contains(&ir::Ability::Keyword(ir::Keyword::SplitSecond))
+                })
+        })
+    }
+
     /// Every action `p` may take now (CR 117.1). Index 0 is pass. Public for
     /// benchmarks and judge tools; the pending decision already carries this list.
     pub fn priority_actions(&self, p: PlayerId) -> Vec<Action> {
         let mut actions = vec![Action::Pass];
+        // CR 702.61a: under split second only mana abilities (and special
+        // actions) remain.
+        if self.split_second_on_stack() {
+            for &id in &self.battlefield {
+                if self.obj(id).is_none_or(|o| o.controller != p) {
+                    continue;
+                }
+                for i in 0..self.mana_ability_count(id) {
+                    let ability = u8::try_from(i).unwrap_or(0);
+                    if self.can_activate_mana(p, id, ability) {
+                        actions.push(Action::ActivateMana {
+                            source: id,
+                            ability,
+                        });
+                    }
+                }
+            }
+            return actions;
+        }
         let sorcery_timing =
             self.turn.active == p && self.turn.step.is_main() && self.stack.is_empty();
         for &id in &self.player(p).hand {

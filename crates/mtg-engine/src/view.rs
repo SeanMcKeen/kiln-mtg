@@ -267,6 +267,8 @@ impl Game {
                 (OptionalKind::May | OptionalKind::IfDoes, _) => "Yes".into(),
                 (OptionalKind::PayUnless, 0) => "Don't pay".into(),
                 (OptionalKind::PayUnless, _) => "Pay".into(),
+                (OptionalKind::Kicker, 0) => "Don't kick".into(),
+                (OptionalKind::Kicker, _) => "Kick".into(),
             },
             DecisionKind::ChooseCard { purpose, cards, .. } => match cards[i] {
                 None => "Stop".into(),

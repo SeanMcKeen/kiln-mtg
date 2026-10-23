@@ -315,6 +315,7 @@ impl GameBuilder {
             uncounterable: Vec::new(),
             object_vars: Vec::new(),
             unasked_entering: 0,
+            kicked: Vec::new(),
         };
         if self.pregame {
             game.turn.number = 0;

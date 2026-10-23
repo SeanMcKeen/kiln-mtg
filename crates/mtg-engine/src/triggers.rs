@@ -248,6 +248,28 @@ impl Game {
                 }
             }
         }
+        // "When you cast this spell" works on the stack (CR 702.40a: storm).
+        if let Event::SpellCast {
+            player,
+            object,
+            def,
+        } = *e
+        {
+            for (ability, t) in self.triggered(def) {
+                if matches!(&t.trigger, Trigger::Cast { spell, .. } if spell.this)
+                    && let Some(info) = self.trigger_hit(&t.trigger, object, player, e)
+                {
+                    found.push(PendingTrigger {
+                        source: object,
+                        source_def: def,
+                        ability,
+                        controller: player,
+                        info,
+                        delayed: None,
+                    });
+                }
+            }
+        }
         // CR 603.7c: a delayed trigger triggers only once.
         let mut i = 0;
         while i < self.delayed.len() {
@@ -397,20 +419,32 @@ impl Game {
                     by,
                     spell,
                     first_each_turn,
+                    second_each_turn,
                 },
                 Event::SpellCast { player, object, .. },
             ) => {
+                // "their first/second [spell] each turn": the count so far.
+                let nth = || {
+                    self.cast_this_turn
+                        .iter()
+                        .filter(|r| {
+                            r.player == *player && def_matches(self, r.def, *player, spell, you)
+                        })
+                        .count()
+                };
                 let ok = self.player_rel(*by, you, *player)
                     && self.matches_filter(*object, spell, you, Some(source))
-                    // "their first [spell] each turn": this is the only match so far.
-                    && (!*first_each_turn
-                        || self
-                            .cast_this_turn
-                            .iter()
-                            .filter(|(p, d)| *p == *player && def_matches(self, *d, *player, spell, you))
-                            .count()
-                            == 1);
-                ok.then(|| seen(Some(*object), Some(*player)))
+                    && (!*first_each_turn || nth() == 1)
+                    && (!*second_each_turn || nth() == 2);
+                ok.then(|| TriggerInfo {
+                    // CR 702.40a: the spells cast before it this turn (storm).
+                    amount: self
+                        .cast_this_turn
+                        .iter()
+                        .position(|r| r.object == *object)
+                        .and_then(|i| u32::try_from(i).ok()),
+                    ..seen(Some(*object), Some(*player))
+                })
             }
             (
                 Trigger::Draws {

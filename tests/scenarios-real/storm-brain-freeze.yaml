@@ -1,0 +1,24 @@
+scenario: mtg-scenario/1
+name: "Brain Freeze: storm copies it for each spell cast before it this turn"
+cr: ["702.40a", "707.10", "701.13a"]
+verifies: [Brain Freeze, Dark Ritual]
+players:
+  - battlefield: [Swamp, Island]
+    hand: [Dark Ritual, Brain Freeze]
+  - {}
+script:
+  - choose: Cast Dark Ritual
+  - choose: Pay with Swamp
+  - pass_all
+  - choose: Cast Brain Freeze
+  - choose: Target P2
+  - choose: Pay with Island, 1 from pool
+  # The storm trigger copies it once (Dark Ritual was cast before it).
+  - pass_all
+  - choose: Keep target P2
+  - pass_all
+  - pass_all
+expect:
+  zones:
+    P2.graveyard: [Test Wastes, Test Wastes, Test Wastes, Test Wastes, Test Wastes, Test Wastes]
+    P1.graveyard: [Dark Ritual, Brain Freeze]

@@ -1,0 +1,12 @@
+card: "Pyroblast"
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { spell: {} } }, { what: { object: {} } }]
+          effect:
+            modal:
+              min: 1
+              max: 1
+              modes:
+                - if: { condition: { target_matches: { target: 0, filter: { color: U } } }, then: { counter: { one: { target: 0 } } } }
+                - if: { condition: { target_matches: { target: 1, filter: { color: U } } }, then: { destroy: { one: { target: 1 } } } }

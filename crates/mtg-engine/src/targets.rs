@@ -39,6 +39,14 @@ impl Game {
         if f.attached && !self.is_attached_to(this, id) {
             return false;
         }
+        if let Some(letters) = &f.not_color
+            && letters
+                .chars()
+                .filter_map(Color::from_letter)
+                .any(|col| c.colors().contains(col))
+        {
+            return false;
+        }
         // CR 201.2: "named [this card]".
         if f.same_name
             && this.is_none_or(|s| {

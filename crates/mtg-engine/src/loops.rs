@@ -159,7 +159,11 @@ impl Game {
             }
         }
         // "First ... each turn" only depends on which spells were cast.
-        let mut cast = self.cast_this_turn.clone();
+        let mut cast: Vec<(PlayerId, crate::card::DefId)> = self
+            .cast_this_turn
+            .iter()
+            .map(|r| (r.player, r.def))
+            .collect();
         cast.sort_unstable();
         cast.dedup();
         cast.hash(&mut h);

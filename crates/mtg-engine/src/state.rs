@@ -179,6 +179,16 @@ pub(crate) struct RestrictedMana {
     pub uncounterable: bool,
 }
 
+/// A spell cast this turn (CR 601.2i): who, what, the spell object and its
+/// colors as it was cast. Storm, Kraum, Mindbreak Trap and Veil of Summer read these.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub(crate) struct CastRecord {
+    pub player: PlayerId,
+    pub def: crate::card::DefId,
+    pub object: ObjectId,
+    pub colors: mtg_core::Colors,
+}
+
 /// Why a player lost (CR 104.3, 704.5).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum LossReason {

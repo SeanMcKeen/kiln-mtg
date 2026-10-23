@@ -60,6 +60,12 @@ pub(crate) fn check(def: &CardDef) -> Check {
             Ability::Keyword(mtg_cards::ir::Keyword::CumulativeUpkeep(_)) => {}
             // CR 702.21a: added as a triggered ability (checked below).
             Ability::Keyword(mtg_cards::ir::Keyword::Ward(_)) => {}
+            // CR 702.40a: added as a triggered ability; 702.61: checked while offering actions.
+            Ability::Keyword(
+                mtg_cards::ir::Keyword::Storm | mtg_cards::ir::Keyword::SplitSecond,
+            ) => {}
+            // CR 702.33: an optional additional cost.
+            Ability::Keyword(mtg_cards::ir::Keyword::Kicker(c)) => cast_cost(c)?,
             // CR 702.5, 702.6: attachment (equip is added as an activated ability).
             Ability::Keyword(
                 mtg_cards::ir::Keyword::Enchant(_) | mtg_cards::ir::Keyword::Equip(_),
@@ -260,7 +266,10 @@ fn effect(e: &Effect) -> Check {
             set(what)
         }
         // A targeted spell, or "that spell or ability" (ward, CR 702.21a).
-        Effect::Counter(ObjectSet::One(ObjectRef::Target(_) | ObjectRef::Triggering)) => Ok(()),
+        Effect::Counter(ObjectSet::One(ObjectRef::Target(_) | ObjectRef::Triggering))
+        | Effect::CounterAndExile(ObjectSet::One(ObjectRef::Target(_))) => Ok(()),
+        Effect::CounterAndExile(_) => Err("countering anything but a targeted spell".into()),
+        Effect::LookAtHand(p) => player(p),
         Effect::Counter(_) => Err("countering anything but a targeted or triggering spell".into()),
         Effect::Draw { who, amount }
         | Effect::GainLife { who, amount }
@@ -330,7 +339,12 @@ fn effect(e: &Effect) -> Check {
             }
             Ok(())
         }
-        Effect::CopySpell { what, .. } => set(what),
+        Effect::CopySpell { what, count, .. } => {
+            if let Some(q) = count {
+                quantity(q)?;
+            }
+            set(what)
+        }
         Effect::GainControl { what, .. } => set(what),
         Effect::ExchangeControl { a, b, otherwise } => {
             object(a)?;
@@ -571,6 +585,8 @@ fn quantity(q: &Quantity) -> Check {
             | QuantityExpr::Count(_)
             | QuantityExpr::Devotion(_)
             | QuantityExpr::MostDiscardedThisWay
+            | QuantityExpr::SpellsCastThisTurn { .. }
+            | QuantityExpr::MostSpellsCastByAnOpponent
             | QuantityExpr::Var(_) => Ok(()),
         },
     }
@@ -600,7 +616,11 @@ fn condition(c: &Condition) -> Check {
         }
         Condition::Not(c) => condition(c),
         Condition::TopOfLibraryMatches { who, .. } => player(who),
-        Condition::YourTurn | Condition::ThisTapped | Condition::UnusedThisTurn => Ok(()),
+        Condition::YourTurn
+        | Condition::ThisTapped
+        | Condition::UnusedThisTurn
+        | Condition::Kicked
+        | Condition::TargetMatches { .. } => Ok(()),
     }
 }
 

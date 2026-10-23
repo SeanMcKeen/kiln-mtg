@@ -817,6 +817,12 @@ impl Game {
                     .filter_map(Color::from_letter)
                     .any(|col| c.colors.contains(col))
             })
+            && f.not_color.as_ref().is_none_or(|letters| {
+                !letters
+                    .chars()
+                    .filter_map(Color::from_letter)
+                    .any(|col| c.colors.contains(col))
+            })
             // Token status isn't copiable (CR 707.2): the object's own.
             && f.token.is_none_or(|tok| self.obj(id).is_some_and(|o| self.def(o.def).token == tok))
             && f.min_mana_value.is_none_or(|m| def.mana_value() >= m)

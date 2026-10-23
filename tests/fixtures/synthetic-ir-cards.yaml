@@ -1002,3 +1002,26 @@
     - spell:
         targets: [{ what: { object: { types: [creature] } } }]
         effect: { move: { what: { one: { target: 0 } }, to: top_of_library } }
+
+# ---- casting (M6 6.4) ------------------------------------------------------------
+
+- name: Test Kicker Bolt
+  cost: "{R}"
+  types: Instant
+  abilities:
+    - keyword: { kicker: [{ mana: "{2}" }] }
+    - spell:
+        targets: [{ what: any }]
+        effect:
+          if:
+            condition: kicked
+            then: { deal_damage: { to: { target: 0 }, amount: 4 } }
+            otherwise: { deal_damage: { to: { target: 0 }, amount: 2 } }
+
+- name: Test Split Second
+  cost: "{W}"
+  types: Instant
+  abilities:
+    - keyword: split_second
+    - spell:
+        effect: { draw: { who: you, amount: 1 } }

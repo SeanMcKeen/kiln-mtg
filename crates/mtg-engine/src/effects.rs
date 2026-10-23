@@ -868,6 +868,20 @@ impl Game {
                     self.counter(&mut t.ctx, id);
                 }
             }
+            Effect::CounterAndExile(set) => {
+                for id in self.set_now(&t.ctx, set) {
+                    self.counter_to(&mut t.ctx, id, true);
+                }
+            }
+            Effect::LookAtHand(who) => {
+                // No game state changes; the look is logged (who saw whose hand).
+                if let Some(p) = self.player_ref(&t.ctx, who) {
+                    self.log(Event::LookedAtHand {
+                        viewer: t.ctx.controller,
+                        player: p,
+                    });
+                }
+            }
             Effect::Draw { who, amount } => {
                 let n = self.amount(&t.ctx, amount);
                 if let Some(p) = self.player_ref(&t.ctx, who) {
@@ -1179,15 +1193,22 @@ impl Game {
                     t.ctx.remembered.push((name.clone(), made));
                 }
             }
-            Effect::CopySpell { what, new_targets } => {
+            Effect::CopySpell {
+                what,
+                new_targets,
+                count,
+            } => {
+                let n = count.as_ref().map_or(1, |q| self.amount(&t.ctx, q));
                 for id in self.set_now(&t.ctx, what) {
-                    if let Some(copy) = self.copy_spell(id, t.ctx.controller)
-                        && *new_targets
-                    {
-                        t.frames.push(Frame::ChangeTargets {
-                            spell: copy,
-                            index: 0,
-                        });
+                    for _ in 0..n {
+                        if let Some(copy) = self.copy_spell(id, t.ctx.controller)
+                            && *new_targets
+                        {
+                            t.frames.push(Frame::ChangeTargets {
+                                spell: copy,
+                                index: 0,
+                            });
+                        }
                     }
                 }
             }
@@ -1449,6 +1470,36 @@ impl Game {
                     .map_or(0, |id| i64::from(self.counters_on(id, *counter))),
                 // Rejected by `support::check` until combat history is tracked (M4).
                 QuantityExpr::TriggeringAmount => i64::from(ctx.triggering_amount.unwrap_or(0)),
+                QuantityExpr::SpellsCastThisTurn { by, color } => i64::try_from(
+                    self.cast_this_turn
+                        .iter()
+                        .filter(|r| self.player_rel(*by, ctx.controller, r.player))
+                        .filter(|r| {
+                            color.as_ref().is_none_or(|letters| {
+                                letters
+                                    .chars()
+                                    .filter_map(Color::from_letter)
+                                    .any(|c| r.colors.contains(c))
+                            })
+                        })
+                        .count(),
+                )
+                .unwrap_or(0),
+                QuantityExpr::MostSpellsCastByAnOpponent => self
+                    .players
+                    .iter()
+                    .filter(|p| p.id != ctx.controller)
+                    .map(|p| {
+                        i64::try_from(
+                            self.cast_this_turn
+                                .iter()
+                                .filter(|r| r.player == p.id)
+                                .count(),
+                        )
+                        .unwrap_or(0)
+                    })
+                    .max()
+                    .unwrap_or(0),
                 QuantityExpr::CountOf { filter, controller } => {
                     let Some(p) = self.player_ref(ctx, controller) else {
                         return 0;
@@ -1505,6 +1556,15 @@ impl Game {
             Condition::ThisTapped => self.obj(ctx.source).is_some_and(|o| o.tapped),
             Condition::AtLeast(a, b) => self.quantity(ctx, a) >= self.quantity(ctx, b),
             // Recorded when the ability adds mana (see `mana_added`).
+            Condition::Kicked => self.kicked.contains(&ctx.source),
+            Condition::TargetMatches { target, filter } => ctx
+                .targets
+                .get(usize::from(*target))
+                .and_then(|slot| slot.first())
+                .is_some_and(|t| match t {
+                    Target::Object(id) => self.matches_card(ctx, *id, filter),
+                    Target::Player(_) => false,
+                }),
             Condition::UnusedThisTurn => !self
                 .activated_this_turn
                 .contains(&(ctx.source, ctx.ability.ability)),
@@ -1987,6 +2047,11 @@ impl Game {
 
     /// CR 701.6a: a countered spell goes to its owner's graveyard.
     fn counter(&mut self, ctx: &mut EffectCtx, id: ObjectId) {
+        self.counter_to(ctx, id, false);
+    }
+
+    /// Counters spell `id`, into exile if `exile` (Force of Negation).
+    fn counter_to(&mut self, ctx: &mut EffectCtx, id: ObjectId, exile: bool) {
         let Some(o) = self.obj(id).copied() else {
             return;
         };
@@ -1998,7 +2063,12 @@ impl Game {
             return;
         }
         self.log(Event::Countered { object: id });
-        self.fx_move(ctx, id, ZoneId::Graveyard(o.owner), true);
+        let to = if exile {
+            ZoneId::Exile
+        } else {
+            ZoneId::Graveyard(o.owner)
+        };
+        self.fx_move(ctx, id, to, true);
     }
 
     /// CR 701.6a: an ability is countered by removing it from the stack (the

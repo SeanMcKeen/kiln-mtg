@@ -355,7 +355,10 @@ impl Policy for GreedyPolicy {
             }
             // "You may", "if you do", and paying to stop an "unless" effect.
             DecisionKind::Optional { kind, .. } => match kind {
-                OptionalKind::May | OptionalKind::IfDoes | OptionalKind::PayUnless => 1,
+                OptionalKind::May
+                | OptionalKind::IfDoes
+                | OptionalKind::PayUnless
+                | OptionalKind::Kicker => 1,
             },
             // Keep the commander available (CR 903.9).
             DecisionKind::CommanderZone { .. } => 1,

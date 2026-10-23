@@ -1,0 +1,9 @@
+card: "Force of Negation"
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { spell: { not_types: [creature] } } }]
+          effect: { counter_and_exile: { one: { target: 0 } } }
+          alternative_costs:
+            - cost: [{ exile_from_hand: { color: U } }]
+              condition: { not: your_turn }

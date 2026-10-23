@@ -366,6 +366,10 @@ impl CardDef {
                 abilities.push(tap_for(ManaType::of_color(color)));
             }
         }
+        // CR 702.40a: storm is a triggered ability that functions on the stack.
+        if abilities.contains(&Ability::Keyword(ir::Keyword::Storm)) {
+            abilities.push(storm());
+        }
         // CR 702.24a: cumulative upkeep is a triggered ability.
         let upkeeps: Vec<Vec<CostPart>> = abilities
             .iter()
@@ -732,6 +736,30 @@ pub(crate) fn payable_symbol(s: &ManaSymbol) -> bool {
         && !matches!(s, ManaSymbol::Variable(c) if *c != 'X')
 }
 
+/// CR 702.40a: "When you cast this spell, copy it for each other spell that
+/// was cast before it this turn. You may choose new targets for the copies."
+fn storm() -> Ability {
+    Ability::Triggered(ir::TriggeredAbility {
+        trigger: ir::Trigger::Cast {
+            by: ir::PlayerRel::You,
+            spell: ir::ObjectFilter {
+                this: true,
+                ..ir::ObjectFilter::default()
+            },
+            first_each_turn: false,
+            second_each_turn: false,
+        },
+        condition: None,
+        resolves_anyway: false,
+        targets: Vec::new(),
+        effect: ir::Effect::CopySpell {
+            what: ir::ObjectSet::One(ir::ObjectRef::This),
+            new_targets: true,
+            count: Some(Quantity::Expr(ir::QuantityExpr::TriggeringAmount)),
+        },
+    })
+}
+
 /// `{T}: Add <type>.`
 pub fn tap_for(t: ManaType) -> Ability {
     Ability::Activated(ActivatedAbility {
@@ -873,6 +901,8 @@ pub struct CardPool {
     /// Torpor Orb; CR 613.11).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     has_rule_statics: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    tracks_spells: bool,
     /// Hidden definitions holding each land type's intrinsic mana ability
     /// (CR 305.6), for lands that gain the type (Blood Moon, Urborg).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -1247,6 +1277,11 @@ impl CardPool {
             .abilities
             .iter()
             .any(|a| matches!(a, Ability::Static(s) if crate::layers::is_rule_static(&s.effect)));
+        self.tracks_spells |= self.has_triggers
+            || serde_json::to_string(&def.abilities).is_ok_and(|j| {
+                j.contains("\"spells_cast_this_turn\"")
+                    || j.contains("\"most_spells_cast_by_an_opponent\"")
+            });
         let id = DefId(u32::try_from(self.defs.len()).unwrap_or(u32::MAX));
         self.defs.push(def);
         id
@@ -1273,6 +1308,12 @@ impl CardPool {
     }
 
     /// Whether any definition has a rule static the engine checks; see the field.
+    /// Whether games must keep the spells cast each turn (CR 601.2i): for
+    /// triggers, storm, and conditions and amounts that count spells.
+    pub fn tracks_spells(&self) -> bool {
+        self.tracks_spells
+    }
+
     pub fn has_rule_statics(&self) -> bool {
         self.has_rule_statics
     }

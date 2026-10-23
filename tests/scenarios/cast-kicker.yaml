@@ -1,0 +1,17 @@
+scenario: mtg-scenario/1
+name: "Kicker: an optional additional cost, offered when the total can be paid; \"if this spell was kicked\""
+cr: ["702.33a", "702.33d", "601.2b"]
+players:
+  - battlefield: [Test Mountain, Test Mountain, Test Mountain]
+    hand: [Test Kicker Bolt]
+  - {}
+script:
+  - choose: Cast Test Kicker Bolt
+  - check:
+      decision: { player: P1, kind: optional, options: ["Don't kick", Kick] }
+  - choose: Kick
+  - choose: Target P2
+  - choose: Pay with Test Mountain, Test Mountain, Test Mountain
+  - pass_all
+expect:
+  life: { P2: 16 }

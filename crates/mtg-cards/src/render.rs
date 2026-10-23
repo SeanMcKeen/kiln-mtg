@@ -129,6 +129,9 @@ fn keyword(k: &Keyword) -> String {
         Keyword::Vigilance => "vigilance".into(),
         Keyword::Ward(c) => format!("ward {}", costs(c)),
         Keyword::CumulativeUpkeep(c) => format!("cumulative upkeep {}", costs(c)),
+        Keyword::Storm => "storm".into(),
+        Keyword::SplitSecond => "split second".into(),
+        Keyword::Kicker(c) => format!("kicker {}", costs(c)),
         Keyword::Partner => "partner".into(),
         Keyword::PartnerWith(n) => format!("partner with {n}"),
         Keyword::Protection(f) => format!(
@@ -344,7 +347,7 @@ fn effect(e: &Effect, t: &[TargetSpec]) -> String {
             what,
             to: Destination::Hand,
         } => format!("return {} to its owner's hand", objects(what, t)),
-        Effect::Counter(o) => format!("counter {}", objects(o, t)),
+        Effect::Counter(o) | Effect::CounterAndExile(o) => format!("counter {}", objects(o, t)),
         Effect::Unless {
             payer,
             cost,

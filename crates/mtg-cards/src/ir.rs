@@ -98,6 +98,14 @@ pub enum Keyword {
     Ward(Vec<CostPart>),
     /// CR 702.24
     CumulativeUpkeep(Vec<CostPart>),
+    /// CR 702.40: "When you cast this spell, copy it for each other spell
+    /// that was cast before it this turn".
+    Storm,
+    /// CR 702.61: while it's on the stack, players can't cast spells or
+    /// activate abilities that aren't mana abilities.
+    SplitSecond,
+    /// CR 702.33: an optional additional cost.
+    Kicker(Vec<CostPart>),
     /// CR 702.124h
     Partner,
     /// CR 702.124j
@@ -248,6 +256,9 @@ pub enum Trigger {
         /// "their first [spell] each turn".
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         first_each_turn: bool,
+        /// "their second spell each turn" (Kraum).
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        second_each_turn: bool,
     },
     /// "Whenever [player] draws a card".
     Draws {
@@ -534,6 +545,11 @@ pub enum Effect {
     },
     /// CR 701.6
     Counter(ObjectSet),
+    /// "Counter ... If that spell is countered this way, exile it instead of
+    /// putting it into its owner's graveyard" (Force of Negation).
+    CounterAndExile(ObjectSet),
+    /// "Look at [player]'s hand" (Gitaxian Probe).
+    LookAtHand(PlayerRef),
     Draw {
         who: PlayerRef,
         amount: Quantity,
@@ -687,6 +703,9 @@ pub enum Effect {
         what: ObjectSet,
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         new_targets: bool,
+        /// How many copies (storm); one if omitted.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        count: Option<Quantity>,
     },
     /// "Copy [object]": a copy of a card, created in the zone the card is in
     /// (CR 707.12), named `remember` for the rest of the effect.
@@ -987,6 +1006,9 @@ pub struct ObjectFilter {
     /// "a card with the chosen name".
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub named: Option<String>,
+    /// "non[color]": none of these color letters (Snuff Out: "nonblack").
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub not_color: Option<String>,
     /// "with the same name as this" ("each card named Rite of Flame", CR 201.2).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub same_name: bool,
@@ -1032,6 +1054,14 @@ pub enum QuantityExpr {
     },
     /// "That much": the amount from the trigger event (life gained or lost).
     TriggeringAmount,
+    /// Spells [players] cast this turn, of a color if given (Veil of Summer).
+    SpellsCastThisTurn {
+        by: PlayerRel,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        color: Option<String>,
+    },
+    /// The most spells any one opponent cast this turn (Mindbreak Trap).
+    MostSpellsCastByAnOpponent,
     /// "the number of [objects] [player] controls" (Carpet of Flowers: Islands
     /// target opponent controls).
     CountOf {
@@ -1055,6 +1085,13 @@ pub enum Condition {
     AtLeast(Quantity, Quantity),
     /// "if you haven't added mana with this ability this turn" (Carpet of Flowers).
     UnusedThisTurn,
+    /// "If this spell was kicked" (CR 702.33d).
+    Kicked,
+    /// "if it's [filter]": the object in a target slot (Pyroblast: "if it's blue").
+    TargetMatches {
+        target: u8,
+        filter: ObjectFilter,
+    },
     /// "If [the top card of who's library] is a [filter] card".
     TopOfLibraryMatches {
         who: PlayerRef,

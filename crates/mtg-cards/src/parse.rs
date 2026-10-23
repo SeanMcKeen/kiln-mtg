@@ -1023,6 +1023,7 @@ fn trigger_phrase(s: &str) -> Option<Trigger> {
                 by,
                 spell,
                 first_each_turn: false,
+                second_each_turn: false,
             }
         } else if c.lit("draws a card") || c.lit("draw a card") {
             Trigger::Draws {
