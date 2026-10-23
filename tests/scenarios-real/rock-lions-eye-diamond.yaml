@@ -1,0 +1,16 @@
+scenario: mtg-scenario/1
+name: "Lion's Eye Diamond: discard your hand and sacrifice it for three mana of one color, only with priority"
+cr: ["605.1a", "602.5d", "118.3"]
+verifies: ["Lion's Eye Diamond"]
+players:
+  - battlefield: ["Lion's Eye Diamond"]
+    hand: [Lightning Bolt, Opt]
+  - {}
+script:
+  - choose: "Activate Lion's Eye Diamond for mana"
+  - choose: "Add {B}{B}{B}"
+expect:
+  pool: { P1: "{B}{B}{B}" }
+  zones:
+    P1.graveyard: ["Lion's Eye Diamond", Lightning Bolt, Opt]
+    P1.hand: []

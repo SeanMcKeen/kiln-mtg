@@ -78,7 +78,9 @@ pub(crate) fn check(def: &CardDef) -> Check {
                 // CR 605: mana abilities resolve immediately and can't be restricted
                 // to sorcery timing in the IR's sense; their output was checked
                 // when the definition was built.
-                if x.timing != Timing::Any || x.once_per_turn {
+                // "Activate only as an instant" is met by offering it only
+                // with priority (never mid-payment; LED).
+                if x.timing == Timing::Sorcery || x.once_per_turn {
                     return Err("mana abilities with timing restrictions".into());
                 }
                 activated_extras(x)?;
@@ -270,7 +272,14 @@ fn effect(e: &Effect) -> Check {
             match mana {
                 // Only meaningful in a triggered ability (checked in `check`).
                 ManaSpec::TypeProducedByTrigger => Ok(()),
-                ManaSpec::Colorless(q) => quantity(q),
+                ManaSpec::Colorless(q) | ManaSpec::AnyOneColor(q) | ManaSpec::AnyColor(q) => {
+                    quantity(q)
+                }
+                ManaSpec::ColorOf(r) => object(r),
+                ManaSpec::Times { mana, times } => {
+                    crate::card::mana_output(&ManaSpec::Fixed(mana.clone()))?;
+                    quantity(times)
+                }
                 _ => crate::card::mana_output(mana).map(|_| ()),
             }
         }
@@ -554,11 +563,12 @@ fn activated_extras(x: &mtg_cards::ir::ActivatedAbility) -> Check {
     if let Some(c) = &x.condition {
         condition(c)?;
     }
-    if x.zone.is_some() {
-        return Err("abilities that work from other zones (M6 6.3)".into());
+    match x.zone {
+        None | Some(mtg_cards::ir::ZoneName::Hand) => {}
+        Some(z) => return Err(format!("abilities that work from the {z:?} zone")),
     }
-    if x.cost_reduction.is_some() {
-        return Err("activation cost reductions (M6 6.3)".into());
+    if let Some(q) = &x.cost_reduction {
+        quantity(q)?;
     }
     Ok(())
 }

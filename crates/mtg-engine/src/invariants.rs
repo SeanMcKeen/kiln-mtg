@@ -107,7 +107,10 @@ impl Game {
         match (&self.pending, &self.result) {
             (Some(d), None) => {
                 if d.option_count() == 0 {
-                    return Err(format!("invariant 2: decision {:?} has no options", d.id));
+                    return Err(format!(
+                        "invariant 2: decision {:?} has no options: {:?}",
+                        d.id, d.kind
+                    ));
                 }
                 if !self.in_game(d.player) {
                     return Err(format!(

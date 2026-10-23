@@ -428,8 +428,11 @@ impl Game {
                 .filter(|(_, (_, m))| m.tap_only)
                 .filter(|(_, (r, _))| self.activation_condition_holds(*r, id, p))
                 .filter_map(|(i, (r, m))| {
-                    Some((u8::try_from(i).ok()?, self.mana_ability_bags(*r, m, p)))
+                    Some((u8::try_from(i).ok()?, self.mana_ability_bags(*r, m, id, p)))
                 })
+                // Dynamic mana that makes nothing right now (Gaea's Cradle
+                // with no creatures) can't help pay.
+                .filter(|(_, bags)| !bags.is_empty())
                 .collect();
             if abilities.is_empty() {
                 continue;
@@ -469,46 +472,26 @@ impl Game {
         &self,
         r: AbilityRef,
         m: &crate::card::ManaAbility,
+        source: ObjectId,
         p: PlayerId,
     ) -> SmallVec<[crate::card::ManaBag; 1]> {
         if !m.dynamic {
             return m.bags.clone();
         }
-        let mut out = SmallVec::new();
+        let mut out: SmallVec<[crate::card::ManaBag; 1]> = SmallVec::new();
         if let Some(mtg_cards::ir::Ability::Activated(x)) =
             self.def(r.def).abilities.get(usize::from(r.ability))
         {
+            let ctx = EffectCtx::new(r, source, p);
             x.effect.walk(&mut |e| {
                 if let mtg_cards::ir::Effect::AddMana { mana, .. } = e {
-                    out.extend(self.dynamic_mana_bags(mana, p));
+                    out.extend(self.dynamic_mana_bags(mana, &ctx));
                 }
             });
         }
+        out.sort_unstable();
+        out.dedup();
         out
-    }
-
-    /// Outcomes of a mana spec that depends on the game, for player `p`.
-    pub(crate) fn dynamic_mana_bags(
-        &self,
-        spec: &mtg_cards::ir::ManaSpec,
-        p: PlayerId,
-    ) -> Vec<crate::card::ManaBag> {
-        match spec {
-            // CR 903.4f: no commander, no mana; a colorless identity, none either.
-            mtg_cards::ir::ManaSpec::CommanderIdentity => self
-                .commander_identity(p)
-                .map(|id| {
-                    id.iter()
-                        .map(|c| {
-                            let mut b = [0; 6];
-                            b[ManaType::of_color(c).index()] = 1;
-                            b
-                        })
-                        .collect()
-                })
-                .unwrap_or_default(),
-            other => crate::effects::mana_bags(other),
-        }
     }
 
     /// The mana abilities object `id` has now (CR 605.1a), after the layers:
@@ -584,10 +567,7 @@ impl Game {
         let Some(o) = self.obj(source) else {
             return false;
         };
-        if o.controller != p
-            || o.zone != crate::state::ZoneId::Battlefield
-            || !self.activation_allowed(p, source)
-        {
+        if o.controller != p || !self.activation_allowed(p, source) {
             return false;
         }
         let Some((r, _)) = self.mana_ability_at(source, ability) else {
@@ -596,6 +576,10 @@ impl Game {
         let Some(mtg_cards::ir::Ability::Activated(x)) = self.ability_at(r) else {
             return false;
         };
+        // CR 113.6b: it works only from its zone (the battlefield unless stated).
+        if !crate::cast::ability_works_in(x, o.zone) {
+            return false;
+        }
         let taps = x.cost.iter().any(|c| {
             matches!(
                 c,

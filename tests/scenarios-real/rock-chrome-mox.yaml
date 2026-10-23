@@ -1,0 +1,17 @@
+scenario: mtg-scenario/1
+name: "Chrome Mox: imprint a nonartifact, nonland card; tap for one of its colors"
+cr: ["607.2a", "603.6a", "106.1"]
+verifies: [Chrome Mox]
+players:
+  - hand: [Chrome Mox, Lightning Bolt]
+  - {}
+script:
+  - choose: Cast Chrome Mox
+  - pass_all
+  - pass_all
+  # The only eligible card is chosen without a decision.
+  - choose: "Yes"
+  - choose: "Tap Chrome Mox for {R}"
+expect:
+  pool: { P1: "{R}" }
+  zones: { exile: [Lightning Bolt], P1.hand: [] }

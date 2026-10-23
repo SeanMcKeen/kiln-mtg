@@ -818,6 +818,13 @@ pub enum ManaSpec {
     TypeProducedByTrigger,
     /// An amount of {C} ("add an amount of {C} equal to ...").
     Colorless(Quantity),
+    /// One mana of any color among [objects] (Mox Amber).
+    ColorsAmong(ObjectFilter),
+    /// One mana of any color a land an opponent controls could produce
+    /// (Fellwar Stone, Exotic Orchard; CR 106.7).
+    OpponentLandColors,
+    /// Fixed symbols added [times] times ("Add {G} for each creature you control").
+    Times { mana: String, times: Quantity },
 }
 
 // ---- references, filters, quantities ----------------------------------------
@@ -948,6 +955,9 @@ pub struct ObjectFilter {
     /// "a card with the chosen name".
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub named: Option<String>,
+    /// "with the same name as this" ("each card named Rite of Flame", CR 201.2).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub same_name: bool,
     /// "with mana value N or greater" (CR 202.3).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub min_mana_value: Option<u32>,

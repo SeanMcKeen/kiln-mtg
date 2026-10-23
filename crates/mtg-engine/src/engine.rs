@@ -1535,6 +1535,30 @@ impl Game {
             } else if self.can_cast(p, id, sorcery_timing) {
                 actions.push(Action::Cast(id));
             }
+            // Abilities that work from the hand (CR 113.6b: channel, Spirit Guides).
+            if def.has_hand_abilities() {
+                for i in 0..self.mana_ability_count(id) {
+                    let ability = u8::try_from(i).unwrap_or(0);
+                    if self.can_activate_mana(p, id, ability) {
+                        actions.push(Action::ActivateMana {
+                            source: id,
+                            ability,
+                        });
+                    }
+                }
+                for (i, (_, a)) in self.abilities_of(id).into_iter().enumerate() {
+                    let ability = u8::try_from(i).unwrap_or(0);
+                    if let ir::Ability::Activated(x) = a
+                        && !crate::card::is_mana_ability(x)
+                        && self.can_activate(p, id, ability, sorcery_timing)
+                    {
+                        actions.push(Action::Activate {
+                            source: id,
+                            ability,
+                        });
+                    }
+                }
+            }
         }
         // CR 903.8: a player may cast a commander they own from the command zone.
         if !self.cmd.is_empty() {

@@ -1,0 +1,18 @@
+scenario: mtg-scenario/1
+name: "Otawara: channel from the hand, {1} less for each legendary creature you control"
+cr: ["113.6b", "602.2b", "601.2f"]
+verifies: ["Otawara, Soaring City"]
+players:
+  - battlefield: [Island, Island, Island, "Kinnan, Bonder Prodigy"]
+    hand: ["Otawara, Soaring City"]
+  - battlefield: [Test Ogre]
+script:
+  # {3}{U} minus {1}: three Islands pay it.
+  - choose: "Activate Otawara, Soaring City ability 2"
+  - choose: Target Test Ogre (P2)
+  - choose: Pay with Island, Island, Island
+  - pass_all
+expect:
+  zones:
+    P1.graveyard: ["Otawara, Soaring City"]
+    P2.hand: [Test Ogre]

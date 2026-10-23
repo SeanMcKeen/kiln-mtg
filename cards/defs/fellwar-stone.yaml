@@ -1,0 +1,5 @@
+card: "Fellwar Stone"
+faces:
+  - abilities:
+      # "any color that a land an opponent controls could produce" (CR 106.7).
+      - activated: { cost: [tap], effect: { add_mana: { mana: opponent_land_colors } } }

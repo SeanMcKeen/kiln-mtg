@@ -1,0 +1,21 @@
+scenario: mtg-scenario/1
+name: "Boseiju: channel destroys an opponent's nonbasic land; that player may search for a land with a basic land type"
+cr: ["113.6b", "701.23a", "608.2c"]
+verifies: ["Boseiju, Who Endures"]
+players:
+  - battlefield: [Forest, Forest]
+    hand: ["Boseiju, Who Endures"]
+  - battlefield: [Underground Sea]
+    library: [Tropical Island, Swamp]
+script:
+  - choose: "Activate Boseiju, Who Endures ability 2"
+  - choose: Target Underground Sea (P2)
+  - choose: Pay with Forest, Forest
+  - pass_all
+  - { player: P2, choose: "Yes" }
+  - { player: P2, choose: Find Tropical Island }
+expect:
+  zones:
+    P1.graveyard: ["Boseiju, Who Endures"]
+    P2.graveyard: [Underground Sea]
+    P2.battlefield: [Tropical Island]

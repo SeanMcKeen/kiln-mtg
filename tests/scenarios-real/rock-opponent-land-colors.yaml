@@ -1,0 +1,16 @@
+scenario: mtg-scenario/1
+name: "Fellwar Stone and Exotic Orchard: a color a land an opponent controls could produce; another Orchard defines none"
+cr: ["106.7", "605.1a"]
+verifies: [Fellwar Stone, Exotic Orchard]
+players:
+  - battlefield: [Fellwar Stone, Exotic Orchard]
+  - battlefield: [Island, Mountain, Exotic Orchard]
+script:
+  - choose: Tap Fellwar Stone for mana
+  - check:
+      decision: { player: P1, kind: choose_mana, options: ["Add {U}", "Add {R}"] }
+  - choose: "Add {U}"
+  - choose: Tap Exotic Orchard for mana
+  - choose: "Add {R}"
+expect:
+  pool: { P1: "{U}{R}" }

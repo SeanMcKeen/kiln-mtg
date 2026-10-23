@@ -111,6 +111,16 @@ fn requirement(symbols: &[ManaSymbol], x: u32, pays: &[SymbolPay]) -> (CostReq, 
 }
 
 /// The activated ability `i` of a definition.
+/// CR 113.6b: whether an activated ability works in `zone` (the
+/// battlefield unless it states a zone).
+pub(crate) fn ability_works_in(x: &ActivatedAbility, zone: ZoneId) -> bool {
+    match x.zone {
+        None => zone == ZoneId::Battlefield,
+        Some(mtg_cards::ir::ZoneName::Hand) => matches!(zone, ZoneId::Hand(_)),
+        Some(_) => false,
+    }
+}
+
 fn activated(def: &CardDef, i: u8) -> Option<&ActivatedAbility> {
     match def.abilities.get(usize::from(i))? {
         Ability::Activated(x) => Some(x),
@@ -439,8 +449,7 @@ impl Game {
             return false;
         };
         // CR 602.2: only the controller of the source may activate it.
-        if o.controller != p || o.zone != ZoneId::Battlefield || !self.activation_allowed(p, source)
-        {
+        if o.controller != p || !self.activation_allowed(p, source) {
             return false;
         }
         // `ability` indexes the object's current abilities (CR 613).
@@ -452,6 +461,10 @@ impl Game {
         let Some(x) = activated(def, ability) else {
             return false;
         };
+        // CR 113.6b: it works only from its zone (the battlefield unless stated).
+        if !ability_works_in(x, o.zone) {
+            return false;
+        }
         // CR 602.5d: "activate only as a sorcery".
         if x.timing == Timing::Sorcery && !sorcery_timing {
             return false;
@@ -479,7 +492,7 @@ impl Game {
             return false;
         }
         let except = taps_source(def, Some(ability)).then_some(source);
-        cost_shape(def, Some(ability), CastCost::Normal)
+        self.spell_shape(def, Some(ability), CastCost::Normal, source)
             .is_some_and(|shape| self.shape_payable(p, &ctx, &shape, 0, &[], except))
     }
 
@@ -900,6 +913,30 @@ impl Game {
         object: ObjectId,
     ) -> Option<CostShape> {
         let mut shape = cost_shape(def, ability, cost)?;
+        // "This ability costs {1} less to activate for each ...": generic mana only.
+        if let Some(i) = ability
+            && let Some(x) = activated(def, i)
+            && let Some(q) = &x.cost_reduction
+            && let Some(o) = self.obj(object)
+        {
+            let ctx = crate::effects::EffectCtx::new(
+                crate::effects::AbilityRef {
+                    def: o.def,
+                    ability: i,
+                },
+                object,
+                o.controller,
+            );
+            let mut left = self.amount(&ctx, q);
+            for s in &mut shape.symbols {
+                if let ManaSymbol::Generic(n) = s {
+                    let cut = (*n).min(left);
+                    *n -= cut;
+                    left -= cut;
+                }
+            }
+            shape.symbols.retain(|s| *s != ManaSymbol::Generic(0));
+        }
         // CR 903.8: commander tax, an additional cost whatever cost is paid.
         if ability.is_none() {
             let tax = self.commander_tax(object);

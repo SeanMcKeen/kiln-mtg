@@ -1,0 +1,14 @@
+scenario: mtg-scenario/1
+name: "Rite of Flame: {R}{R}, plus {R} for each card named Rite of Flame in each graveyard"
+cr: ["201.2", "106.1", "608.2c"]
+verifies: [Rite of Flame]
+players:
+  - battlefield: [Mountain]
+    hand: [Rite of Flame]
+  - graveyard: [Rite of Flame, Lightning Bolt]
+script:
+  - choose: Cast Rite of Flame
+  - choose: Pay with Mountain
+  - pass_all
+expect:
+  pool: { P1: "{R}{R}{R}" }

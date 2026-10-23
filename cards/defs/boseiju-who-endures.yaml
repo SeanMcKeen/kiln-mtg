@@ -1,0 +1,21 @@
+card: "Boseiju, Who Endures"
+faces:
+  - abilities:
+      - activated: { cost: [tap], effect: { add_mana: { mana: { fixed: "{G}" } } } }
+      - activated:
+          zone: hand
+          cost: [{ mana: "{1}{G}" }, { discard: { chosen: { count: 1, filter: { this: true } } } }]
+          cost_reduction: { count: { types: [creature], supertypes: [legendary], controller: you } }
+          # "artifact, enchantment, or nonbasic land": no basic artifacts or enchantments exist.
+          targets: [{ what: { object: { types: [artifact, enchantment, land], not_supertypes: [basic], controller: opponent } } }]
+          effect:
+            seq:
+              - destroy: { one: { target: 0 } }
+              # "That player may search ... for a land card with a basic land type, ..., then shuffle."
+              - if_does:
+                  who: { controller_of: { target: 0 } }
+                  action:
+                    seq:
+                      - search: { who: { controller_of: { target: 0 } }, filter: { types: [land], subtypes: [Plains, Island, Swamp, Mountain, Forest] }, count: 1, to: battlefield, reveal: false }
+                      - shuffle: { controller_of: { target: 0 } }
+                  then: { seq: [] }

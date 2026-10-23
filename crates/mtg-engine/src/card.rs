@@ -486,6 +486,13 @@ impl CardDef {
         .any(|t| self.is(*t))
     }
 
+    /// Whether some activated ability works from the hand (CR 113.6b).
+    pub fn has_hand_abilities(&self) -> bool {
+        self.abilities
+            .iter()
+            .any(|a| matches!(a, Ability::Activated(x) if x.zone == Some(ir::ZoneName::Hand)))
+    }
+
     pub fn is_legendary(&self) -> bool {
         self.type_line.has_supertype(Supertype::Legendary)
     }
@@ -554,15 +561,24 @@ fn choice_free(e: &ir::Effect) -> bool {
 fn dynamic_mana(e: &ir::Effect) -> bool {
     let mut found = false;
     e.walk(&mut |x| {
-        found |= matches!(
-            x,
-            ir::Effect::AddMana {
-                mana: ManaSpec::CommanderIdentity,
-                ..
-            }
-        );
+        found |= matches!(x, ir::Effect::AddMana { mana, .. } if is_dynamic_spec(mana));
     });
     found
+}
+
+/// Mana specs the game computes when the mana is made: the output depends
+/// on other objects, the commander, or an amount (M6 plan C10).
+pub(crate) fn is_dynamic_spec(spec: &ManaSpec) -> bool {
+    let variable = |q: &Quantity| !matches!(q, Quantity::Fixed(_));
+    match spec {
+        ManaSpec::CommanderIdentity
+        | ManaSpec::ColorOf(_)
+        | ManaSpec::ColorsAmong(_)
+        | ManaSpec::OpponentLandColors
+        | ManaSpec::Times { .. } => true,
+        ManaSpec::AnyColor(q) | ManaSpec::AnyOneColor(q) | ManaSpec::Colorless(q) => variable(q),
+        ManaSpec::Fixed(_) | ManaSpec::OneOf(_) | ManaSpec::TypeProducedByTrigger => false,
+    }
 }
 
 /// Ways the mana of a mana ability or spell can come out.
@@ -596,6 +612,14 @@ pub(crate) fn mana_output(spec: &ManaSpec) -> Result<ManaAlternatives, String> {
         _ => None,
     };
     let mut out = SmallVec::new();
+    if is_dynamic_spec(spec) {
+        // A placeholder: the game computes the real output (`ManaAbility::dynamic`).
+        if let ManaSpec::Times { mana, .. } = spec {
+            parse_mana_units(mana)?;
+        }
+        out.push(SmallVec::from_elem(ANY_COLOR, 1));
+        return Ok(out);
+    }
     match spec {
         ManaSpec::Fixed(s) => out.push(parse_mana_units(s)?),
         ManaSpec::OneOf(v) => {
@@ -613,11 +637,11 @@ pub(crate) fn mana_output(spec: &ManaSpec) -> Result<ManaAlternatives, String> {
                 out.push(SmallVec::from_elem(ManaType::of_color(c).bit(), n));
             }
         }
-        // A placeholder: the game narrows it to the identity (`dynamic`).
-        ManaSpec::CommanderIdentity => out.push(SmallVec::from_elem(ANY_COLOR, 1)),
-        ManaSpec::ColorOf(_) => {
-            return Err("mana whose type depends on another object (M4)".into());
-        }
+        ManaSpec::CommanderIdentity
+        | ManaSpec::ColorOf(_)
+        | ManaSpec::ColorsAmong(_)
+        | ManaSpec::OpponentLandColors
+        | ManaSpec::Times { .. } => unreachable!("dynamic specs return above"),
         ManaSpec::TypeProducedByTrigger => {
             return Err("mana of the triggering permanent's type outside a trigger".into());
         }

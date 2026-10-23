@@ -1,0 +1,11 @@
+card: "Otawara, Soaring City"
+faces:
+  - abilities:
+      - activated: { cost: [tap], effect: { add_mana: { mana: { fixed: "{U}" } } } }
+      # Channel (an ability word, CR 207.2c): works from the hand.
+      - activated:
+          zone: hand
+          cost: [{ mana: "{3}{U}" }, { discard: { chosen: { count: 1, filter: { this: true } } } }]
+          cost_reduction: { count: { types: [creature], supertypes: [legendary], controller: you } }
+          targets: [{ what: { object: { types: [artifact, creature, enchantment, planeswalker] } } }]
+          effect: { move: { what: { one: { target: 0 } }, to: hand } }

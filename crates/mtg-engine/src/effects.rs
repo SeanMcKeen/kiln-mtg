@@ -882,7 +882,9 @@ impl Game {
                                 .collect()
                         })
                         .unwrap_or_default(),
-                    (None, ManaSpec::CommanderIdentity) => self.dynamic_mana_bags(mana, who),
+                    (None, spec) if crate::card::is_dynamic_spec(spec) => {
+                        self.dynamic_mana_bags(spec, &t.ctx)
+                    }
                     (None, _) => mana_bags(mana),
                 };
                 match options.as_slice() {
@@ -1445,6 +1447,137 @@ impl Game {
             // CR 903.3d: a commander on the battlefield the controller controls.
             Condition::ControlCommander => self.controls_commander(ctx.controller),
         }
+    }
+
+    /// Outcomes of a mana spec the game computes now (M6 plan C10), for the
+    /// ability in `ctx`. Distinct bags, in WUBRG order; none if it makes no mana.
+    pub(crate) fn dynamic_mana_bags(&self, spec: &ManaSpec, ctx: &EffectCtx) -> Vec<ManaBag> {
+        let one_each = |cs: mtg_core::Colors| -> Vec<ManaBag> {
+            cs.iter()
+                .map(|c| {
+                    let mut b = [0; 6];
+                    b[ManaType::of_color(c).index()] = 1;
+                    b
+                })
+                .collect()
+        };
+        let n = |q: &Quantity| u8::try_from(self.amount(ctx, q)).unwrap_or(u8::MAX);
+        match spec {
+            // CR 903.4f: no commander, no mana; a colorless identity, none either.
+            ManaSpec::CommanderIdentity => self
+                .commander_identity(ctx.controller)
+                .map(one_each)
+                .unwrap_or_default(),
+            ManaSpec::ColorOf(r) => one_each(
+                self.object_refs(ctx, r)
+                    .iter()
+                    .filter_map(|id| self.chars(*id).map(|c| c.colors()))
+                    .fold(mtg_core::Colors::COLORLESS, mtg_core::Colors::union),
+            ),
+            ManaSpec::ColorsAmong(f) => one_each(
+                self.battlefield
+                    .iter()
+                    .filter(|id| self.matches_filter(**id, f, ctx.controller, Some(ctx.source)))
+                    .filter_map(|id| self.chars(*id).map(|c| c.colors()))
+                    .fold(mtg_core::Colors::COLORLESS, mtg_core::Colors::union),
+            ),
+            ManaSpec::OpponentLandColors => one_each(self.opponent_land_colors(ctx.controller)),
+            ManaSpec::Times { mana, times } => {
+                let times = n(times);
+                let Some(unit) = crate::card::mana_output(&ManaSpec::Fixed(mana.clone()))
+                    .ok()
+                    .and_then(|alts| alts.into_iter().next())
+                else {
+                    return Vec::new();
+                };
+                let mut bag = [0u8; 6];
+                for t in ManaType::ALL {
+                    let per = unit.iter().filter(|u| **u == t.bit()).count();
+                    bag[t.index()] = u8::try_from(per).unwrap_or(0).saturating_mul(times);
+                }
+                if bag.iter().all(|x| *x == 0) {
+                    Vec::new()
+                } else {
+                    vec![bag]
+                }
+            }
+            ManaSpec::AnyOneColor(q) => {
+                let k = n(q);
+                if k == 0 {
+                    return Vec::new();
+                }
+                one_each(mtg_core::Colors::ALL)
+                    .into_iter()
+                    .map(|mut b| {
+                        for x in &mut b {
+                            *x = x.saturating_mul(k);
+                        }
+                        b
+                    })
+                    .collect()
+            }
+            ManaSpec::AnyColor(q) => {
+                let k = usize::from(n(q));
+                crate::card::expand_bags(&smallvec::smallvec![smallvec::SmallVec::from_elem(
+                    crate::card::ANY_COLOR,
+                    k
+                )])
+                .into_iter()
+                .filter(|b| b.iter().any(|x| *x > 0))
+                .collect()
+            }
+            ManaSpec::Colorless(q) => {
+                let k = n(q);
+                if k == 0 {
+                    Vec::new()
+                } else {
+                    vec![[0, 0, 0, 0, 0, k]]
+                }
+            }
+            other => mana_bags(other),
+        }
+    }
+
+    /// CR 106.7: the colors lands `p`'s opponents control could produce.
+    /// Abilities of the same kind ("a land an opponent controls could
+    /// produce") are ignored: they define no type of mana for each other.
+    fn opponent_land_colors(&self, p: PlayerId) -> mtg_core::Colors {
+        let mut out = mtg_core::Colors::COLORLESS;
+        for &id in &self.battlefield {
+            let Some(o) = self.obj(id) else { continue };
+            let is_land = self
+                .chars(id)
+                .is_some_and(|c| c.type_line().has_type(mtg_core::CardType::Land));
+            if o.controller == p || !self.in_game(o.controller) || !is_land {
+                continue;
+            }
+            for (r, m) in self.mana_abilities_of(id) {
+                let bags: Vec<ManaBag> = if m.dynamic {
+                    let ctx = EffectCtx::new(r, id, o.controller);
+                    let mut v = Vec::new();
+                    if let Some(Ability::Activated(x)) = self.ability_at(r) {
+                        x.effect.walk(&mut |e| {
+                            if let Effect::AddMana { mana, .. } = e
+                                && *mana != ManaSpec::OpponentLandColors
+                            {
+                                v.extend(self.dynamic_mana_bags(mana, &ctx));
+                            }
+                        });
+                    }
+                    v
+                } else {
+                    m.bags.to_vec()
+                };
+                for b in bags {
+                    for c in Color::ALL {
+                        if b[ManaType::of_color(c).index()] > 0 {
+                            out.insert(c);
+                        }
+                    }
+                }
+            }
+        }
+        out
     }
 
     /// A card filter with names resolved from the context (`named` refers to a chosen name).
@@ -2470,11 +2603,12 @@ impl Game {
                     self.player(who).hand.len() >= self.amount(ctx, q) as usize
                 }
             },
+            // "another card" unless the filter is "this card" (Spirit Guides).
             CostPart::ExileFromHand(f) => self
                 .player(who)
                 .hand
                 .iter()
-                .any(|id| *id != ctx.source && self.matches_card(ctx, *id, f)),
+                .any(|id| (f.this || *id != ctx.source) && self.matches_card(ctx, *id, f)),
             CostPart::ExileFromGraveyard { count, other } => {
                 self.player(who)
                     .graveyard
@@ -2560,7 +2694,9 @@ impl Game {
                     .hand
                     .iter()
                     .copied()
-                    .filter(|id| *id != t.ctx.source && self.matches_card(&t.ctx, *id, &f))
+                    .filter(|id| {
+                        (f.this || *id != t.ctx.source) && self.matches_card(&t.ctx, *id, &f)
+                    })
                     .collect();
                 t.frames.push(Frame::Pick(exact_pick(
                     who,

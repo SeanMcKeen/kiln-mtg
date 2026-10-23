@@ -1,0 +1,8 @@
+card: "Elvish Spirit Guide"
+faces:
+  - abilities:
+      # Works from the hand: its cost moves it out of the hand (CR 113.6b, 113.6m).
+      - activated:
+          zone: hand
+          cost: [{ exile_from_hand: { this: true } }]
+          effect: { add_mana: { mana: { fixed: "{G}" } } }

@@ -39,6 +39,14 @@ impl Game {
         if f.attached && !self.is_attached_to(this, id) {
             return false;
         }
+        // CR 201.2: "named [this card]".
+        if f.same_name
+            && this.is_none_or(|s| {
+                self.object_name(s).is_none() || self.object_name(s) != self.object_name(id)
+            })
+        {
+            return false;
+        }
         let has_type = |w: &String| {
             CardType::ALL
                 .iter()

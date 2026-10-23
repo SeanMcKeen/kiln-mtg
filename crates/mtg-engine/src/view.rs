@@ -186,7 +186,7 @@ impl Game {
                         "Activate"
                     };
                     let controller = self.obj(source).map_or(d.player, |o| o.controller);
-                    let bags = m.map(|(r, m)| self.mana_ability_bags(r, m, controller));
+                    let bags = m.map(|(r, m)| self.mana_ability_bags(r, m, source, controller));
                     let what = match bags.as_deref() {
                         Some([bag]) => bag_text(bag),
                         _ => "mana".to_owned(),
