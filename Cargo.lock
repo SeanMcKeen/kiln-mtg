@@ -784,6 +784,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "thiserror",
+ "yaml_serde",
 ]
 
 [[package]]
@@ -793,6 +794,8 @@ dependencies = [
  "kiln-cards",
  "kiln-data",
  "kiln-engine",
+ "kiln-protocol",
+ "kiln-sim",
  "kiln-types",
  "regex",
  "serde",

@@ -1,0 +1,61 @@
+{
+  "$defs": {
+    "RunStatus": {
+      "enum": [
+        "running",
+        "complete",
+        "cancelled"
+      ],
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "`runs/<id>/run.json`: what a run is and how far it got.",
+  "properties": {
+    "card_db": {
+      "type": "string"
+    },
+    "engine": {
+      "type": "string"
+    },
+    "games_done": {
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "games_total": {
+      "description": "Games over every configuration.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "run": {
+      "type": "string"
+    },
+    "spec_hash": {
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/RunStatus"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "run",
+    "spec_hash",
+    "card_db",
+    "engine",
+    "games_total",
+    "games_done",
+    "status",
+    "warnings"
+  ],
+  "title": "RunManifest",
+  "type": "object"
+}

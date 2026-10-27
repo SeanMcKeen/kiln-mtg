@@ -6,15 +6,27 @@
 //! `docs/13 Simulation/Output Formats & Report Schema.md`.
 
 pub mod parse;
+pub mod record;
 pub mod spec;
 
 pub use parse::{ResolvedSpec, SpecError, load_spec, parse_spec, validate};
+pub use record::{GameRecord, Outcome, RunManifest, RunStatus};
 pub use spec::Spec;
 
 /// JSON Schemas for the wire formats, by file name.
 pub fn schemas() -> Vec<(&'static str, serde_json::Value)> {
-    vec![(
-        "kiln-spec-1.schema.json",
-        serde_json::to_value(schemars::schema_for!(spec::Spec)).unwrap_or_default(),
-    )]
+    vec![
+        (
+            "kiln-spec-1.schema.json",
+            serde_json::to_value(schemars::schema_for!(spec::Spec)).unwrap_or_default(),
+        ),
+        (
+            "kiln-game-record-1.schema.json",
+            serde_json::to_value(schemars::schema_for!(record::GameRecord)).unwrap_or_default(),
+        ),
+        (
+            "kiln-run-manifest-1.schema.json",
+            serde_json::to_value(schemars::schema_for!(record::RunManifest)).unwrap_or_default(),
+        ),
+    ]
 }

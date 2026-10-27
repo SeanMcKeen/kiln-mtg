@@ -3,8 +3,12 @@
 //! Design: `docs/09 Roadmap/Milestones/M7 Simulation Lab v1.md` (plan S1–S14).
 
 pub mod decks;
+pub mod play;
+pub mod store;
 
 pub use decks::{ResolvedDeck, resolve_decks};
+pub use play::{Config, Experiment, OPPONENT};
+pub use store::{Progress, RunOptions, read_manifest, read_records, run};
 
 /// Why an experiment can't run. [`ExperimentError::exit_code`] follows
 /// `docs/07 Interfaces/CLI & REPL.md`.

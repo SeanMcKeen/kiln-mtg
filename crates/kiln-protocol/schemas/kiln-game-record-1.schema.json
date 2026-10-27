@@ -1,0 +1,185 @@
+{
+  "$defs": {
+    "Elimination": {
+      "additionalProperties": false,
+      "properties": {
+        "reason": {
+          "description": "`life`, `commander_damage`, `decking`, `poison`, `concession` or `effect_loss`.",
+          "type": "string"
+        },
+        "seat": {
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "turn": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "seat",
+        "turn",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "Outcome": {
+      "oneOf": [
+        {
+          "enum": [
+            "win",
+            "draw"
+          ],
+          "type": "string"
+        },
+        {
+          "const": "capped",
+          "description": "Stopped by a harness limit; excluded from win-rate denominators.",
+          "type": "string"
+        }
+      ]
+    },
+    "Timing": {
+      "additionalProperties": false,
+      "description": "Microseconds of wall-clock time.",
+      "properties": {
+        "policy_us": {
+          "description": "Time inside each seat's policy.",
+          "items": {
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "total_us": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total_us",
+        "policy_us"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "capped": {
+      "description": "Why a capped game stopped: `max_turns`, `max_decisions` or `max_wall_ms`.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "config": {
+      "description": "`base`, or the A/B variant this game belongs to.",
+      "type": "string"
+    },
+    "decision_kinds": {
+      "additionalProperties": {
+        "format": "uint64",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "description": "Decision counts by kind (`metrics.decision_stats`).",
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "decisions": {
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "eliminations": {
+      "description": "Players in the order they left the game.",
+      "items": {
+        "$ref": "#/$defs/Elimination"
+      },
+      "type": "array"
+    },
+    "index": {
+      "description": "The game's index; configurations share indices and seeds (paired runs).",
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "mulligans": {
+      "description": "Mulligans taken, per seat.",
+      "items": {
+        "format": "uint32",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "type": "array"
+    },
+    "outcome": {
+      "$ref": "#/$defs/Outcome"
+    },
+    "seats": {
+      "description": "The deck id in each seat, in turn order (seat 1 plays first).\nGoldfish opponents are `opponent`.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "seed": {
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "timing": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Timing"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Wall-clock time (`metrics.timing`): not deterministic."
+    },
+    "turns": {
+      "description": "Turn number when the game ended.",
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "win_type": {
+      "description": "How the game was won (M7 plan S11).",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "winner": {
+      "description": "The winning seat (0-based).",
+      "format": "uint",
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "config",
+    "index",
+    "seed",
+    "seats",
+    "outcome",
+    "turns",
+    "eliminations",
+    "mulligans",
+    "decisions"
+  ],
+  "title": "GameRecord",
+  "type": "object"
+}
