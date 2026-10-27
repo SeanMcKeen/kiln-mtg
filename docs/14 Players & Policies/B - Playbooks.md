@@ -2,7 +2,7 @@
 type: design
 status: draft
 tags: [policies, playbooks, agents, scripting]
-updated: 2026-10-22
+updated: 2026-10-27
 ---
 
 # B: AI-Authored Playbooks
@@ -27,7 +27,20 @@ What a playbook expresses:
 | Determinism | Good (no I/O, no time) | Good, if stdlib stripped | Good |
 | Speed | Moderate (AST interpreter) | Fast (LuaJIT not in mlua by default; PUC Lua OK) | Fastest |
 
-**Leaning: Rhai** for safety and pure-Rust simplicity, unless the spike shows LLMs write Lua much more reliably. Then Lua (mlua) with a stripped stdlib. → Decided in [[M8 Agent Integration & Playbooks]].
+**Decision (M8, 2026-10-27): Rhai.** Reasons:
+- Pure Rust, so the WASM build (M12) stays simple; Lua needs a C library.
+- The sandbox is built in: no I/O, plus limits on operations, call depth and sizes. Kiln builds Rhai without time functions or file modules, so playbooks are deterministic.
+- Rhai's maps are sorted, so iteration order is stable.
+- LLMs write its JS-like syntax readily.
+
+A declarative rule layer can still sit on top later. Details: [[M8 Agent Integration & Playbooks]] (plan P1–P3).
+
+### As implemented
+- A playbook defines functions named after decision kinds (`mulligan`, `priority`, `choose_target`, `declare_attacker`, `bottom_card`, …) or a catch-all `decide`, each taking `(view, decision)`. It returns an option index or label, or `()` to defer.
+- `decision` has `kind`, `options` (labels such as "Cast Sol Ring", "Play Island", "Keep") and `count`. `view` is read lazily from the redacted player view: `me`, `turn`, `my_turn`, `step`, `players[i]` (life, hand_count, library_count, …), `hand`, `battlefield`, `stack`, `graveyard`, `graveyards`, `command`. Objects carry `name`, `types`, `mana_value`, `land`, `creature`, `controller`, `tapped`, `power`, `toughness` and more.
+- Helpers: `find_option(options, text)`, `has_option(options, text)`, `names(cards)`, `tag(name)`.
+- Limits: 200,000 operations per call, plus call-depth and size limits. A runtime error, a limit hit or an invalid answer defers and is counted (`playbook:errors`).
+- Example: `examples/playbooks/generic-cedh.rhai`.
 
 ### Alternative: declarative playbooks
 A YAML rule list (conditions → preferred actions) instead of a script. It's safer, easier to validate, and LLM-friendly, but less expressive. **Possible approach:** a YAML rule list for 90% of cases, with an optional script block.

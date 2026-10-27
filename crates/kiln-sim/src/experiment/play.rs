@@ -13,7 +13,8 @@ use kiln_engine::{
     CardPool, DefId, Event, Game, GameResult, GameRules, GameSetup, LossReason, PlayerStatus,
     Recorder, Replay,
 };
-use kiln_policy::{GreedyPolicy, PassivePolicy, Policy, RandomPolicy};
+use kiln_playbook::{Playbook, PlaybookPolicy};
+use kiln_policy::{Compose, GreedyPolicy, PassivePolicy, Policy, RandomPolicy};
 use kiln_protocol::record::{BASE_CONFIG, Elimination, GameRecord, Outcome, Timing};
 use kiln_protocol::spec::{Mode, PolicySpec, Seating};
 use kiln_protocol::{ResolvedSpec, parse};
@@ -64,6 +65,8 @@ pub struct Experiment {
     pool: Arc<CardPool>,
     play: Vec<PlayDeck>,
     configs: Vec<Config>,
+    /// Compiled playbooks by their path in the spec.
+    books: BTreeMap<String, Arc<Playbook>>,
 }
 
 impl Experiment {
@@ -77,6 +80,16 @@ impl Experiment {
     ) -> Result<Self, ExperimentError> {
         let spec = &resolved.spec;
         let (decks, mut warnings) = resolve_decks(spec, spec_dir, db, lib)?;
+        let mut books = BTreeMap::new();
+        for path in parse::playbook_paths(spec) {
+            let file = spec_dir.join(&path);
+            let text = std::fs::read_to_string(&file).map_err(|e| {
+                ExperimentError::Playbook(format!("can't read playbook {}: {e}", file.display()))
+            })?;
+            let book = Playbook::compile(&path, &text)
+                .map_err(|e| ExperimentError::Playbook(e.to_string()))?;
+            books.insert(path, Arc::new(book));
+        }
         warnings.splice(0..0, resolved.warnings.iter().cloned());
         let (pool, ids) = lib.pool();
         let def = |o: &OracleId, deck: &str| -> Result<DefId, ExperimentError> {
@@ -192,6 +205,7 @@ impl Experiment {
             pool: Arc::new(pool),
             play,
             configs,
+            books,
         })
     }
 
@@ -273,11 +287,40 @@ impl Experiment {
     fn policies(&self, seats: &[usize]) -> Vec<Box<dyn Policy>> {
         seats
             .iter()
-            .map(|d| match self.play[*d].policy {
-                PolicySpec::Random { pass } => Box::new(RandomPolicy::new(pass)) as Box<dyn Policy>,
-                PolicySpec::Passive => Box::new(PassivePolicy),
-                _ => Box::new(GreedyPolicy::default()),
-            })
+            .map(|d| self.build_policy(&self.play[*d].policy))
+            .collect()
+    }
+
+    /// A policy from its recipe (M8 plan P4).
+    fn build_policy(&self, p: &PolicySpec) -> Box<dyn Policy> {
+        match p {
+            PolicySpec::Random { pass } => Box::new(RandomPolicy::new(*pass)),
+            PolicySpec::Passive => Box::new(PassivePolicy),
+            PolicySpec::Playbook { playbook, fallback } => {
+                let fallback = fallback.as_deref().map_or_else(
+                    || self.build_policy(&PolicySpec::Greedy),
+                    |f| self.build_policy(f),
+                );
+                match self.books.get(playbook) {
+                    Some(b) => Box::new(PlaybookPolicy::new(Arc::clone(b), fallback)),
+                    None => fallback,
+                }
+            }
+            PolicySpec::Compose { chain } => Box::new(Compose::new(
+                chain.iter().map(|q| self.build_policy(q)).collect(),
+            )),
+            // Rejected by validation until their milestones.
+            PolicySpec::Greedy | PolicySpec::Search { .. } | PolicySpec::Llm { .. } => {
+                Box::new(GreedyPolicy::default())
+            }
+        }
+    }
+
+    /// The policy recipe of each deck, for reports.
+    pub fn recipes(&self) -> BTreeMap<String, String> {
+        self.play
+            .iter()
+            .map(|d| (d.id.clone(), self.build_policy(&d.policy).name()))
             .collect()
     }
 
@@ -340,6 +383,7 @@ impl Experiment {
             interaction: None,
             mana: None,
             hand: None,
+            policy_stats: None,
         };
         let mut game = match Game::new(Arc::clone(&self.pool), &setup) {
             Ok(g) => g,
@@ -474,6 +518,10 @@ impl Experiment {
             record.cards = f.cards;
             record.interaction = f.interaction;
             record.mana = f.mana;
+        }
+        let stats: Vec<BTreeMap<String, u64>> = policies.iter().map(|p| p.stats()).collect();
+        if stats.iter().any(|s| !s.is_empty()) {
+            record.policy_stats = Some(stats);
         }
         let events = m.raw_events.then(|| game.events().to_vec());
         let replay = recorder.map(|r| r.finish(&game, setup));

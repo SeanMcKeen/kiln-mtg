@@ -349,7 +349,28 @@
         },
         {
           "additionalProperties": false,
-          "description": "A deck playbook (M8).",
+          "description": "Ask each in turn; the first that answers decides (the last must\nalways answer: random, greedy, passive or a playbook).",
+          "properties": {
+            "chain": {
+              "items": {
+                "$ref": "#/$defs/PolicySpec"
+              },
+              "type": "array"
+            },
+            "kind": {
+              "const": "compose",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "chain"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A deck playbook (a Rhai script, relative to the spec); decisions it\ndoesn't answer go to `fallback` (greedy by default).",
           "properties": {
             "fallback": {
               "anyOf": [

@@ -24,6 +24,91 @@ pub trait Policy: Send {
 
     /// Returns the index of the chosen option. It must be `< decision.option_count()`.
     fn decide(&mut self, view: &PlayerView<'_>, decision: &PendingDecision) -> u32;
+
+    /// Like [`Policy::decide`], but may decline (a playbook with no rule for
+    /// this decision); a composed policy then asks the next one.
+    fn try_decide(&mut self, view: &PlayerView<'_>, decision: &PendingDecision) -> Option<u32> {
+        Some(self.decide(view, decision))
+    }
+
+    /// Counters for reports since `begin_game`: which component answered,
+    /// playbook tags, errors.
+    fn stats(&self) -> std::collections::BTreeMap<String, u64> {
+        std::collections::BTreeMap::new()
+    }
+}
+
+/// Asks each policy in turn; the first that answers decides
+/// (`docs/14 Players & Policies/Policy Composition.md`, `Fallback`). The last
+/// one must always answer.
+pub struct Compose {
+    pub chain: Vec<Box<dyn Policy>>,
+    answered: Vec<u64>,
+}
+
+impl std::fmt::Debug for Compose {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Compose")
+            .field("chain", &self.name())
+            .finish()
+    }
+}
+
+impl Compose {
+    pub fn new(chain: Vec<Box<dyn Policy>>) -> Self {
+        let n = chain.len();
+        Self {
+            chain,
+            answered: vec![0; n],
+        }
+    }
+}
+
+impl Policy for Compose {
+    fn name(&self) -> String {
+        self.chain
+            .iter()
+            .map(|p| p.name())
+            .collect::<Vec<_>>()
+            .join(" → ")
+    }
+
+    fn begin_game(&mut self, seat: PlayerId, seed: u64) {
+        for (i, p) in self.chain.iter_mut().enumerate() {
+            p.begin_game(seat, seed.wrapping_add(i as u64));
+        }
+        self.answered.iter_mut().for_each(|a| *a = 0);
+    }
+
+    fn try_decide(&mut self, view: &PlayerView<'_>, decision: &PendingDecision) -> Option<u32> {
+        for (i, p) in self.chain.iter_mut().enumerate() {
+            if let Some(c) = p.try_decide(view, decision) {
+                self.answered[i] += 1;
+                return Some(c);
+            }
+        }
+        None
+    }
+
+    fn decide(&mut self, view: &PlayerView<'_>, decision: &PendingDecision) -> u32 {
+        if let Some(c) = self.try_decide(view, decision) {
+            return c;
+        }
+        let last = self.chain.len().saturating_sub(1);
+        self.answered[last] += 1;
+        self.chain[last].decide(view, decision)
+    }
+
+    fn stats(&self) -> std::collections::BTreeMap<String, u64> {
+        let mut out = std::collections::BTreeMap::new();
+        for (p, n) in self.chain.iter().zip(&self.answered) {
+            *out.entry(format!("answered:{}", p.name())).or_default() += n;
+            for (k, v) in p.stats() {
+                *out.entry(k).or_default() += v;
+            }
+        }
+        out
+    }
 }
 
 /// Uniform over legal options, with a configurable bias toward passing

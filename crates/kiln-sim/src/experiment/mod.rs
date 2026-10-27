@@ -28,6 +28,8 @@ pub enum ExperimentError {
         cards: Vec<String>,
         gate: String,
     },
+    #[error("playbook: {0}")]
+    Playbook(String),
     #[error("run failed: {0}")]
     Run(String),
     #[error("determinism divergence: {0}")]
@@ -38,7 +40,7 @@ impl ExperimentError {
     /// 2 invalid input, 3 coverage gate, 4 run failed, 5 determinism divergence.
     pub fn exit_code(&self) -> u8 {
         match self {
-            Self::Spec(_) | Self::Deck { .. } => 2,
+            Self::Spec(_) | Self::Deck { .. } | Self::Playbook(_) => 2,
             Self::Coverage { .. } => 3,
             Self::Run(_) => 4,
             Self::Divergence(_) => 5,

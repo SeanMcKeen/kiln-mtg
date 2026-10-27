@@ -169,12 +169,7 @@ pub fn validate(mut spec: Spec) -> Result<ResolvedSpec, SpecError> {
         if key != "default" && !ids.contains(&key.as_str()) {
             errors.push(format!("`policies.{key}` isn't a deck id (or `default`)"));
         }
-        if let Some(m) = unavailable(policy) {
-            errors.push(format!(
-                "`policies.{key}`: kind `{}` arrives in {m}; use random, greedy or passive",
-                policy.kind()
-            ));
-        }
+        check_policy(&format!("policies.{key}"), policy, &mut errors);
     }
     for d in &spec.metrics.per_card.decks {
         if !ids.contains(&d.as_str()) {
@@ -228,14 +223,74 @@ pub fn load_spec(text: &str) -> Result<ResolvedSpec, SpecError> {
     validate(parse_spec(text)?)
 }
 
-/// The milestone that brings a policy kind, if it isn't available yet.
-fn unavailable(p: &PolicySpec) -> Option<&'static str> {
+/// Checks a policy recipe: available kinds, and chains that end with a
+/// policy that always answers.
+fn check_policy(at: &str, p: &PolicySpec, errors: &mut Vec<String>) {
     match p {
-        PolicySpec::Random { .. } | PolicySpec::Greedy | PolicySpec::Passive => None,
-        PolicySpec::Playbook { .. } => Some("M8"),
-        PolicySpec::Search { .. } => Some("M9"),
-        PolicySpec::Llm { .. } => Some("M10"),
+        PolicySpec::Random { .. } | PolicySpec::Greedy | PolicySpec::Passive => {}
+        PolicySpec::Playbook { playbook, fallback } => {
+            if playbook.is_empty() {
+                errors.push(format!("`{at}.playbook` is empty: give the script's path"));
+            }
+            if let Some(f) = fallback {
+                check_policy(&format!("{at}.fallback"), f, errors);
+            }
+        }
+        PolicySpec::Compose { chain } => {
+            if chain.is_empty() {
+                errors.push(format!("`{at}.chain` is empty"));
+            }
+            for (i, q) in chain.iter().enumerate() {
+                check_policy(&format!("{at}.chain[{i}]"), q, errors);
+            }
+            if let Some(last) = chain.last()
+                && !always_answers(last)
+            {
+                errors.push(format!(
+                    "`{at}.chain` must end with a policy that always answers (random, greedy, passive or a playbook), not `{}`",
+                    last.kind()
+                ));
+            }
+        }
+        PolicySpec::Search { .. } => errors.push(format!(
+            "`{at}`: kind `search` arrives in M9; use random, greedy, passive, playbook or compose"
+        )),
+        PolicySpec::Llm { .. } => errors.push(format!(
+            "`{at}`: kind `llm` arrives in M10; use random, greedy, passive, playbook or compose"
+        )),
     }
+}
+
+fn always_answers(p: &PolicySpec) -> bool {
+    match p {
+        PolicySpec::Random { .. }
+        | PolicySpec::Greedy
+        | PolicySpec::Passive
+        | PolicySpec::Playbook { .. } => true,
+        PolicySpec::Compose { chain } => chain.last().is_some_and(always_answers),
+        PolicySpec::Search { .. } | PolicySpec::Llm { .. } => false,
+    }
+}
+
+/// Every playbook path a spec's policies use, sorted.
+pub fn playbook_paths(spec: &Spec) -> Vec<String> {
+    fn walk(p: &PolicySpec, out: &mut Vec<String>) {
+        match p {
+            PolicySpec::Playbook { playbook, fallback } => {
+                out.push(playbook.clone());
+                if let Some(f) = fallback {
+                    walk(f, out);
+                }
+            }
+            PolicySpec::Compose { chain } => chain.iter().for_each(|q| walk(q, out)),
+            _ => {}
+        }
+    }
+    let mut out = Vec::new();
+    spec.policies.values().for_each(|p| walk(p, &mut out));
+    out.sort();
+    out.dedup();
+    out
 }
 
 /// SHA-256 of the spec's JSON (struct fields in declaration order, maps sorted).
@@ -320,6 +375,29 @@ policies:
                 .any(|e| e.contains("`policies.zz` isn't a deck id"))
         );
         assert!(errors.iter().any(|e| e.contains("arrives in M9")));
+    }
+
+    #[test]
+    fn compose_chains_must_end_with_an_answer() {
+        let text = POD.replace(
+            "a: { kind: greedy }",
+            "a: { kind: compose, chain: [{ kind: playbook, playbook: p.rhai }, { kind: search }] }",
+        );
+        let Err(SpecError::Invalid(errors)) = load_spec(&text) else {
+            panic!("expected errors")
+        };
+        assert!(
+            errors
+                .iter()
+                .any(|e| e.contains("must end with a policy that always answers")),
+            "{errors:?}"
+        );
+        let ok = POD.replace(
+            "a: { kind: greedy }",
+            "a: { kind: compose, chain: [{ kind: playbook, playbook: p.rhai }, { kind: random }] }",
+        );
+        let r = load_spec(&ok).unwrap_or_else(|e| panic!("{e}"));
+        assert_eq!(playbook_paths(&r.spec), vec!["p.rhai".to_owned()]);
     }
 
     #[test]
