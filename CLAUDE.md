@@ -1,7 +1,7 @@
 # CLAUDE.md: orientation for AI sessions
 
 ## Project
-This is a Rust MTG rules engine plus a simulation lab. The headline use case: an AI agent runs "deck X vs Y, Z, C in a cEDH pod" for thousands of games and gets statistics. Commander-first, with N players from day one. **Current phase: M5 (layers, copy effects, control, attachments, phasing) complete and in review; M6 next.** The engine executes card IR v1; the card library (ADR-0007 hybrid, accepted) supports 2,973 Commander-legal cards, 165 of them verified. Check `docs/09 Roadmap/Roadmap.md` for the active milestone.
+This is a Rust MTG rules engine plus a simulation lab. The headline use case: an AI agent runs "deck X vs Y, Z, C in a cEDH pod" for thousands of games and gets statistics. Commander-first, with N players from day one. **Current phase: M6 (Commander rules, multiplayer, the curated cEDH pool) complete and in review; M7 next.** The engine executes card IR v1; the card library (ADR-0007 hybrid, accepted) supports 3,074 Commander-legal cards, 278 of them verified. Four verified 100-card Commander test decks are in `tests/fixtures/decks/`. Check `docs/09 Roadmap/Roadmap.md` for the active milestone.
 
 ## Where things are
 - `crates/` is the Cargo workspace (layout in `docs/03 Architecture/Crate Layout.md`). The CLI binary is `mtg` (`crates/mtg-cli`).
@@ -32,7 +32,8 @@ cargo clippy --workspace --all-targets -- -D warnings && cargo fmt --all --check
 ./target/release/mtg dev cr-check      # every `CR x.y` citation in docs/ and crates/ must exist in the CR
 ./target/release/mtg data build --input docs/_external/oracle-cards.jsonl.gz --source-date 2026-10-20
 ./target/release/mtg deck check tests/fixtures/decks/kinnan.txt --json
-./target/release/mtg dev fuzz --games 10000 --invariants --views --replay-every 100   # engine fuzzing (--verified / --library for real cards)
+./target/release/mtg dev fuzz --games 10000 --invariants --views --replay-every 100   # engine fuzzing (--verified / --library for real cards; --commander, --concede N)
+./target/release/mtg dev fuzz --verified --decks tests/fixtures/decks/{kinnan-verified,thrasios-tymna,najeela,rograkh-silas}.txt --policy mixed   # real decks
 ./target/release/mtg data coverage                                                    # card library coverage and top gaps
 ./target/release/mtg dev verify-cards --list                                          # real-card verification (needs the card DB)
 cargo bench -p mtg-engine                                                             # clone / enumeration / game benchmarks
