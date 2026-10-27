@@ -1,0 +1,26 @@
+scenario: mtg-scenario/1
+name: "Chain of Vapor: the bounced permanent's controller may sacrifice a land to copy it, choosing a new target"
+cr: ["707.10", "707.10c", "608.2c"]
+verifies: [Chain of Vapor]
+players:
+  - battlefield: [Island, Sol Ring]
+    hand: [Chain of Vapor]
+  - battlefield: [Test Ogre, Forest]
+script:
+  - choose: Cast Chain of Vapor
+  - choose: Target Test Ogre (P2)
+  - choose: Pay with Island
+  - pass_all
+  # P2 sacrifices the Forest, copies it, and points the copy at Sol Ring.
+  - { player: P2, choose: "Yes" }
+  - { player: P2, choose: "Yes" }
+  - { player: P2, choose: New target Sol Ring (P1) }
+  - pass_all
+  # P1 declines to sacrifice a land.
+  - choose: "No"
+expect:
+  zones:
+    P1.hand: [Sol Ring]
+    P2.hand: [Test Ogre]
+    P2.graveyard: [Forest]
+    P1.battlefield: [Island]

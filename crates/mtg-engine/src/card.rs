@@ -84,7 +84,7 @@ pub const ANY_COLOR: ManaUnit = 0b1_1111;
 
 /// Keyword abilities the engine implements, as a bitset derived from the IR.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
-pub struct Keywords(u16);
+pub struct Keywords(u32);
 
 impl Keywords {
     /// CR 702.2
@@ -117,6 +117,14 @@ impl Keywords {
     pub const SHROUD: Keywords = Keywords(1 << 13);
     /// CR 702.12
     pub const INDESTRUCTIBLE: Keywords = Keywords(1 << 14);
+    /// CR 702.11d: hexproof from each color (WUBRG order).
+    pub const HEXPROOF_FROM: [Keywords; 5] = [
+        Keywords(1 << 15),
+        Keywords(1 << 16),
+        Keywords(1 << 17),
+        Keywords(1 << 18),
+        Keywords(1 << 19),
+    ];
 
     const NAMES: [(&'static str, Keywords); 15] = [
         ("deathtouch", Self::DEATHTOUCH),
@@ -177,6 +185,13 @@ impl Keywords {
             K::Hexproof => Self::HEXPROOF,
             K::Shroud => Self::SHROUD,
             K::Indestructible => Self::INDESTRUCTIBLE,
+            K::HexproofFrom(colors) => Color::ALL
+                .iter()
+                .enumerate()
+                .filter(|(_, c)| colors.contains(**c))
+                .fold(Keywords::default(), |k, (i, _)| {
+                    k.with(Self::HEXPROOF_FROM[i])
+                }),
             _ => return None,
         })
     }
@@ -756,6 +771,7 @@ fn storm() -> Ability {
             what: ir::ObjectSet::One(ir::ObjectRef::This),
             new_targets: true,
             count: Some(Quantity::Expr(ir::QuantityExpr::TriggeringAmount)),
+            controller: None,
         },
     })
 }

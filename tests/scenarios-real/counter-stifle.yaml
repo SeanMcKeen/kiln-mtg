@@ -1,0 +1,24 @@
+scenario: mtg-scenario/1
+name: "Stifle counters an activated ability on the stack"
+cr: ["701.6b", "115.1", "605.3b"]
+verifies: [Stifle]
+players:
+  - battlefield: [Island, Island, Forest, Forest]
+    commanders: [{ card: "Thrasios, Triton Hero", zone: battlefield }]
+    library: [Opt, Swamp]
+  - battlefield: [Island]
+    hand: [Stifle]
+script:
+  - choose: Activate Thrasios, Triton Hero ability 1
+  - choose: Pay with Island, Island, Forest, Forest
+  - pass: 1
+  - { player: P2, choose: Cast Stifle }
+  - { player: P2, choose: "Target Thrasios, Triton Hero ability 1" }
+  - { player: P2, choose: Pay with Island }
+  - pass_all
+  - pass_all
+expect:
+  zones:
+    P1.hand: []
+    P2.graveyard: [Stifle]
+  library_top: { P1: [Opt, Swamp] }

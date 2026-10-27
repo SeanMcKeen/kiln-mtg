@@ -316,6 +316,7 @@ impl GameBuilder {
             object_vars: Vec::new(),
             unasked_entering: 0,
             kicked: Vec::new(),
+            player_rules_eot: Vec::new(),
         };
         if self.pregame {
             game.turn.number = 0;

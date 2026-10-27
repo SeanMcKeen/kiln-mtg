@@ -269,6 +269,8 @@ pub struct Game {
     pub(crate) unasked_entering: u32,
     /// Spells on the stack whose kicker was paid (CR 702.33).
     pub(crate) kicked: Vec<ObjectId>,
+    /// Player rules until end of turn (Veil of Summer, Angel's Grace).
+    pub(crate) player_rules_eot: Vec<(PlayerId, mtg_cards::ir::PlayerRuleKind)>,
 }
 
 impl Game {
@@ -356,6 +358,7 @@ impl Game {
             object_vars: Vec::new(),
             unasked_entering: 0,
             kicked: Vec::new(),
+            player_rules_eot: Vec::new(),
         };
         // CR 903.6: each commander starts the game in the command zone.
         for (seat, defs) in setup.commanders.iter().enumerate() {
@@ -645,6 +648,9 @@ impl Game {
         }
         if !self.kicked.is_empty() {
             self.kicked.hash(&mut h);
+        }
+        if !self.player_rules_eot.is_empty() {
+            self.player_rules_eot.hash(&mut h);
         }
         h.finish()
     }
@@ -2056,10 +2062,19 @@ impl Game {
                 self.tasks.push(Task::FinishSpell {
                     object: item.object,
                 });
-                def.abilities
-                    .iter()
-                    .position(|a| matches!(a, ir::Ability::Spell(_)))
-                    .and_then(|i| u8::try_from(i).ok())
+                // Overloaded (CR 702.96): its alternative cost's text instead.
+                match item.cost {
+                    crate::decision::CastCost::Alternative(i)
+                        if crate::effects::alt_effect(def, i).is_some() =>
+                    {
+                        Some(crate::effects::ALT_EFFECT_BASE + i)
+                    }
+                    _ => def
+                        .abilities
+                        .iter()
+                        .position(|a| matches!(a, ir::Ability::Spell(_)))
+                        .and_then(|i| u8::try_from(i).ok()),
+                }
             }
         };
         if let Some(ability) = ability {
@@ -2142,6 +2157,7 @@ impl Game {
         }
         let kw = self.keywords(source);
         match target {
+            Target::StackAbility { .. } => {}
             Target::Player(p) => {
                 if !self.in_game(p) {
                     return;

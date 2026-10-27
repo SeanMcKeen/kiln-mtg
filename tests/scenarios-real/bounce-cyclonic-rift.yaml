@@ -1,0 +1,22 @@
+scenario: mtg-scenario/1
+name: "Cyclonic Rift overloaded: no targets, every nonland permanent you don't control returns"
+cr: ["702.96a", "702.96b", "118.9"]
+verifies: [Cyclonic Rift]
+players:
+  - battlefield: [Island, Island, Island, Island, Island, Island, Island, Sol Ring]
+    hand: [Cyclonic Rift]
+  - battlefield: [Test Ogre, Mana Vault, Forest]
+script:
+  - choose: Cast Cyclonic Rift
+  - check:
+      decision: { player: P1, kind: choose_cost, options: [Pay the mana cost, Pay alternative cost 1] }
+  - choose: Pay alternative cost 1
+  - check:
+      decision: { player: P1, kind: pay_mana }
+  - choose: Pay with Island, Island, Island, Island, Island, Island, Island
+  - pass_all
+expect:
+  zones:
+    P2.hand: [Test Ogre, Mana Vault]
+    P2.battlefield: [Forest]
+    P1.battlefield: [Island, Island, Island, Island, Island, Island, Island, Sol Ring]

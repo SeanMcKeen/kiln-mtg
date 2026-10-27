@@ -93,6 +93,15 @@ pub struct ViewSnapshot {
     pub command: Vec<VisibleObject>,
 }
 
+/// "Target Rhystic Study ability 1", with "[k]" telling identical ones apart.
+fn stack_ability_label(verb: &str, source: &str, ability: u8, nth: u8) -> String {
+    let mut s = format!("{verb} {source} ability {}", ability + 1);
+    if nth > 0 {
+        s.push_str(&format!(" [{}]", nth + 1));
+    }
+    s
+}
+
 /// Mana as symbols, e.g. `{C}{C}`.
 fn bag_text(bag: &ManaBag) -> String {
     let mut s = String::new();
@@ -202,6 +211,11 @@ impl Game {
                 None => "No more targets".into(),
                 Some(Target::Player(p)) => format!("Target {p}"),
                 Some(Target::Object(id)) => format!("Target {}", who(id)),
+                Some(Target::StackAbility {
+                    source,
+                    ability,
+                    nth,
+                }) => stack_ability_label("Target", &name(source), ability, nth),
             },
             DecisionKind::PayMana { plans, .. } => match plans.get(i) {
                 None => "Pay manually".into(),
@@ -332,10 +346,20 @@ impl Game {
                 0 => match current {
                     Target::Player(p) => format!("Keep target {p}"),
                     Target::Object(id) => format!("Keep target {}", who(*id)),
+                    Target::StackAbility {
+                        source,
+                        ability,
+                        nth,
+                    } => stack_ability_label("Keep target", &name(*source), *ability, *nth),
                 },
                 _ => match options[i - 1] {
                     Target::Player(p) => format!("New target {p}"),
                     Target::Object(id) => format!("New target {}", who(id)),
+                    Target::StackAbility {
+                        source,
+                        ability,
+                        nth,
+                    } => stack_ability_label("New target", &name(source), ability, nth),
                 },
             },
             DecisionKind::ChooseReplacement { options } => {

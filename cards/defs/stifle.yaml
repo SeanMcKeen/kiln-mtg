@@ -1,0 +1,6 @@
+card: "Stifle"
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: ability }]
+          effect: { counter: { one: { target: 0 } } }

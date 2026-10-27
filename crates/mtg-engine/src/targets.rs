@@ -150,6 +150,7 @@ impl Game {
                         p.in_game()
                             && self.player_rel(rel, you, p.id)
                             && !self.player_protected(p.id)
+                            && !self.player_hexproof_against(p.id, you, src)
                     })
                     .map(|p| Target::Player(p.id)),
             );
@@ -195,8 +196,72 @@ impl Game {
                     .filter(|id| Some(*id) != this && self.is_spell_matching(*id, f, you))
                     .map(Target::Object),
             ),
+            TargetKind::Ability => out.extend(self.stack_ability_targets(this)),
+            TargetKind::SpellOrAbility(f) => {
+                out.extend(
+                    self.stack
+                        .iter()
+                        .rev()
+                        .filter(|s| s.is_spell())
+                        .map(|s| s.object)
+                        .filter(|id| Some(*id) != this && self.is_spell_matching(*id, f, you))
+                        .map(Target::Object),
+                );
+                out.extend(self.stack_ability_targets(this));
+            }
         }
         out
+    }
+
+    /// Abilities on the stack as targets, top first (CR 115.1; an ability
+    /// being put on the stack can't target itself, CR 115.5).
+    fn stack_ability_targets(&self, this: Option<ObjectId>) -> Vec<Target> {
+        let mut out = Vec::new();
+        let mut seen: Vec<(ObjectId, u8)> = Vec::new();
+        for s in &self.stack {
+            let Some(ability) = s.ability else { continue };
+            let nth = seen.iter().filter(|x| **x == (s.object, ability)).count();
+            seen.push((s.object, ability));
+            out.push(Target::StackAbility {
+                source: s.object,
+                ability,
+                nth: u8::try_from(nth).unwrap_or(u8::MAX),
+            });
+        }
+        // The ability being activated is the topmost item; it isn't a candidate.
+        if this.is_some()
+            && self
+                .stack
+                .last()
+                .is_some_and(|s| !s.is_spell() && Some(s.object) == this)
+        {
+            out.pop();
+        }
+        out.reverse();
+        out
+    }
+
+    /// The stack position of a spell (by object) or an ability target.
+    pub(crate) fn stack_position(&self, t: Target) -> Option<usize> {
+        match t {
+            Target::Object(id) => self
+                .stack
+                .iter()
+                .rposition(|s| s.object == id && s.is_spell())
+                .or_else(|| self.stack.iter().rposition(|s| s.object == id)),
+            Target::StackAbility {
+                source,
+                ability,
+                nth,
+            } => self
+                .stack
+                .iter()
+                .enumerate()
+                .filter(|(_, s)| s.object == source && s.ability == Some(ability))
+                .nth(usize::from(nth))
+                .map(|(i, _)| i),
+            Target::Player(_) => None,
+        }
     }
 
     /// CR 702.18a (shroud), 702.11b (hexproof), 702.16b (protection): whether
@@ -210,7 +275,18 @@ impl Game {
         if src.is_some_and(|s| self.protected_from(id, s, you)) {
             return false;
         }
-        !(kw.has(Keywords::HEXPROOF) && self.obj(id).is_some_and(|o| o.controller != you))
+        let opponent = self.obj(id).is_some_and(|o| o.controller != you);
+        // CR 702.11d: hexproof from a quality the opponent's source has.
+        if opponent
+            && let Some(s) = src
+            && Color::ALL
+                .iter()
+                .enumerate()
+                .any(|(i, c)| kw.has(Keywords::HEXPROOF_FROM[i]) && s.colors.contains(*c))
+        {
+            return false;
+        }
+        !(kw.has(Keywords::HEXPROOF) && opponent)
     }
 
     /// CR 702.16a: whether permanent `id` has protection from a source with
@@ -248,9 +324,16 @@ impl Game {
         src: Option<&CardDef>,
     ) -> bool {
         match (kind, t) {
-            (TargetKind::Any, Target::Player(p)) => self.in_game(p) && !self.player_protected(p),
+            (TargetKind::Any, Target::Player(p)) => {
+                self.in_game(p)
+                    && !self.player_protected(p)
+                    && !self.player_hexproof_against(p, you, src)
+            }
             (TargetKind::Player(rel), Target::Player(p)) => {
-                self.in_game(p) && self.player_rel(*rel, you, p) && !self.player_protected(p)
+                self.in_game(p)
+                    && self.player_rel(*rel, you, p)
+                    && !self.player_protected(p)
+                    && !self.player_hexproof_against(p, you, src)
             }
             (TargetKind::Any, Target::Object(id)) => {
                 self.on_battlefield(id)
@@ -269,7 +352,13 @@ impl Game {
                     && self.matches_filter(id, f, you, None)
                     && self.targetable_by(id, you, src)
             }
-            (TargetKind::Spell(f), Target::Object(id)) => self.is_spell_matching(id, f, you),
+            (TargetKind::Spell(f) | TargetKind::SpellOrAbility(f), Target::Object(id)) => {
+                self.is_spell_matching(id, f, you)
+            }
+            (
+                TargetKind::Ability | TargetKind::SpellOrAbility(_),
+                t @ Target::StackAbility { .. },
+            ) => self.stack_position(t).is_some(),
             _ => false,
         }
     }
@@ -284,6 +373,18 @@ impl Game {
     /// be targeted.
     fn player_protected(&self, p: PlayerId) -> bool {
         self.has_player_rule(p, mtg_cards::ir::PlayerRuleKind::ProtectionFromEverything)
+    }
+
+    /// CR 702.11d: player `p` has hexproof from a color of an opponent's source.
+    fn player_hexproof_against(&self, p: PlayerId, you: PlayerId, src: Option<&CardDef>) -> bool {
+        p != you
+            && src.is_some_and(|s| {
+                self.player_rules_eot.iter().any(|(q, r)| {
+                    *q == p
+                        && matches!(r, mtg_cards::ir::PlayerRuleKind::HexproofFrom(cs)
+                            if Color::ALL.iter().any(|c| cs.contains(*c) && s.colors.contains(*c)))
+                })
+            })
     }
 
     /// CR 115.4: permanents "any target" can choose.

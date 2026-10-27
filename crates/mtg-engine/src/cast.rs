@@ -412,8 +412,11 @@ impl Game {
             .collect()
     }
 
-    /// Cost choices `p` can complete for this spell (CR 601.2b, 118.9).
+    /// Cost choices `p` can complete for this spell (CR 601.2b, 118.9). With
+    /// no legal targets, only an overload cost remains (it has no targets,
+    /// CR 702.96b).
     fn cost_options(&self, def: &CardDef, ctx: &EffectCtx, p: PlayerId) -> Vec<CastCost> {
+        let targets_ok = self.spell_targets_ok(def, p);
         let alts = def.spell().map_or(0, |s| s.alternative_costs.len());
         let candidates = std::iter::once(CastCost::Normal).chain(
             (0..alts)
@@ -430,6 +433,11 @@ impl Game {
                 if cond.is_some_and(|cond| !self.condition(ctx, cond)) {
                     continue;
                 }
+            }
+            let overload = matches!(c, CastCost::Alternative(i)
+                if crate::effects::alt_effect(def, i).is_some());
+            if !targets_ok && !overload {
+                continue;
             }
             if let Some(shape) = self.spell_shape(def, None, c, ctx.source)
                 && self.shape_payable(p, ctx, &shape, 0, &[], None)
@@ -455,14 +463,11 @@ impl Game {
         if !(def.is(CardType::Instant) || def.keywords.has(Keywords::FLASH)) && !sorcery_timing {
             return false;
         }
-        if let Some(spell) = def.spell() {
-            if let Effect::Modal { min, .. } = &spell.effect {
-                if self.ok_modes(def, spell, p, None).len() < *min as usize {
-                    return false;
-                }
-            } else if !spell.targets.iter().all(|t| self.slot_ok(t, p, None, def)) {
-                return false;
-            }
+        if let Some(spell) = def.spell()
+            && let Effect::Modal { min, .. } = &spell.effect
+            && self.ok_modes(def, spell, p, None).len() < *min as usize
+        {
+            return false;
         }
         if let Some(spec) = &def.enchant
             && !self.slot_ok(spec, p, None, def)
@@ -471,6 +476,14 @@ impl Game {
         }
         let ctx = cast_ctx(def_id, def, None, id, p);
         !self.cost_options(def, &ctx, p).is_empty()
+    }
+
+    /// Whether every target slot of a non-modal spell has a legal target.
+    fn spell_targets_ok(&self, def: &CardDef, p: PlayerId) -> bool {
+        def.spell().is_none_or(|spell| {
+            matches!(spell.effect, Effect::Modal { .. })
+                || spell.targets.iter().all(|t| self.slot_ok(t, p, None, def))
+        })
     }
 
     /// Whether `p` may activate non-mana ability `ability` of permanent
@@ -819,6 +832,13 @@ impl Game {
                 );
             }
             CastStage::Targets => {
+                // CR 702.96b: an overloaded spell has no targets.
+                if let CastCost::Alternative(i) = item.cost
+                    && item.is_spell()
+                    && crate::effects::alt_effect(def, i).is_some()
+                {
+                    return self.advance(t, CastStage::Pay);
+                }
                 let slot = usize::from(t.index);
                 let Some(spec) = targets_of(def, item.ability).get(slot) else {
                     return self.advance(t, CastStage::Pay);

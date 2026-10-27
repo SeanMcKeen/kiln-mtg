@@ -78,6 +78,7 @@ impl Game {
                     TargetKind::Player(rel) if self.player_rel(*rel, controller, p)))
                     && self.in_game(p)
             }
+            Target::StackAbility { .. } => false,
             Target::Object(h) => {
                 let Some(o) = self.obj(h) else { return false };
                 // CR 702.16c: not by an Aura with a quality it has protection from.
@@ -246,10 +247,14 @@ impl Game {
     }
 
     pub(crate) fn has_player_rule(&self, p: PlayerId, rule: mtg_cards::ir::PlayerRuleKind) -> bool {
-        !self.player_rules.is_empty()
+        (!self.player_rules.is_empty()
             && self
                 .player_rules
                 .iter()
-                .any(|(q, r, _)| *q == p && *r == rule)
+                .any(|(q, r, _)| *q == p && *r == rule))
+            || self
+                .player_rules_eot
+                .iter()
+                .any(|(q, r)| *q == p && *r == rule)
     }
 }

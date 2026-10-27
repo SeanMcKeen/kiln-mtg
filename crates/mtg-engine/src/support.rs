@@ -66,6 +66,8 @@ pub(crate) fn check(def: &CardDef) -> Check {
             ) => {}
             // CR 702.33: an optional additional cost.
             Ability::Keyword(mtg_cards::ir::Keyword::Kicker(c)) => cast_cost(c)?,
+            // CR 702.11d: checked while choosing targets.
+            Ability::Keyword(mtg_cards::ir::Keyword::HexproofFrom(_)) => {}
             // CR 702.5, 702.6: attachment (equip is added as an activated ability).
             Ability::Keyword(
                 mtg_cards::ir::Keyword::Enchant(_) | mtg_cards::ir::Keyword::Equip(_),
@@ -339,12 +341,21 @@ fn effect(e: &Effect) -> Check {
             }
             Ok(())
         }
-        Effect::CopySpell { what, count, .. } => {
+        Effect::CopySpell {
+            what,
+            count,
+            controller,
+            ..
+        } => {
             if let Some(q) = count {
                 quantity(q)?;
             }
+            if let Some(p) = controller {
+                player(p)?;
+            }
             set(what)
         }
+        Effect::ChangeTargets(r) => object(r),
         Effect::GainControl { what, .. } => set(what),
         Effect::ExchangeControl { a, b, otherwise } => {
             object(a)?;
@@ -357,6 +368,7 @@ fn effect(e: &Effect) -> Check {
         Effect::ReturnAttached => Ok(()),
         Effect::GainKeyword { what, keyword } => match Keywords::of_ir(keyword) {
             Some(bit) if IMPLEMENTED_KEYWORDS.contains(&bit) => set(what),
+            Some(_) if matches!(keyword, mtg_cards::ir::Keyword::HexproofFrom(_)) => set(what),
             _ => Err(format!("granting {}", keyword_gap(keyword))),
         },
         Effect::Cast {
@@ -474,6 +486,7 @@ fn layer_static(e: &StaticEffect) -> Check {
         }
         StaticEffect::Grant { keyword, .. } => match Keywords::of_ir(keyword) {
             Some(bit) if IMPLEMENTED_KEYWORDS.contains(&bit) => Ok(()),
+            Some(_) if matches!(keyword, mtg_cards::ir::Keyword::HexproofFrom(_)) => Ok(()),
             _ => Err(format!("granting {}", keyword_gap(keyword))),
         },
         StaticEffect::LandType { .. }

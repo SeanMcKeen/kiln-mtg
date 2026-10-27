@@ -1,0 +1,23 @@
+scenario: mtg-scenario/1
+name: "Deflecting Swat: free with a commander; its controller chooses new targets for target spell"
+cr: ["115.7d", "903.3d", "118.9"]
+verifies: [Deflecting Swat]
+players:
+  - battlefield: [Mountain]
+    hand: [Lightning Bolt]
+  - hand: [Deflecting Swat]
+    commanders: [{ card: "Kraum, Ludevic's Opus", zone: battlefield }]
+script:
+  - choose: Cast Lightning Bolt
+  - choose: Target P2
+  - choose: Pay with Mountain
+  - pass: 1
+  - { player: P2, choose: Cast Deflecting Swat }
+  - { player: P2, choose: Target Lightning Bolt }
+  - pass_all
+  - check:
+      decision: { player: P2, kind: change_target, options_include: [Keep target P2, New target P1] }
+  - { player: P2, choose: New target P1 }
+  - pass_all
+expect:
+  life: { P1: 17, P2: 20 }

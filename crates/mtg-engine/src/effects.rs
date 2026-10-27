@@ -184,8 +184,13 @@ pub(crate) enum Frame {
     Pick(Pick),
     /// `left` more cards for `who` to draw.
     Draws { who: PlayerId, left: u32 },
-    /// Offer to change target `index` of copied spell `spell` (CR 707.10c).
-    ChangeTargets { spell: ObjectId, index: u8 },
+    /// Offer `chooser` to change target `index` of a spell or ability on the
+    /// stack (CR 707.10c copies, 115.7d Deflecting Swat).
+    ChangeTargets {
+        item: Target,
+        index: u8,
+        chooser: PlayerId,
+    },
     /// Choose which mana to add (`options` has at least two outcomes).
     Mana {
         who: PlayerId,
@@ -272,7 +277,23 @@ pub(crate) enum Flow {
 }
 
 /// The root effect of an ability.
+/// Ability indices from here up name a spell's alternative-cost effect
+/// (overload, CR 702.96): `ALT_EFFECT_BASE + i` is alternative cost `i`.
+pub(crate) const ALT_EFFECT_BASE: u8 = 200;
+
+/// The effect alternative cost `i` of a spell replaces its text with, if any.
+pub(crate) fn alt_effect(def: &crate::card::CardDef, i: u8) -> Option<&Effect> {
+    def.spell()?
+        .alternative_costs
+        .get(usize::from(i))?
+        .effect
+        .as_ref()
+}
+
 pub(crate) fn root(pool: &CardPool, a: AbilityRef) -> Option<&Effect> {
+    if a.ability >= ALT_EFFECT_BASE {
+        return alt_effect(pool.get(a.def), a.ability - ALT_EFFECT_BASE);
+    }
     match pool.get(a.def).abilities.get(a.ability as usize)? {
         Ability::Spell(s) => Some(&s.effect),
         Ability::Activated(x) => Some(&x.effect),
@@ -509,10 +530,13 @@ impl Game {
                 self.mana_added(&ctx, who, &options[option]);
             }
             // CR 707.10c: option 0 keeps the target.
-            (Frame::ChangeTargets { spell, index }, DecisionKind::ChangeTarget { options, .. }) => {
+            (
+                Frame::ChangeTargets { item, index, .. },
+                DecisionKind::ChangeTarget { options, .. },
+            ) => {
                 if option > 0
-                    && let Some(item) = self.stack.iter_mut().rev().find(|s| s.object == spell)
-                    && let Some(t) = item.targets.get_mut(usize::from(index))
+                    && let Some(pos) = self.stack_position(item)
+                    && let Some(t) = self.stack[pos].targets.get_mut(usize::from(index))
                 {
                     *t = options[option - 1];
                 }
@@ -553,7 +577,11 @@ impl Game {
     fn exec_frame(&mut self, t: &mut EffectTask, frame: Frame) -> Flow {
         match frame {
             Frame::Draws { who, left } => self.draws(t, who, left),
-            Frame::ChangeTargets { spell, index } => self.change_targets_step(t, spell, index),
+            Frame::ChangeTargets {
+                item,
+                index,
+                chooser,
+            } => self.change_targets_step(t, item, index, chooser),
             Frame::Run(path) => {
                 let pool = Arc::clone(&self.pool);
                 match node(&pool, t.ctx.ability, &path) {
@@ -864,6 +892,28 @@ impl Game {
                     self.counter_ability(source, ability);
                     return Flow::Continue;
                 }
+                // Targeted abilities on the stack (Stifle, CR 701.6b).
+                if let ObjectSet::One(ObjectRef::Target(n)) = set {
+                    let abilities: Vec<Target> = t
+                        .ctx
+                        .targets
+                        .get(usize::from(*n))
+                        .map(|slot| {
+                            slot.iter()
+                                .copied()
+                                .filter(|x| matches!(x, Target::StackAbility { .. }))
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    for a in abilities {
+                        if let Some(pos) = self.stack_position(a) {
+                            let item = self.stack.remove(pos);
+                            self.log(Event::Countered {
+                                object: item.object,
+                            });
+                        }
+                    }
+                }
                 for id in self.set_now(&t.ctx, set) {
                     self.counter(&mut t.ctx, id);
                 }
@@ -1107,11 +1157,19 @@ impl Game {
                     self.phase_out(id);
                 }
             }
-            Effect::PlayerRule { who, rule } => {
-                // "Until your next turn": ends as the controller's next turn begins.
+            Effect::PlayerRule {
+                who,
+                rule,
+                until_end_of_turn,
+            } => {
                 if let Some(p) = self.player_ref(&t.ctx, who) {
-                    let until = t.ctx.controller;
-                    self.player_rules.push((p, *rule, until));
+                    if *until_end_of_turn {
+                        self.player_rules_eot.push((p, *rule));
+                    } else {
+                        // "Until your next turn": ends as the controller's next turn begins.
+                        let until = t.ctx.controller;
+                        self.player_rules.push((p, *rule, until));
+                    }
                 }
             }
             Effect::Attach { to } => {
@@ -1197,19 +1255,51 @@ impl Game {
                 what,
                 new_targets,
                 count,
+                controller,
             } => {
                 let n = count.as_ref().map_or(1, |q| self.amount(&t.ctx, q));
+                let owner = match controller {
+                    Some(r) => match self.player_ref(&t.ctx, r) {
+                        Some(p) => p,
+                        None => return Flow::Continue,
+                    },
+                    None => t.ctx.controller,
+                };
                 for id in self.set_now(&t.ctx, what) {
                     for _ in 0..n {
-                        if let Some(copy) = self.copy_spell(id, t.ctx.controller)
+                        if let Some(copy) = self.copy_spell(id, owner)
                             && *new_targets
                         {
+                            // CR 707.10c: the copy's controller may choose new targets.
                             t.frames.push(Frame::ChangeTargets {
-                                spell: copy,
+                                item: Target::Object(copy),
                                 index: 0,
+                                chooser: owner,
                             });
                         }
                     }
+                }
+            }
+            Effect::ChangeTargets(r) => {
+                let items: Vec<Target> = match r {
+                    ObjectRef::Target(n) => t
+                        .ctx
+                        .targets
+                        .get(usize::from(*n))
+                        .map(|slot| slot.to_vec())
+                        .unwrap_or_default(),
+                    other => self
+                        .object_refs(&t.ctx, other)
+                        .into_iter()
+                        .map(Target::Object)
+                        .collect(),
+                };
+                for item in items.into_iter().rev() {
+                    t.frames.push(Frame::ChangeTargets {
+                        item,
+                        index: 0,
+                        chooser: t.ctx.controller,
+                    });
                 }
             }
             Effect::CopyCard { what, remember } => {
@@ -1334,7 +1424,7 @@ impl Game {
                     slot.iter()
                         .filter_map(|t| match t {
                             Target::Object(id) => Some(*id),
-                            Target::Player(_) => None,
+                            Target::Player(_) | Target::StackAbility { .. } => None,
                         })
                         .collect()
                 })
@@ -1367,7 +1457,7 @@ impl Game {
             PlayerRef::Target(n) => ctx.targets.get(usize::from(*n)).and_then(|slot| {
                 slot.iter().find_map(|t| match t {
                     Target::Player(p) => Some(*p),
-                    Target::Object(_) => None,
+                    Target::Object(_) | Target::StackAbility { .. } => None,
                 })
             }),
             PlayerRef::ControllerOf(o) => self
@@ -1563,7 +1653,7 @@ impl Game {
                 .and_then(|slot| slot.first())
                 .is_some_and(|t| match t {
                     Target::Object(id) => self.matches_card(ctx, *id, filter),
-                    Target::Player(_) => false,
+                    Target::Player(_) | Target::StackAbility { .. } => false,
                 }),
             Condition::UnusedThisTurn => !self
                 .activated_this_turn
@@ -2059,6 +2149,10 @@ impl Game {
         if o.zone != ZoneId::Stack
             || self.def(o.def).cant_be_countered()
             || self.uncounterable.contains(&id)
+            || self.has_player_rule(
+                o.controller,
+                mtg_cards::ir::PlayerRuleKind::SpellsCantBeCountered,
+            )
         {
             return;
         }
@@ -2317,43 +2411,62 @@ impl Game {
 
     /// CR 707.10c: for each target of a copied spell, keep it or choose a
     /// new legal one.
-    fn change_targets_step(&mut self, t: &mut EffectTask, spell: ObjectId, index: u8) -> Flow {
-        let Some(item) = self.stack.iter().rev().find(|s| s.object == spell).cloned() else {
+    fn change_targets_step(
+        &mut self,
+        t: &mut EffectTask,
+        target: Target,
+        index: u8,
+        chooser: PlayerId,
+    ) -> Flow {
+        let Some(item) = self
+            .stack_position(target)
+            .map(|pos| self.stack[pos].clone())
+        else {
             return Flow::Continue;
         };
         let Some(&current) = item.targets.get(usize::from(index)) else {
             return Flow::Continue;
         };
         let def = self.def(item.source_def);
-        let spec = def
-            .spell()
-            .and_then(|s| s.targets.get(usize::from(item.slots[usize::from(index)])))
-            .map(|s| s.what.clone());
+        let slot = usize::from(item.slots[usize::from(index)]);
+        // Its target requirements, from its controller's point of view.
+        let spec = match item.ability.map(|i| def.abilities.get(usize::from(i))) {
+            None => def.spell().and_then(|s| s.targets.get(slot)),
+            Some(Some(Ability::Activated(x))) => x.targets.get(slot),
+            Some(Some(Ability::Triggered(tr))) => tr.targets.get(slot),
+            Some(_) => None,
+        }
+        .map(|s| s.what.clone());
         let options: Vec<Target> = spec
             .map(|what| {
-                self.legal_targets(&what, item.controller, Some(spell), Some(def))
+                self.legal_targets(&what, item.controller, Some(item.object), Some(def))
                     .into_iter()
-                    .filter(|x| *x != current)
+                    .filter(|x| *x != current && *x != target)
                     .collect()
             })
             .unwrap_or_default();
         t.frames.push(Frame::ChangeTargets {
-            spell,
+            item: target,
             index: index + 1,
+            chooser,
         });
         if options.is_empty() {
             return Flow::Continue;
         }
-        t.frames.push(Frame::ChangeTargets { spell, index });
+        t.frames.push(Frame::ChangeTargets {
+            item: target,
+            index,
+            chooser,
+        });
         Flow::Decide(
-            item.controller,
+            chooser,
             DecisionKind::ChangeTarget {
-                spell,
+                spell: item.object,
                 index,
                 current,
                 options,
             },
-            "707.10c",
+            "115.7d",
         )
     }
 

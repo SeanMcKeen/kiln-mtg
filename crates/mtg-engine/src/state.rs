@@ -245,6 +245,13 @@ impl Player {
 pub enum Target {
     Object(ObjectId),
     Player(PlayerId),
+    /// An activated or triggered ability on the stack: its source, ability
+    /// index, and which of the identical ones it is, counting from the bottom.
+    StackAbility {
+        source: ObjectId,
+        ability: u8,
+        nth: u8,
+    },
 }
 
 /// A spell or activated ability on the stack (CR 112, 113.7, 405), with the

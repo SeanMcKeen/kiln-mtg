@@ -132,6 +132,7 @@ fn keyword(k: &Keyword) -> String {
         Keyword::Storm => "storm".into(),
         Keyword::SplitSecond => "split second".into(),
         Keyword::Kicker(c) => format!("kicker {}", costs(c)),
+        Keyword::HexproofFrom(c) => format!("hexproof from {c}"),
         Keyword::Partner => "partner".into(),
         Keyword::PartnerWith(n) => format!("partner with {n}"),
         Keyword::Protection(f) => format!(
@@ -254,6 +255,8 @@ fn target_phrase(targets: &[TargetSpec], i: u8) -> String {
             format!("another target {}", filter_phrase(&g, false))
         }
         TargetKind::Object(f) => format!("target {}", filter_phrase(f, false)),
+        TargetKind::Ability => "target activated or triggered ability".to_owned(),
+        TargetKind::SpellOrAbility(_) => "target spell or ability".to_owned(),
         TargetKind::Spell(f) => {
             let adj = filter_phrase(f, false);
             let adj = adj

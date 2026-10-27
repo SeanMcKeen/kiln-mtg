@@ -1036,6 +1036,7 @@ impl Game {
     /// CR 514.2: "until end of turn" effects end in the cleanup step.
     pub(crate) fn end_turn_effects(&mut self) {
         self.end_effects(|e| e.duration == Duration::EndOfTurn);
+        self.player_rules_eot.clear();
     }
 
     /// Ends the effects `ending` selects (and effects whose objects are

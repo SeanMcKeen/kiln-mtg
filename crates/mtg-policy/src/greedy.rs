@@ -183,6 +183,18 @@ impl GreedyPolicy {
                 (true, false) => 20 + view.player(p).life,
                 (false, true) => 100,
             },
+            // An ability on the stack: hurt opponents' abilities, help one's own.
+            Some(Target::StackAbility { source, .. }) => {
+                let controller = view
+                    .stack()
+                    .iter()
+                    .find(|s| s.object == source)
+                    .map_or(me, |s| s.controller);
+                match (bad, mine(controller)) {
+                    (true, true) | (false, false) => -100,
+                    (true, false) | (false, true) => 40,
+                }
+            }
             Some(Target::Object(id)) => {
                 let controller = view
                     .object(id)

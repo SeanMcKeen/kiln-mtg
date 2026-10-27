@@ -106,6 +106,8 @@ pub enum Keyword {
     SplitSecond,
     /// CR 702.33: an optional additional cost.
     Kicker(Vec<CostPart>),
+    /// CR 702.11d: "hexproof from [colors]".
+    HexproofFrom(mtg_core::Colors),
     /// CR 702.124h
     Partner,
     /// CR 702.124j
@@ -141,6 +143,10 @@ pub struct AltCost {
     pub cost: Vec<CostPart>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub condition: Option<Condition>,
+    /// Overload (CR 702.96): cast this way, the spell has no targets and
+    /// this effect replaces its text ("target" becomes "each").
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effect: Option<Effect>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -439,6 +445,10 @@ pub enum PlayerRuleKind {
     CantLose,
     /// "Your opponents can't win the game" (CR 104.2a still applies).
     OpponentsCantWin,
+    /// "Spells you control can't be countered" (Veil of Summer).
+    SpellsCantBeCountered,
+    /// "You have hexproof from [colors]" (CR 702.11d).
+    HexproofFrom(mtg_core::Colors),
 }
 
 /// A base power or toughness set by a static ability (CR 613.4b).
@@ -657,6 +667,9 @@ pub enum Effect {
     PlayerRule {
         who: PlayerRef,
         rule: PlayerRuleKind,
+        /// "this turn" / "until end of turn" instead of "until your next turn".
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        until_end_of_turn: bool,
     },
     /// "Exchange control of [a] and [b]" (CR 701.12a-b); `otherwise` runs if
     /// no exchange happens ("If you don't or can't make an exchange, ...").
@@ -706,7 +719,13 @@ pub enum Effect {
         /// How many copies (storm); one if omitted.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         count: Option<Quantity>,
+        /// Who controls the copies, if not the effect's controller (Chain of Vapor).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        controller: Option<PlayerRef>,
     },
+    /// "You may choose new targets for [spell or ability]" (CR 115.7d;
+    /// Deflecting Swat): each target may be kept or changed to a legal one.
+    ChangeTargets(ObjectRef),
     /// "Copy [object]": a copy of a card, created in the zone the card is in
     /// (CR 707.12), named `remember` for the rest of the effect.
     CopyCard {
@@ -963,6 +982,11 @@ pub enum TargetKind {
     /// A spell on the stack matching the filter.
     Spell(ObjectFilter),
     Player(PlayerRel),
+    /// An activated or triggered ability on the stack (Stifle; mana
+    /// abilities never are, CR 605.3b).
+    Ability,
+    /// A spell matching the filter, or an ability on the stack (Deflecting Swat).
+    SpellOrAbility(ObjectFilter),
 }
 
 /// Object characteristics a filter can test. All present fields must match.
