@@ -1029,6 +1029,7 @@ fn trigger_phrase(s: &str) -> Option<Trigger> {
             Trigger::Draws {
                 by,
                 except_first_in_draw_step: false,
+                second_each_turn: false,
             }
         } else if c.lit("discards a card") || c.lit("discard a card") {
             Trigger::Discards { by }

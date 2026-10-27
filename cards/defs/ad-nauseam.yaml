@@ -1,0 +1,10 @@
+card: "Ad Nauseam"
+faces:
+  - abilities:
+      - spell:
+          effect:
+            repeat:
+              seq:
+                - reveal: { top_of_library: { owner: you, count: 1 } }
+                - lose_life: { who: you, amount: { top_of_library_mana_value: you } }
+                - move: { what: { top_of_library: { owner: you, count: 1 } }, to: hand }

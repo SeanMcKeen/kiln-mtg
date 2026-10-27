@@ -24,7 +24,10 @@ impl Game {
                 ));
             };
             if let Some((_, prev)) = slot {
-                return Err(format!("invariant 1: {id} is in {prev:?} and {z:?}"));
+                return Err(format!(
+                    "invariant 1: {id} ({}) is in {prev:?} and {z:?}",
+                    self.object_name(id).unwrap_or("?")
+                ));
             }
             *slot = Some((id, z));
             listed += 1;

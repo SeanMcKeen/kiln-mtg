@@ -1,0 +1,11 @@
+card: "Faerie Mastermind"
+faces:
+  - abilities:
+      - keyword: flash
+      - keyword: flying
+      - triggered:
+          trigger: { draws: { by: opponent, second_each_turn: true } }
+          effect: { draw: { who: you, amount: 1 } }
+      - activated:
+          cost: [{ mana: "{3}{U}" }]
+          effect: { for_each_player: { players: any, effect: { draw: { who: each, amount: 1 } } } }

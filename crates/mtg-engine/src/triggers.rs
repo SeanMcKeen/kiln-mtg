@@ -450,6 +450,7 @@ impl Game {
                 Trigger::Draws {
                     by,
                     except_first_in_draw_step,
+                    second_each_turn,
                 },
                 Event::Drew {
                     player,
@@ -457,7 +458,14 @@ impl Game {
                     first_in_draw_step,
                 },
             ) => (self.player_rel(*by, you, *player)
-                && !(*except_first_in_draw_step && *first_in_draw_step))
+                && !(*except_first_in_draw_step && *first_in_draw_step)
+                && (!*second_each_turn
+                    || self
+                        .drawn_this_turn
+                        .iter()
+                        .filter(|(q, _)| q == player)
+                        .count()
+                        == 2))
                 .then(|| seen(Some(*object), Some(*player))),
             (Trigger::Discards { by }, Event::Discarded { player, object }) => self
                 .player_rel(*by, you, *player)

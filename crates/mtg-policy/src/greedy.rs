@@ -371,6 +371,8 @@ impl Policy for GreedyPolicy {
                 | OptionalKind::IfDoes
                 | OptionalKind::PayUnless
                 | OptionalKind::Kicker => 1,
+                // Repeating is a gamble; the baseline stops.
+                OptionalKind::Repeat => 0,
             },
             // Keep the commander available (CR 903.9).
             DecisionKind::CommanderZone { .. } => 1,
@@ -387,6 +389,7 @@ impl Policy for GreedyPolicy {
             | DecisionKind::ChooseMana { .. }
             | DecisionKind::ChooseName { .. }
             | DecisionKind::ChooseColor { .. }
+            | DecisionKind::ChoosePlayer { .. }
             | DecisionKind::ChooseCost { .. }
             | DecisionKind::ChooseSymbolPay { .. }
             | DecisionKind::OrderTriggers { .. }

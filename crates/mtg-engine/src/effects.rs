@@ -356,6 +356,7 @@ fn child(e: &Effect, i: u8) -> Option<&Effect> {
             _ => None,
         },
         Effect::ExchangeControl { otherwise, .. } => (i == 0).then_some(otherwise.as_deref()?),
+        Effect::Repeat(x) => (i == 0).then_some(&**x),
         _ => None,
     }
 }
@@ -469,6 +470,17 @@ impl Game {
                             t.frames.push(Frame::Run(with(&node, 0)));
                         }
                     }
+                    (OptionalKind::Repeat, _) => {
+                        // Again: the process, then the question.
+                        if yes {
+                            t.frames.push(Frame::Ask {
+                                who: t.ctx.controller,
+                                kind: OptionalKind::Repeat,
+                                node: node.clone(),
+                            });
+                            t.frames.push(Frame::Run(with(&node, 0)));
+                        }
+                    }
                     (OptionalKind::IfDoes, _) => {
                         t.frames.push(Frame::IfDoesThen {
                             node: node.clone(),
@@ -573,6 +585,11 @@ impl Game {
                         let c = colors[option];
                         set_var(&mut t.ctx, store, color_index(c));
                         format!("{c:?}")
+                    }
+                    DecisionKind::ChoosePlayer { players, .. } => {
+                        let p = players[option];
+                        set_var(&mut t.ctx, store, i64::from(p.0));
+                        p.to_string()
                     }
                     other => unreachable!("choice frame answered with {other:?}"),
                 };
@@ -680,6 +697,18 @@ impl Game {
                         min: *min,
                         max: *max,
                     },
+                    ChoiceSpec::Opponent => {
+                        let players: Vec<PlayerId> = self
+                            .players
+                            .iter()
+                            .filter(|p| p.in_game() && p.id != who)
+                            .map(|p| p.id)
+                            .collect();
+                        if players.is_empty() {
+                            return Flow::Continue;
+                        }
+                        DecisionKind::ChoosePlayer { source, players }
+                    }
                 };
                 t.frames.push(Frame::Choose { who, spec, store });
                 Flow::Decide(who, kind, "608.2d")
@@ -1208,8 +1237,15 @@ impl Game {
             Effect::GainControl {
                 what,
                 until_end_of_turn,
+                to,
             } => {
-                let p = t.ctx.controller;
+                let p = match to {
+                    Some(r) => match self.player_ref(&t.ctx, r) {
+                        Some(p) => p,
+                        None => return Flow::Continue,
+                    },
+                    None => t.ctx.controller,
+                };
                 let duration = if *until_end_of_turn {
                     crate::layers::Duration::EndOfTurn
                 } else {
@@ -1303,6 +1339,14 @@ impl Game {
                         }
                     }
                 }
+            }
+            Effect::Repeat(_) => {
+                t.frames.push(Frame::Ask {
+                    who: t.ctx.controller,
+                    kind: OptionalKind::Repeat,
+                    node: path.clone(),
+                });
+                t.frames.push(Frame::Run(with(path, 0)));
             }
             Effect::MayCastThisTurn(what) => {
                 for id in self.set_now(&t.ctx, what) {
@@ -1497,6 +1541,12 @@ impl Game {
                 .and_then(|id| self.known(ctx, id).map(|k| k.owner)),
             PlayerRef::Each => ctx.each,
             PlayerRef::Triggering => ctx.triggering_player,
+            PlayerRef::Chosen(name) => ctx
+                .vars
+                .iter()
+                .find(|(k, _)| k == name)
+                .and_then(|(_, v)| u8::try_from(*v).ok())
+                .map(PlayerId),
         };
         p.filter(|p| self.in_game(*p))
     }
@@ -1604,6 +1654,17 @@ impl Game {
                         .count(),
                 )
                 .unwrap_or(0),
+                QuantityExpr::HalfRoundedUp(q) => {
+                    let n = self.quantity(ctx, q);
+                    n / 2 + n % 2
+                }
+                QuantityExpr::LifeOf(p) => {
+                    self.player_ref(ctx, p).map_or(0, |p| self.player(p).life)
+                }
+                QuantityExpr::TopOfLibraryManaValue(p) => self
+                    .player_ref(ctx, p)
+                    .and_then(|p| self.player(p).library.last().copied())
+                    .map_or(0, |top| i64::from(self.mana_value_of(top))),
                 QuantityExpr::MostSpellsCastByAnOpponent => self
                     .players
                     .iter()
@@ -2069,6 +2130,10 @@ impl Game {
         let Some(o) = self.obj(id).copied() else {
             return;
         };
+        // CR 702.26b: a phased-out permanent is treated as though it doesn't exist.
+        if o.zone == ZoneId::Battlefield && !self.on_battlefield_now(id) {
+            return;
+        }
         let owner = o.owner;
         match to {
             Destination::TopOfLibrary | Destination::BottomOfLibrary => {

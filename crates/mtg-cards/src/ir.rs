@@ -275,6 +275,9 @@ pub enum Trigger {
         /// "except the first one they draw in each of their draw steps".
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         except_first_in_draw_step: bool,
+        /// "their second card each turn" (Faerie Mastermind).
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        second_each_turn: bool,
     },
     /// "Whenever [player] discards a card".
     Discards {
@@ -475,6 +478,9 @@ pub enum PlayerRuleKind {
     HexproofFrom(mtg_core::Colors),
     /// "[player] can't cast spells" (Silence, Orim's Chant).
     CantCastSpells,
+    /// "Damage that would reduce your life total to less than 1 reduces it
+    /// to 1 instead" (Angel's Grace).
+    DamageCantReduceBelowOne,
     /// "Creatures [player] controls can't attack" (Orim's Chant kicked:
     /// "creatures can't attack this turn" applies to every player).
     CreaturesCantAttack,
@@ -720,7 +726,13 @@ pub enum Effect {
         what: ObjectSet,
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         until_end_of_turn: bool,
+        /// Who gains control, if not the effect's controller ("an opponent
+        /// gains control of this artifact": a chosen opponent).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        to: Option<PlayerRef>,
     },
+    /// "[effect]. You may repeat this process any number of times" (Ad Nauseam).
+    Repeat(Box<Effect>),
     /// "[objects] gain [keyword] until end of turn" (layer 6).
     GainKeyword {
         what: ObjectSet,
@@ -894,7 +906,12 @@ pub enum CounterKind {
 pub enum ChoiceSpec {
     CardName,
     Color,
-    Number { min: i64, max: i64 },
+    Number {
+        min: i64,
+        max: i64,
+    },
+    /// An opponent still in the game.
+    Opponent,
 }
 
 /// Mana produced by an effect (CR 106).
@@ -986,6 +1003,8 @@ pub enum PlayerRef {
     Triggering,
     /// The player bound by [`Effect::ForEachPlayer`].
     Each,
+    /// A player chosen earlier in the effect (`choose: opponent`, stored under this name).
+    Chosen(String),
 }
 
 /// A relation to the ability's controller, for filters and "each" effects.
@@ -1129,6 +1148,12 @@ pub enum QuantityExpr {
     },
     /// The most spells any one opponent cast this turn (Mindbreak Trap).
     MostSpellsCastByAnOpponent,
+    /// Half of an amount, rounded up (Peer into the Abyss).
+    HalfRoundedUp(Box<Quantity>),
+    /// A player's life total.
+    LifeOf(PlayerRef),
+    /// The mana value of the top card of a player's library (Ad Nauseam).
+    TopOfLibraryManaValue(PlayerRef),
     /// "the number of [objects] [player] controls" (Carpet of Flowers: Islands
     /// target opponent controls).
     CountOf {
@@ -1287,6 +1312,7 @@ fn children(e: &Effect) -> Vec<&Effect> {
             v
         }
         Effect::ExchangeControl { otherwise, .. } => otherwise.as_deref().into_iter().collect(),
+        Effect::Repeat(x) => vec![x],
         _ => Vec::new(),
     }
 }

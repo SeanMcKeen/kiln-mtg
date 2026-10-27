@@ -283,6 +283,8 @@ impl Game {
                 (OptionalKind::PayUnless, _) => "Pay".into(),
                 (OptionalKind::Kicker, 0) => "Don't kick".into(),
                 (OptionalKind::Kicker, _) => "Kick".into(),
+                (OptionalKind::Repeat, 0) => "Stop".into(),
+                (OptionalKind::Repeat, _) => "Repeat".into(),
             },
             DecisionKind::ChooseCard { purpose, cards, .. } => match cards[i] {
                 None => "Stop".into(),
@@ -305,6 +307,7 @@ impl Game {
                     format!("{verb} {}", who(id))
                 }
             },
+            DecisionKind::ChoosePlayer { players, .. } => format!("Choose {}", players[i]),
             DecisionKind::ChooseMana { options, .. } => {
                 let mut s = String::from("Add ");
                 for t in ManaType::ALL {

@@ -211,6 +211,9 @@ struct FuzzArgs {
     /// Re-run every k-th game from its replay and compare final hashes.
     #[arg(long)]
     replay_every: Option<u64>,
+    /// Record the event log (slower); violations then show the last events.
+    #[arg(long)]
+    log_events: bool,
     /// Chance per mille, before each decision, that the deciding player concedes.
     #[arg(long, default_value_t = 0)]
     concede: u64,
@@ -432,7 +435,7 @@ fn fuzz(a: &FuzzArgs) -> Result<ExitCode> {
         rules: GameRules {
             starting_life: a.life.unwrap_or(if a.commander { 40 } else { 20 }),
             turn_limit: Some(a.turn_limit),
-            log_events: false,
+            log_events: a.log_events,
             ..GameRules::default()
         },
         checks: Checks {

@@ -139,8 +139,8 @@ pub(crate) fn check(def: &CardDef) -> Check {
                         return Err("lands with an \"as this enters, choose\" ability".into());
                     }
                 }
-                mtg_cards::ir::ChoiceSpec::CardName => {
-                    return Err("choosing a card name as a permanent enters".into());
+                mtg_cards::ir::ChoiceSpec::CardName | mtg_cards::ir::ChoiceSpec::Opponent => {
+                    return Err("choosing a card name or player as a permanent enters".into());
                 }
             },
             // Whole-ability escapes need a hook per ability kind; none is needed yet.
@@ -364,6 +364,7 @@ fn effect(e: &Effect) -> Check {
         }
         Effect::ChangeTargets(r) => object(r),
         Effect::MayCastThisTurn(what) => set(what),
+        Effect::Repeat(x) => effect(x),
         Effect::GainControl { what, .. } => set(what),
         Effect::ExchangeControl { a, b, otherwise } => {
             object(a)?;
@@ -592,7 +593,11 @@ fn object(o: &ObjectRef) -> Check {
 fn player(p: &PlayerRef) -> Check {
     match p {
         PlayerRef::ControllerOf(o) | PlayerRef::OwnerOf(o) => object(o),
-        PlayerRef::Triggering | PlayerRef::You | PlayerRef::Target(_) | PlayerRef::Each => Ok(()),
+        PlayerRef::Triggering
+        | PlayerRef::You
+        | PlayerRef::Target(_)
+        | PlayerRef::Each
+        | PlayerRef::Chosen(_) => Ok(()),
     }
 }
 
@@ -622,7 +627,9 @@ fn quantity(q: &Quantity) -> Check {
             QuantityExpr::CardsInLibrary(p) | QuantityExpr::CountOf { controller: p, .. } => {
                 player(p)
             }
-            QuantityExpr::Plus(q, _) | QuantityExpr::Neg(q) => quantity(q),
+            QuantityExpr::Plus(q, _) | QuantityExpr::Neg(q) | QuantityExpr::HalfRoundedUp(q) => {
+                quantity(q)
+            }
             QuantityExpr::OpponentsDealtCombatDamageThisTurn
             | QuantityExpr::TriggeringAmount
             | QuantityExpr::X
@@ -631,6 +638,8 @@ fn quantity(q: &Quantity) -> Check {
             | QuantityExpr::MostDiscardedThisWay
             | QuantityExpr::SpellsCastThisTurn { .. }
             | QuantityExpr::MostSpellsCastByAnOpponent
+            | QuantityExpr::LifeOf(_)
+            | QuantityExpr::TopOfLibraryManaValue(_)
             | QuantityExpr::Var(_) => Ok(()),
         },
     }

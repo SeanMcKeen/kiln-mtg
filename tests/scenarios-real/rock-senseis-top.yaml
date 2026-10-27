@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: "Sensei's Divining Top: {1}: rearrange the top three; {T}: draw, then put it on top of its owner's library"
+cr: ["602.2", "121.1"]
+verifies: ["Sensei's Divining Top"]
+players:
+  - battlefield: ["Sensei's Divining Top", Island]
+    library: [Opt, Ponder, Preordain, Swamp]
+  - {}
+script:
+  - choose: "Activate Sensei's Divining Top ability 1"
+  - choose: Pay with Island
+  - pass_all
+  - choose: Put on top Opt
+  - choose: Put on top Ponder
+  - choose: "Activate Sensei's Divining Top ability 2"
+  - pass_all
+expect:
+  zones: { P1.hand: [Preordain] }
+  library_top: { P1: ["Sensei's Divining Top", Ponder, Opt, Swamp] }

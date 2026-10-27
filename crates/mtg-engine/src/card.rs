@@ -1322,6 +1322,7 @@ impl CardPool {
                 j.contains("\"spells_cast_this_turn\"")
                     || j.contains("\"most_spells_cast_by_an_opponent\"")
                     || j.contains("\"one_spell_each_turn\"")
+                    || j.contains("\"second_each_turn\"")
             });
         let id = DefId(u32::try_from(self.defs.len()).unwrap_or(u32::MAX));
         self.defs.push(def);

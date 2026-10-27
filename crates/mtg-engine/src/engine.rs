@@ -276,6 +276,9 @@ pub struct Game {
     /// Spells being cast from a graveyard with escape and the extra cost
     /// their escape grant adds (CR 702.138a; Underworld Breach).
     pub(crate) escaping: Vec<(ObjectId, Vec<ir::CostPart>)>,
+    /// Cards drawn this turn, by player (Faerie Mastermind's "second card",
+    /// Sylvan Library's "drawn this turn").
+    pub(crate) drawn_this_turn: Vec<(PlayerId, ObjectId)>,
     /// Spells being cast from a graveyard, and whether by a permission (the
     /// mana cost is then allowed, not only escape).
     pub(crate) graveyard_casts: Vec<(ObjectId, bool)>,
@@ -370,6 +373,7 @@ impl Game {
             cast_permissions: Vec::new(),
             escaping: Vec::new(),
             graveyard_casts: Vec::new(),
+            drawn_this_turn: Vec::new(),
         };
         // CR 903.6: each commander starts the game in the command zone.
         for (seat, defs) in setup.commanders.iter().enumerate() {
@@ -672,6 +676,9 @@ impl Game {
         if !self.graveyard_casts.is_empty() {
             self.graveyard_casts.hash(&mut h);
         }
+        if !self.drawn_this_turn.is_empty() {
+            self.drawn_this_turn.hash(&mut h);
+        }
         h.finish()
     }
 
@@ -779,10 +786,13 @@ impl Game {
         } else {
             self.zone_vec_mut(zone).retain(|x| *x != id);
         }
-        if zone == ZoneId::Battlefield
-            && let Some(c) = &mut self.combat
-        {
-            c.remove(id);
+        if zone == ZoneId::Battlefield {
+            if let Some(c) = &mut self.combat {
+                c.remove(id);
+            }
+            if !self.phased_out.is_empty() {
+                self.phased_out.retain(|(x, _)| *x != id);
+            }
         }
     }
 
@@ -922,6 +932,9 @@ impl Game {
             self.drew_in_draw_step = true;
         }
         if let Some(new) = self.move_object(top, ZoneId::Hand(p), true) {
+            if self.pool.tracks_spells() {
+                self.drawn_this_turn.push((p, new));
+            }
             self.log(Event::Drew {
                 player: p,
                 object: new,
@@ -1320,7 +1333,7 @@ impl Game {
                 min: *min,
                 max: *max,
             },
-            ir::ChoiceSpec::CardName => return None,
+            ir::ChoiceSpec::CardName | ir::ChoiceSpec::Opponent => return None,
         };
         Some((p, kind))
     }
@@ -1538,6 +1551,7 @@ impl Game {
         self.activated_this_turn.clear();
         self.drew_in_draw_step = false;
         self.cast_this_turn.clear();
+        self.drawn_this_turn.clear();
         self.combat_damaged = 0;
         self.log(Event::TurnBegan {
             number,
@@ -2281,6 +2295,15 @@ impl Game {
                 if combat && self.pool.has_triggers() {
                     self.combat_damaged |= 1 << p.0;
                 }
+                // Angel's Grace: damage can't take this player below 1 life.
+                let amount = if self
+                    .has_player_rule(p, mtg_cards::ir::PlayerRuleKind::DamageCantReduceBelowOne)
+                {
+                    let life = self.player(p).life;
+                    u32::try_from((life - 1).max(0)).unwrap_or(0).min(amount)
+                } else {
+                    amount
+                };
                 // CR 903.10a: combat damage from a commander is tallied.
                 if combat && !self.cmd.is_empty() {
                     self.record_commander_damage(source, p, amount);

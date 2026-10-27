@@ -287,7 +287,24 @@ pub fn run_game(
         if checks.invariants
             && let Err(e) = game.check_invariants(&sizes)
         {
-            outcome.violation = Some(format!("after decision {}: {e}", outcome.decisions));
+            // With event logging on, the last events help find the cause.
+            let tail: Vec<String> = game
+                .events()
+                .iter()
+                .rev()
+                .take(12)
+                .rev()
+                .map(|ev| format!("{ev:?}"))
+                .collect();
+            outcome.violation = Some(if tail.is_empty() {
+                format!("after decision {}: {e}", outcome.decisions)
+            } else {
+                format!(
+                    "after decision {}: {e}\n      last events: {}",
+                    outcome.decisions,
+                    tail.join("\n        ")
+                )
+            });
             break;
         }
         // View audits serialize every seat's snapshot, so they are sampled: every

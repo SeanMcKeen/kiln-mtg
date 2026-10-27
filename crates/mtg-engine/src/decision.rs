@@ -155,6 +155,11 @@ pub enum DecisionKind {
         min: i64,
         max: i64,
     },
+    /// Choose a player (an opponent, for "an opponent gains control").
+    ChoosePlayer {
+        source: ObjectId,
+        players: Vec<PlayerId>,
+    },
     /// Choose a color (CR 105.1).
     ChooseColor {
         source: ObjectId,
@@ -244,6 +249,8 @@ pub enum OptionalKind {
     PayUnless,
     /// Whether to pay a spell's kicker (CR 702.33a).
     Kicker,
+    /// Whether to repeat the process ("any number of times").
+    Repeat,
 }
 
 /// Why a card is being chosen.
@@ -312,6 +319,7 @@ impl PendingDecision {
                 usize::try_from(max - min + 1).unwrap_or(0)
             }
             DecisionKind::ChooseColor { colors, .. } => colors.len(),
+            DecisionKind::ChoosePlayer { players, .. } => players.len(),
             DecisionKind::ChooseMode { modes, .. } => modes.len(),
             DecisionKind::OrderTriggers { triggers } => triggers.len(),
             DecisionKind::ChooseReplacement { options } => options.len(),

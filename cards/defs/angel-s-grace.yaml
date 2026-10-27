@@ -1,0 +1,10 @@
+card: "Angel's Grace"
+faces:
+  - abilities:
+      - keyword: split_second
+      - spell:
+          effect:
+            seq:
+              - player_rule: { who: you, rule: cant_lose, until_end_of_turn: true }
+              - player_rule: { who: you, rule: opponents_cant_win, until_end_of_turn: true }
+              - player_rule: { who: you, rule: damage_cant_reduce_below_one, until_end_of_turn: true }

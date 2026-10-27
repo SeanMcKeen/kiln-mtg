@@ -1,0 +1,11 @@
+card: "Hermit Druid"
+faces:
+  - abilities:
+      - activated:
+          cost: [{ mana: "{G}" }, tap]
+          effect:
+            reveal_until:
+              who: you
+              filter: { types: [land], supertypes: [basic] }
+              found_to: hand
+              rest_to: graveyard
