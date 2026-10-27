@@ -236,6 +236,10 @@ fn cost_shape(def: &CardDef, ability: Option<u8>, cost: CastCost) -> Option<Cost
         }
         // CR 118.9: no mana cost (and so X is 0, CR 107.3b); additional costs remain.
         CastCost::WithoutPaying => {}
+        CastCost::Dash => add(def.dash_cost()?, &mut symbols),
+        // CR 702.138a: the mana cost plus the escape grant's extra cost
+        // (added by the game, which knows the grant).
+        CastCost::Escape => symbols.extend(def.mana_cost.as_ref()?.symbols().iter().cloned()),
     }
     if let Some(s) = spell {
         add(&s.additional_costs, &mut symbols);
@@ -418,11 +422,34 @@ impl Game {
     fn cost_options(&self, def: &CardDef, ctx: &EffectCtx, p: PlayerId) -> Vec<CastCost> {
         let targets_ok = self.spell_targets_ok(def, p);
         let alts = def.spell().map_or(0, |s| s.alternative_costs.len());
-        let candidates = std::iter::once(CastCost::Normal).chain(
-            (0..alts)
-                .filter_map(|i| u8::try_from(i).ok())
-                .map(CastCost::Alternative),
-        );
+        // From a graveyard (before casting, or as it is cast): the mana cost
+        // only with a permission; escape if granted.
+        let in_graveyard = self
+            .obj(ctx.source)
+            .is_some_and(|o| matches!(o.zone, ZoneId::Graveyard(_)));
+        let being_cast = self.graveyard_casts.iter().find(|(s, _)| *s == ctx.source);
+        let from_graveyard = in_graveyard || being_cast.is_some();
+        let permitted = self.cast_permitted(ctx.source, p) || being_cast.is_some_and(|(_, ok)| *ok);
+        let mut candidates: Vec<CastCost> = Vec::new();
+        if !from_graveyard || permitted {
+            candidates.push(CastCost::Normal);
+            candidates.extend(
+                (0..alts)
+                    .filter_map(|i| u8::try_from(i).ok())
+                    .map(CastCost::Alternative),
+            );
+            if def.dash_cost().is_some() {
+                candidates.push(CastCost::Dash);
+            }
+        }
+        let escapable = if in_graveyard {
+            self.escape_cost(ctx.source, p).is_some()
+        } else {
+            self.escaping.iter().any(|(s, _)| *s == ctx.source)
+        };
+        if from_graveyard && escapable {
+            candidates.push(CastCost::Escape);
+        }
         let mut out = Vec::new();
         for c in candidates {
             if let CastCost::Alternative(i) = c {
@@ -572,9 +599,21 @@ impl Game {
         };
         let any_color = self.exile_permission(card).is_some_and(|(_, any)| any);
         let tax = self.command_zone_tax(card);
+        let escape = self.escape_cost(card, p);
+        let from_graveyard = self
+            .obj(card)
+            .is_some_and(|o| matches!(o.zone, ZoneId::Graveyard(_)));
+        let permitted = self.cast_permitted(card, p);
         let Some(spell) = self.move_object(card, ZoneId::Stack, true) else {
             return;
         };
+        if from_graveyard {
+            self.graveyard_casts.push((spell, permitted));
+        }
+        // Kept for the Cost stage, which may choose escape (CR 702.138a).
+        if let Some(parts) = escape {
+            self.escaping.push((spell, parts));
+        }
         if let Some(tax) = tax {
             self.commander_cast(spell, tax);
         }
@@ -1004,6 +1043,18 @@ impl Game {
         object: ObjectId,
     ) -> Option<CostShape> {
         let mut shape = cost_shape(def, ability, cost)?;
+        if ability.is_none() && cost == CastCost::Escape {
+            let extra = self
+                .escaping
+                .iter()
+                .find(|(s, _)| *s == object)
+                .map(|(_, parts)| parts.clone())
+                .or_else(|| {
+                    let p = self.obj(object)?.owner;
+                    self.escape_cost(object, p)
+                })?;
+            add_parts(&mut shape, &extra);
+        }
         // "This ability costs {1} less to activate for each ...": generic mana only.
         if let Some(i) = ability
             && let Some(x) = activated(def, i)

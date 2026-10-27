@@ -271,6 +271,14 @@ pub struct Game {
     pub(crate) kicked: Vec<ObjectId>,
     /// Player rules until end of turn (Veil of Summer, Angel's Grace).
     pub(crate) player_rules_eot: Vec<(PlayerId, mtg_cards::ir::PlayerRuleKind)>,
+    /// "You may cast that card this turn": (card, player).
+    pub(crate) cast_permissions: Vec<(ObjectId, PlayerId)>,
+    /// Spells being cast from a graveyard with escape and the extra cost
+    /// their escape grant adds (CR 702.138a; Underworld Breach).
+    pub(crate) escaping: Vec<(ObjectId, Vec<ir::CostPart>)>,
+    /// Spells being cast from a graveyard, and whether by a permission (the
+    /// mana cost is then allowed, not only escape).
+    pub(crate) graveyard_casts: Vec<(ObjectId, bool)>,
 }
 
 impl Game {
@@ -359,6 +367,9 @@ impl Game {
             unasked_entering: 0,
             kicked: Vec::new(),
             player_rules_eot: Vec::new(),
+            cast_permissions: Vec::new(),
+            escaping: Vec::new(),
+            graveyard_casts: Vec::new(),
         };
         // CR 903.6: each commander starts the game in the command zone.
         for (seat, defs) in setup.commanders.iter().enumerate() {
@@ -652,6 +663,15 @@ impl Game {
         if !self.player_rules_eot.is_empty() {
             self.player_rules_eot.hash(&mut h);
         }
+        if !self.cast_permissions.is_empty() {
+            self.cast_permissions.hash(&mut h);
+        }
+        if !self.escaping.is_empty() {
+            self.escaping.hash(&mut h);
+        }
+        if !self.graveyard_casts.is_empty() {
+            self.graveyard_casts.hash(&mut h);
+        }
         h.finish()
     }
 
@@ -835,6 +855,15 @@ impl Game {
         }
         if !self.kicked.is_empty() {
             self.kicked.retain(|x| *x != id);
+        }
+        if !self.cast_permissions.is_empty() {
+            self.cast_permissions.retain(|(x, _)| *x != id);
+        }
+        if !self.escaping.is_empty() {
+            self.escaping.retain(|(x, _)| *x != id);
+        }
+        if !self.graveyard_casts.is_empty() {
+            self.graveyard_casts.retain(|(x, _)| *x != id);
         }
         // CR 614.12: an "as this enters" choice goes with it onto the
         // battlefield; anything else forgets it (CR 400.7).
@@ -1738,6 +1767,33 @@ impl Game {
         self.decide(holder, DecisionKind::Priority { actions }, "117.1");
     }
 
+    /// Whether `p` may cast card `id` this turn by an effect's permission.
+    pub(crate) fn cast_permitted(&self, id: ObjectId, p: PlayerId) -> bool {
+        self.cast_permissions
+            .iter()
+            .any(|(c, q)| *c == id && *q == p)
+    }
+
+    /// CR 702.138a: the extra cost of casting card `id` from `p`'s graveyard
+    /// with escape granted by a permanent `p` controls (Underworld Breach).
+    pub(crate) fn escape_cost(&self, id: ObjectId, p: PlayerId) -> Option<Vec<ir::CostPart>> {
+        let o = self.obj(id)?;
+        if o.zone != ZoneId::Graveyard(p) || !self.pool.has_rule_statics() {
+            return None;
+        }
+        self.active_rule_statics()
+            .into_iter()
+            .find_map(|(source, controller, e)| match e {
+                ir::StaticEffect::GrantEscape {
+                    affected,
+                    extra_cost,
+                } if controller == p && self.matches_filter(id, affected, p, Some(source)) => {
+                    Some(extra_cost.clone())
+                }
+                _ => None,
+            })
+    }
+
     /// CR 702.61a: a spell with split second is on the stack.
     pub(crate) fn split_second_on_stack(&self) -> bool {
         self.stack.iter().any(|s| {
@@ -1822,10 +1878,30 @@ impl Game {
                 }
             }
         }
-        // Cards in exile `p` may play (CR 607.2a; Opposition Agent).
-        if !self.linked.is_empty() {
+        // Cards in a graveyard `p` may cast: escape (Underworld Breach) or
+        // a permission ("you may cast that card this turn").
+        for &id in &self.player(p).graveyard {
+            if self.obj_def(id).is_none_or(|d| d.is(CardType::Land)) {
+                continue;
+            }
+            if (self.cast_permitted(id, p) || self.escape_cost(id, p).is_some())
+                && self.can_cast(p, id, sorcery_timing)
+            {
+                actions.push(Action::Cast(id));
+            }
+        }
+        // Cards in exile `p` may play (CR 607.2a; Opposition Agent; Ragavan;
+        // Eternal Scourge).
+        {
             for &id in &self.exile {
-                if self.exile_permission(id).is_none_or(|(q, _)| q != p) {
+                let own_permission = self.obj(id).is_some_and(|o| o.owner == p)
+                    && self
+                        .obj_def(id)
+                        .is_some_and(crate::card::CardDef::castable_from_exile);
+                if self.exile_permission(id).is_none_or(|(q, _)| q != p)
+                    && !self.cast_permitted(id, p)
+                    && !own_permission
+                {
                     continue;
                 }
                 let Some(def) = self.obj_def(id) else {
@@ -2050,11 +2126,39 @@ impl Game {
                                 g.add_counters(new, *kind, n);
                             }
                         })
-                        // CR 303.4f: an Aura spell enters attached to its target.
-                        && def.enchant.is_some()
-                        && let Some(&host) = item.targets.first()
                     {
-                        self.attach(new, host, false);
+                        // CR 303.4f: an Aura spell enters attached to its target.
+                        if def.enchant.is_some()
+                            && let Some(&host) = item.targets.first()
+                        {
+                            self.attach(new, host, false);
+                        }
+                        // CR 702.109a: dashed, it has haste and returns to its
+                        // owner's hand at the beginning of the next end step.
+                        if item.cost == crate::decision::CastCost::Dash {
+                            self.add_effect(
+                                SmallVec::from_elem(new, 1),
+                                crate::layers::LayerEffect::GrantKeyword(Box::new(
+                                    ir::Keyword::Haste,
+                                )),
+                                crate::layers::Duration::Permanent,
+                            );
+                            self.delayed.push(crate::triggers::DelayedTrigger {
+                                trigger: ir::Trigger::BeginningOf {
+                                    step: ir::StepName::End,
+                                    whose: ir::PlayerRel::Any,
+                                },
+                                path: SmallVec::new(),
+                                ctx: EffectCtx::new(
+                                    AbilityRef {
+                                        def: def_id,
+                                        ability: crate::effects::DASH_RETURN,
+                                    },
+                                    new,
+                                    controller,
+                                ),
+                            });
+                        }
                     }
                     return;
                 }

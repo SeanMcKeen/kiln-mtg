@@ -374,6 +374,8 @@ impl Game {
                 CastCost::Normal => "Pay the mana cost".into(),
                 CastCost::Alternative(a) => format!("Pay alternative cost {}", a + 1),
                 CastCost::WithoutPaying => "Cast without paying its mana cost".into(),
+                CastCost::Dash => "Pay the dash cost".into(),
+                CastCost::Escape => "Pay the escape cost".into(),
             },
             DecisionKind::ChooseSymbolPay {
                 symbol, options, ..

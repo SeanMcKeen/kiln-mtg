@@ -216,6 +216,10 @@ pub enum CastCost {
     Alternative(u8),
     /// "Without paying its mana cost" (CR 118.9), when an effect casts it.
     WithoutPaying,
+    /// The dash cost (CR 702.109a).
+    Dash,
+    /// The escape cost from the graveyard (CR 702.138a).
+    Escape,
 }
 
 /// How one hybrid or Phyrexian mana symbol is paid (CR 107.4e–f).

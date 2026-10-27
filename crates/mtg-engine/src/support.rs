@@ -68,6 +68,13 @@ pub(crate) fn check(def: &CardDef) -> Check {
             Ability::Keyword(mtg_cards::ir::Keyword::Kicker(c)) => cast_cost(c)?,
             // CR 702.11d: checked while choosing targets.
             Ability::Keyword(mtg_cards::ir::Keyword::HexproofFrom(_)) => {}
+            // CR 702.109: an alternative cost for a permanent card.
+            Ability::Keyword(mtg_cards::ir::Keyword::Dash(c)) => cast_cost(c)?,
+            // Works in exile (CR 113.6f); checked while offering casts.
+            Ability::Static(StaticAbility {
+                effect: StaticEffect::Rule(RuleMod::MayCastFromExile),
+                condition: None,
+            }) => {}
             // CR 702.5, 702.6: attachment (equip is added as an activated ability).
             Ability::Keyword(
                 mtg_cards::ir::Keyword::Enchant(_) | mtg_cards::ir::Keyword::Equip(_),
@@ -356,6 +363,7 @@ fn effect(e: &Effect) -> Check {
             set(what)
         }
         Effect::ChangeTargets(r) => object(r),
+        Effect::MayCastThisTurn(what) => set(what),
         Effect::GainControl { what, .. } => set(what),
         Effect::ExchangeControl { a, b, otherwise } => {
             object(a)?;

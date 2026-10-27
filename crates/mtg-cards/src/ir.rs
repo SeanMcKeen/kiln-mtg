@@ -108,6 +108,9 @@ pub enum Keyword {
     Kicker(Vec<CostPart>),
     /// CR 702.11d: "hexproof from [colors]".
     HexproofFrom(mtg_core::Colors),
+    /// CR 702.109: an alternative cost; the permanent gains haste and
+    /// returns to its owner's hand at the beginning of the next end step.
+    Dash(Vec<CostPart>),
     /// CR 702.124h
     Partner,
     /// CR 702.124j
@@ -408,6 +411,9 @@ pub enum RuleMod {
     ControlOpponentsWhileSearching,
     /// "You may play those cards … spend mana as though any color" (linked to exiled cards).
     MayPlayExiledWithThis { any_color_mana: bool },
+    /// "You may cast this card from exile" (Eternal Scourge; it works in
+    /// exile, CR 113.6f).
+    MayCastFromExile,
     /// "This spell can't be countered" (a static ability that functions on the stack, CR 101.2).
     CantBeCountered,
     /// "Creatures entering don't cause abilities to trigger" (Torpor Orb).
@@ -723,6 +729,8 @@ pub enum Effect {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         controller: Option<PlayerRef>,
     },
+    /// "Until end of turn, you may cast that card" (Ragavan, Silas Renn).
+    MayCastThisTurn(ObjectSet),
     /// "You may choose new targets for [spell or ability]" (CR 115.7d;
     /// Deflecting Swat): each target may be kept or changed to a legal one.
     ChangeTargets(ObjectRef),

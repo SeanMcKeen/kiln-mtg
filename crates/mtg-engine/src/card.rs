@@ -509,6 +509,22 @@ impl CardDef {
         .any(|t| self.is(*t))
     }
 
+    /// "You may cast this card from exile" (CR 113.6f).
+    pub fn castable_from_exile(&self) -> bool {
+        self.abilities.iter().any(|a| {
+            matches!(a, Ability::Static(s)
+                if s.effect == ir::StaticEffect::Rule(ir::RuleMod::MayCastFromExile))
+        })
+    }
+
+    /// Its dash cost (CR 702.109a), if it has one.
+    pub fn dash_cost(&self) -> Option<&[CostPart]> {
+        self.abilities.iter().find_map(|a| match a {
+            Ability::Keyword(ir::Keyword::Dash(c)) => Some(c.as_slice()),
+            _ => None,
+        })
+    }
+
     /// Its "as this enters, choose" ability (CR 614.12): what and under which name.
     pub fn as_enters(&self) -> Option<(&ir::ChoiceSpec, &str)> {
         self.abilities.iter().find_map(|a| match a {

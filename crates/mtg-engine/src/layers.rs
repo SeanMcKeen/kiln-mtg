@@ -283,6 +283,7 @@ pub(crate) fn is_rule_static(e: &StaticEffect) -> bool {
         StaticEffect::CantCast { .. }
             | StaticEffect::CantActivate { .. }
             | StaticEffect::PlayerRule { .. }
+            | StaticEffect::GrantEscape { .. }
             | StaticEffect::Rule(
                 mtg_cards::ir::RuleMod::CreaturesEnteringDontTrigger
                     | mtg_cards::ir::RuleMod::ControlOpponentsWhileSearching
@@ -1037,6 +1038,7 @@ impl Game {
     pub(crate) fn end_turn_effects(&mut self) {
         self.end_effects(|e| e.duration == Duration::EndOfTurn);
         self.player_rules_eot.clear();
+        self.cast_permissions.clear();
     }
 
     /// Ends the effects `ending` selects (and effects whose objects are

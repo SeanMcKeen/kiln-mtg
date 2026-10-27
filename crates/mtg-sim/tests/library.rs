@@ -57,14 +57,12 @@ fn overrides_win_parser_fills_in_and_gaps_are_named() {
     );
     assert_eq!(giant.definition.coverage, Coverage::Parsed);
 
-    // A static ability (M5) keeps a card unsupported, and the reason says why.
-    let study = card("Underworld Breach");
-    let Coverage::Unsupported { reasons } = &study.definition.coverage else {
-        panic!("{:?}", study.definition.coverage);
+    // A card neither an override nor the parser covers stays unsupported,
+    // and the reason says why.
+    let doomsday = card("Doomsday");
+    let Coverage::Unsupported { reasons } = &doomsday.definition.coverage else {
+        panic!("{:?}", doomsday.definition.coverage);
     };
-    assert!(
-        reasons.iter().any(|r| r.reason.contains("M5")),
-        "{reasons:?}"
-    );
-    assert!(study.def.is_none());
+    assert!(!reasons.is_empty(), "{reasons:?}");
+    assert!(doomsday.def.is_none());
 }

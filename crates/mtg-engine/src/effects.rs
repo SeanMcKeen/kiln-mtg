@@ -290,7 +290,19 @@ pub(crate) fn alt_effect(def: &crate::card::CardDef, i: u8) -> Option<&Effect> {
         .as_ref()
 }
 
+/// The ability index of a dashed permanent's delayed "return it to its
+/// owner's hand" (CR 702.109a).
+pub(crate) const DASH_RETURN: u8 = 255;
+
+static DASH_RETURN_EFFECT: Effect = Effect::Move {
+    what: ObjectSet::One(ObjectRef::This),
+    to: Destination::Hand,
+};
+
 pub(crate) fn root(pool: &CardPool, a: AbilityRef) -> Option<&Effect> {
+    if a.ability == DASH_RETURN {
+        return Some(&DASH_RETURN_EFFECT);
+    }
     if a.ability >= ALT_EFFECT_BASE {
         return alt_effect(pool.get(a.def), a.ability - ALT_EFFECT_BASE);
     }
@@ -1278,6 +1290,11 @@ impl Game {
                             });
                         }
                     }
+                }
+            }
+            Effect::MayCastThisTurn(what) => {
+                for id in self.set_now(&t.ctx, what) {
+                    self.cast_permissions.push((id, t.ctx.controller));
                 }
             }
             Effect::ChangeTargets(r) => {

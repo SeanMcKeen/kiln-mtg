@@ -317,6 +317,9 @@ impl GameBuilder {
             unasked_entering: 0,
             kicked: Vec::new(),
             player_rules_eot: Vec::new(),
+            cast_permissions: Vec::new(),
+            escaping: Vec::new(),
+            graveyard_casts: Vec::new(),
         };
         if self.pregame {
             game.turn.number = 0;

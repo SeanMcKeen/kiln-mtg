@@ -133,6 +133,7 @@ fn keyword(k: &Keyword) -> String {
         Keyword::SplitSecond => "split second".into(),
         Keyword::Kicker(c) => format!("kicker {}", costs(c)),
         Keyword::HexproofFrom(c) => format!("hexproof from {c}"),
+        Keyword::Dash(c) => format!("dash {}", costs(c)),
         Keyword::Partner => "partner".into(),
         Keyword::PartnerWith(n) => format!("partner with {n}"),
         Keyword::Protection(f) => format!(
