@@ -7,13 +7,16 @@ use std::fmt::Write as _;
 use std::path::Path;
 
 use kiln_protocol::report::{
-    ConciseReport, ConciseWinRate, ConfigReport, DecisionStats, DeckMulligans, DeckShape,
-    DeckWinRate, Dist, GameShape, REPORT_VERSION, Rate, Report, TimingStats, Versions, WinRates,
+    AbComparison, CardStats, ConciseReport, ConciseWinRate, ConfigReport, DecisionStats, DeckCards,
+    DeckMulligans, DeckShape, DeckWinRate, Dist, GameShape, InteractionStats, ManaStats,
+    OpeningHandStats, PerCardReport, REPORT_VERSION, Rate, Report, TimingStats, Versions, WinRates,
 };
 use kiln_protocol::spec::{Mode, PolicySpec, Seating, Spec};
 use kiln_protocol::{GameRecord, Outcome, RunManifest, RunStatus};
 
-use super::stats::{mean, median_ci, quantile, r4, wilson};
+use super::stats::{
+    benjamini_hochberg, mean, median_ci, paired_mean_ci, quantile, r4, two_proportion_p, wilson,
+};
 use super::{ExperimentError, OPPONENT, store};
 
 /// The Comprehensive Rules version the engine implements.
@@ -46,6 +49,20 @@ fn dist(mut v: Vec<u32>, seed: u64) -> Dist {
         median_ci95: [lo, hi],
         p10: quantile(&v, 0.1),
         p90: quantile(&v, 0.9),
+    }
+}
+
+/// How many turns seat `seat` (0 = first) has begun by game turn `turn`:
+/// a deck's "turn N" in cEDH terms.
+fn own_turn(turn: u32, seat: usize, seats: usize) -> u32 {
+    let (seat, seats) = (
+        u32::try_from(seat).unwrap_or(0),
+        u32::try_from(seats.max(1)).unwrap_or(1),
+    );
+    if turn <= seat {
+        0
+    } else {
+        (turn - 1 - seat) / seats + 1
     }
 }
 
@@ -177,13 +194,19 @@ fn config_report(spec: &Spec, config: &str, records: &[&GameRecord]) -> ConfigRe
                         r.eliminations
                             .iter()
                             .filter(|e| r.seats[e.seat] == *d)
-                            .map(|e| e.turn)
+                            .map(|e| own_turn(e.turn, e.seat, r.seats.len()))
                     })
                     .collect();
                 DeckShape {
                     deck: d.clone(),
-                    win_turn: (!won.is_empty())
-                        .then(|| dist(won.iter().map(|r| r.turns).collect(), seed(d))),
+                    win_turn: (!won.is_empty()).then(|| {
+                        dist(
+                            won.iter()
+                                .map(|r| own_turn(r.turns, r.winner.unwrap_or(0), r.seats.len()))
+                                .collect(),
+                            seed(d),
+                        )
+                    }),
                     win_types: types
                         .into_iter()
                         .map(|(t, k)| (t, rate(k, won.len() as u64)))
@@ -293,9 +316,12 @@ fn config_report(spec: &Spec, config: &str, records: &[&GameRecord]) -> ConfigRe
         game_shape,
         mulligans,
         decision_stats,
-        per_card: None,
-        interaction: None,
-        mana: None,
+        per_card: m
+            .per_card
+            .enabled
+            .then(|| per_card_report(spec, config, records)),
+        interaction: m.interaction.then(|| interaction_report(spec, records)),
+        mana: m.mana.then(|| mana_report(spec, records)),
         timing,
     }
 }
@@ -323,6 +349,9 @@ fn result_warnings(spec: &Spec, manifest: &RunManifest, configs: &[ConfigReport]
         "pilots are baseline policies ({}): results measure this play, not expert play (search AI arrives in M9)",
         kinds.into_iter().collect::<Vec<_>>().join(", ")
     ));
+    if spec.metrics.per_card.enabled {
+        w.push("per-card statistics are correlational (long games see more cards; tutors bias what's seen): use mode: ab for causal answers".into());
+    }
     if spec.seating == Seating::Fixed && spec.mode != Mode::OpeningHands {
         w.push("fixed seating: seat-order bias isn't balanced across decks".into());
     }
@@ -445,8 +474,10 @@ pub fn build(spec: &Spec, manifest: &RunManifest, records: &[GameRecord]) -> Rep
     }
     // The base configuration first.
     names.sort_by_key(|n| (*n != kiln_protocol::record::BASE_CONFIG, *n));
+    let opening = spec.mode == Mode::OpeningHands;
     let configs: Vec<ConfigReport> = names
         .iter()
+        .filter(|_| !opening)
         .map(|name| {
             let mine: Vec<&GameRecord> = records.iter().filter(|r| r.config == *name).collect();
             config_report(spec, name, &mine)
@@ -469,8 +500,16 @@ pub fn build(spec: &Spec, manifest: &RunManifest, records: &[GameRecord]) -> Rep
         next: next_hints(spec, &dir, records),
         warnings,
         configs,
-        ab: Vec::new(),
-        opening_hands: Vec::new(),
+        ab: if spec.mode == Mode::Ab {
+            ab_report(spec, records)
+        } else {
+            Vec::new()
+        },
+        opening_hands: if opening {
+            opening_report(spec, records)
+        } else {
+            Vec::new()
+        },
     }
 }
 
@@ -612,7 +651,7 @@ pub fn markdown(r: &Report) -> String {
             );
             let _ = writeln!(
                 s,
-                "| Deck | Median win turn | 95% CI | Win types |\n|---|---|---|---|"
+                "| Deck | Median win turn (its own) | 95% CI | Win types |\n|---|---|---|---|"
             );
             for d in &gs.decks {
                 let types: Vec<String> = d
@@ -636,6 +675,63 @@ pub fn markdown(r: &Report) -> String {
                         let _ = writeln!(s, "| {} | — | | no wins |", d.deck);
                     }
                 }
+            }
+            s.push('\n');
+        }
+        if let Some(pc) = &c.per_card {
+            for d in &pc.decks {
+                let _ = writeln!(
+                    s,
+                    "Per card for {} ({} games; correlational). Most seen:\n\n| Card | Seen | Cast when seen | GIH WR | IWD | q |\n|---|---|---|---|---|---|",
+                    d.deck, d.games
+                );
+                for card in d.cards.iter().take(15) {
+                    let _ = writeln!(
+                        s,
+                        "| {} | {} | {} | {} | {} | {} |",
+                        card.name,
+                        pct(card.seen.rate),
+                        pct(card.cast.rate),
+                        card.gih_wr
+                            .as_ref()
+                            .map_or_else(|| "—".into(), |x| pct(x.rate)),
+                        card.iwd
+                            .map_or_else(|| "—".into(), |x| format!("{:+.1} pp", x * 100.0)),
+                        card.iwd_q.map_or_else(|| "—".into(), |x| format!("{x:.3}"))
+                    );
+                }
+                s.push('\n');
+            }
+        }
+        if let Some(i) = &c.interaction {
+            let _ = writeln!(
+                s,
+                "| Deck | Counterspells cast / game | Its spells countered / game | Opponents' permanents targeted / game |\n|---|---|---|---|"
+            );
+            for (d, x) in i {
+                let _ = writeln!(
+                    s,
+                    "| {d} | {:.2} | {:.2} | {:.2} |",
+                    x.counterspells_cast_per_game,
+                    x.spells_countered_per_game,
+                    x.removal_targets_per_game
+                );
+            }
+            s.push('\n');
+        }
+        if let Some(m) = &c.mana {
+            let _ = writeln!(
+                s,
+                "| Deck | Lands / game | Mana produced / game | Missed land drops (first 5 turns) |\n|---|---|---|---|"
+            );
+            for (d, x) in m {
+                let _ = writeln!(
+                    s,
+                    "| {d} | {:.2} | {:.1} | {} |",
+                    x.lands_played_per_game,
+                    x.mana_produced_per_game,
+                    pct(x.missed_land_drops.rate)
+                );
             }
             s.push('\n');
         }
@@ -697,7 +793,11 @@ pub fn markdown(r: &Report) -> String {
     }
     let _ = writeln!(s, "## Next");
     for n in &r.next {
-        let _ = writeln!(s, "- `{n}`");
+        if n.starts_with("kiln ") {
+            let _ = writeln!(s, "- `{n}`");
+        } else {
+            let _ = writeln!(s, "- {n}");
+        }
     }
     s
 }
@@ -762,4 +862,255 @@ fn games_csv(records: &[GameRecord]) -> String {
         );
     }
     s
+}
+
+// ---- per_card, interaction, mana, A/B, opening hands (M7 7.4) -------------
+
+#[derive(Default)]
+struct CardAcc {
+    seen: u64,
+    seen_wins: u64,
+    oh: u64,
+    oh_wins: u64,
+    cast: u64,
+    cast_wins: u64,
+    cast_turns: Vec<u32>,
+}
+
+fn per_card_report(spec: &Spec, config: &str, records: &[&GameRecord]) -> PerCardReport {
+    let pc = &spec.metrics.per_card;
+    let mut decks_out = Vec::new();
+    for d in deck_order(spec, records) {
+        if !(pc.decks.is_empty() || pc.decks.contains(&d)) {
+            continue;
+        }
+        let mut games = 0u64;
+        let mut wins = 0u64;
+        let mut acc: BTreeMap<String, CardAcc> = BTreeMap::new();
+        for r in records.iter().filter(|r| r.outcome != Outcome::Capped) {
+            let Some(seat) = r.seats.iter().position(|x| *x == d) else {
+                continue;
+            };
+            let Some(facts) = r
+                .cards
+                .iter()
+                .flatten()
+                .find(|c| c.seat == seat)
+                .map(|c| &c.cards)
+            else {
+                continue;
+            };
+            let won = r.winner == Some(seat);
+            games += 1;
+            wins += u64::from(won);
+            for f in facts {
+                let a = acc.entry(f.name.clone()).or_default();
+                a.seen += 1;
+                a.seen_wins += u64::from(won);
+                if f.seen == 0 {
+                    a.oh += 1;
+                    a.oh_wins += u64::from(won);
+                }
+                if let Some(t) = f.cast {
+                    a.cast += 1;
+                    a.cast_wins += u64::from(won);
+                    a.cast_turns.push(t);
+                }
+            }
+        }
+        let mut cards: Vec<CardStats> = acc
+            .into_iter()
+            .map(|(name, a)| {
+                let enough = a.seen >= pc.min_samples;
+                let (unseen, unseen_wins) = (games - a.seen, wins - a.seen_wins);
+                let gih = rate(a.seen_wins, a.seen);
+                let iwd = (enough && unseen > 0)
+                    .then(|| r4(gih.rate - unseen_wins as f64 / unseen as f64));
+                CardStats {
+                    seen: rate(a.seen, games),
+                    cast: rate(a.cast, a.seen),
+                    gih_wr: enough.then_some(gih),
+                    oh_wr: (enough && a.oh > 0).then(|| rate(a.oh_wins, a.oh)),
+                    iwd,
+                    // Filled below from p-values across the deck's cards.
+                    iwd_q: iwd.map(|_| two_proportion_p(a.seen_wins, a.seen, unseen_wins, unseen)),
+                    cast_wr: (enough && a.cast > 0).then(|| rate(a.cast_wins, a.cast)),
+                    first_cast_turn: (!a.cast_turns.is_empty()).then(|| {
+                        dist(
+                            a.cast_turns,
+                            label_seed(spec.seed, &format!("{config}/{d}/{name}")),
+                        )
+                    }),
+                    dead: rate(a.seen - a.cast, a.seen),
+                    name,
+                }
+            })
+            .collect();
+        // Benjamini–Hochberg across the cards with enough samples.
+        let ps: Vec<f64> = cards.iter().filter_map(|c| c.iwd_q).collect();
+        let qs = benjamini_hochberg(&ps);
+        let mut qi = qs.into_iter();
+        for c in &mut cards {
+            if c.iwd_q.is_some() {
+                c.iwd_q = qi.next().map(r4);
+            }
+        }
+        cards.sort_by(|a, b| b.seen.k.cmp(&a.seen.k).then(a.name.cmp(&b.name)));
+        decks_out.push(DeckCards {
+            deck: d,
+            games,
+            cards,
+        });
+    }
+    PerCardReport {
+        note: "correlational: long games see more cards, and tutors and wheels bias what's seen; use mode: ab for causal answers".into(),
+        decks: decks_out,
+    }
+}
+
+fn per_game(total: u64, games: u64) -> f64 {
+    r4(total as f64 / games.max(1) as f64)
+}
+
+fn interaction_report(spec: &Spec, records: &[&GameRecord]) -> BTreeMap<String, InteractionStats> {
+    deck_order(spec, records)
+        .into_iter()
+        .map(|d| {
+            let (mut games, mut c, mut x, mut t) = (0u64, 0u64, 0u64, 0u64);
+            for r in records {
+                if let (Some(seat), Some(v)) =
+                    (r.seats.iter().position(|s| *s == d), r.interaction.as_ref())
+                {
+                    games += 1;
+                    c += u64::from(v[seat].counterspells);
+                    x += u64::from(v[seat].countered);
+                    t += u64::from(v[seat].targeted_opponents);
+                }
+            }
+            (
+                d,
+                InteractionStats {
+                    counterspells_cast_per_game: per_game(c, games),
+                    spells_countered_per_game: per_game(x, games),
+                    removal_targets_per_game: per_game(t, games),
+                },
+            )
+        })
+        .collect()
+}
+
+fn mana_report(spec: &Spec, records: &[&GameRecord]) -> BTreeMap<String, ManaStats> {
+    deck_order(spec, records)
+        .into_iter()
+        .map(|d| {
+            let (mut games, mut lands, mut mana, mut early, mut missed) =
+                (0u64, 0u64, 0u64, 0u64, 0u64);
+            for r in records {
+                if let (Some(seat), Some(v)) =
+                    (r.seats.iter().position(|s| *s == d), r.mana.as_ref())
+                {
+                    games += 1;
+                    lands += u64::from(v[seat].lands_played);
+                    mana += u64::from(v[seat].mana_produced);
+                    early += u64::from(v[seat].early_turns);
+                    missed += u64::from(v[seat].missed_land_drops);
+                }
+            }
+            (
+                d,
+                ManaStats {
+                    lands_played_per_game: per_game(lands, games),
+                    mana_produced_per_game: per_game(mana, games),
+                    missed_land_drops: rate(missed, early),
+                },
+            )
+        })
+        .collect()
+}
+
+/// mode: ab — each variant against its base deck on the same seeds.
+fn ab_report(spec: &Spec, records: &[GameRecord]) -> Vec<AbComparison> {
+    let base: BTreeMap<u64, &GameRecord> = records
+        .iter()
+        .filter(|r| r.config == kiln_protocol::record::BASE_CONFIG)
+        .map(|r| (r.index, r))
+        .collect();
+    spec.variants
+        .iter()
+        .map(|(name, v)| {
+            let won = |r: &GameRecord, deck: &str| r.winner.is_some_and(|w| r.seats[w] == deck);
+            let (mut n, mut kb, mut kv) = (0u64, 0u64, 0u64);
+            let mut diffs = Vec::new();
+            for r in records.iter().filter(|r| r.config == *name) {
+                let Some(b) = base.get(&r.index) else {
+                    continue;
+                };
+                if r.outcome == Outcome::Capped || b.outcome == Outcome::Capped {
+                    continue;
+                }
+                let (wb, wv) = (won(b, &v.base), won(r, name));
+                n += 1;
+                kb += u64::from(wb);
+                kv += u64::from(wv);
+                diffs.push(i32::from(wv) - i32::from(wb));
+            }
+            let (lo, hi) = paired_mean_ci(&diffs, label_seed(spec.seed, name));
+            AbComparison {
+                variant: name.clone(),
+                base_deck: v.base.clone(),
+                paired_games: n,
+                base: rate(kb, n),
+                variant_rate: rate(kv, n),
+                difference: r4((kv as f64 - kb as f64) / n.max(1) as f64),
+                difference_ci95: [r4(lo), r4(hi)],
+            }
+        })
+        .collect()
+}
+
+/// mode: opening_hands — keep rates and feature rates per deck.
+fn opening_report(spec: &Spec, records: &[GameRecord]) -> Vec<OpeningHandStats> {
+    let features = spec
+        .opening_hands
+        .as_ref()
+        .map(|o| o.features.clone())
+        .unwrap_or_default();
+    spec.decks
+        .iter()
+        .map(|d| {
+            let mine: Vec<&GameRecord> = records.iter().filter(|r| r.config == d.id).collect();
+            let n = mine.len() as u64;
+            let most = mine.iter().map(|r| r.mulligans[0]).max().unwrap_or(0) as usize;
+            let kept_at = (0..=most)
+                .map(|k| {
+                    rate(
+                        mine.iter().filter(|r| r.mulligans[0] as usize == k).count() as u64,
+                        n,
+                    )
+                })
+                .collect();
+            let features = features
+                .iter()
+                .map(|(f, cards)| {
+                    let wanted: Vec<String> = cards.iter().map(|c| c.to_lowercase()).collect();
+                    let k = mine
+                        .iter()
+                        .filter(|r| {
+                            r.hand
+                                .iter()
+                                .flatten()
+                                .any(|c| wanted.contains(&c.to_lowercase()))
+                        })
+                        .count() as u64;
+                    (f.clone(), rate(k, n))
+                })
+                .collect();
+            OpeningHandStats {
+                deck: d.id.clone(),
+                hands: n,
+                kept_at,
+                features,
+            }
+        })
+        .collect()
 }

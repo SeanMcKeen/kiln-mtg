@@ -10,7 +10,8 @@ use std::time::Instant;
 use kiln_data::CardDb;
 use kiln_engine::rng::{GameRng, game_seed, splitmix64};
 use kiln_engine::{
-    CardPool, DefId, Game, GameResult, GameRules, GameSetup, LossReason, PlayerStatus,
+    CardPool, DefId, Event, Game, GameResult, GameRules, GameSetup, LossReason, PlayerStatus,
+    Recorder, Replay,
 };
 use kiln_policy::{GreedyPolicy, PassivePolicy, Policy, RandomPolicy};
 use kiln_protocol::record::{BASE_CONFIG, Elimination, GameRecord, Outcome, Timing};
@@ -18,12 +19,20 @@ use kiln_protocol::spec::{Mode, PolicySpec, Seating};
 use kiln_protocol::{ResolvedSpec, parse};
 use kiln_types::{OracleId, PlayerId};
 
-use super::{ExperimentError, ResolvedDeck, resolve_decks};
+use super::{ExperimentError, ResolvedDeck, facts, resolve_decks};
 use crate::library::Library;
 use crate::runner::policy_seed;
 
 /// The deck id of a goldfish opponent.
 pub const OPPONENT: &str = "opponent";
+
+/// A finished game, with its replay and raw events when asked for.
+#[derive(Debug)]
+pub struct Played {
+    pub record: GameRecord,
+    pub replay: Option<Replay>,
+    pub events: Option<Vec<Event>>,
+}
 
 /// One deck as card ids in the experiment's pool.
 #[derive(Debug, Clone)]
@@ -140,7 +149,26 @@ impl Experiment {
                     });
                 }
             }
-            Mode::Pod | Mode::OpeningHands => {}
+            Mode::OpeningHands => {
+                // One configuration per deck: it and one passive opponent.
+                let island = pool.by_name("Island").ok_or_else(|| {
+                    ExperimentError::Run("the pool has no Island for the dummy opponent".into())
+                })?;
+                play.push(PlayDeck {
+                    id: OPPONENT.into(),
+                    cards: vec![island; 99],
+                    commanders: Vec::new(),
+                    policy: PolicySpec::Passive,
+                });
+                let opp = play.len() - 1;
+                configs = (0..spec.decks.len())
+                    .map(|i| Config {
+                        name: play[i].id.clone(),
+                        slots: vec![i, opp],
+                    })
+                    .collect();
+            }
+            Mode::Pod => {}
         }
         let kinds: std::collections::BTreeSet<&str> = play
             .iter()
@@ -180,6 +208,9 @@ impl Experiment {
     /// The slot each seat holds in game `index` (M7 plan S4).
     fn seating(&self, index: u64, n: usize) -> Vec<usize> {
         let spec = &self.resolved.spec;
+        if spec.mode == Mode::OpeningHands {
+            return (0..n).collect();
+        }
         match spec.seating {
             Seating::Fixed => (0..n).collect(),
             Seating::BalancedRotation => {
@@ -248,8 +279,24 @@ impl Experiment {
         index: u64,
         cancel: &AtomicBool,
     ) -> Option<GameRecord> {
+        self.play(config, index, cancel, false).map(|p| p.record)
+    }
+
+    /// [`Experiment::play_game`], also recording a replay if asked and the raw
+    /// events if `metrics.raw_events` is on. Games are deterministic, so
+    /// playing an index again gives the same game (this is how replays are kept).
+    pub fn play(
+        &self,
+        config: &Config,
+        index: u64,
+        cancel: &AtomicBool,
+        replay: bool,
+    ) -> Option<Played> {
         let spec = &self.resolved.spec;
         let (setup, seats) = self.setup(config, index);
+        let opening = spec.mode == Mode::OpeningHands;
+        let mut recorder = replay.then(Recorder::new);
+        let mut hands: Option<Vec<Vec<DefId>>> = None;
         let n = seats.len();
         let started = Instant::now();
         let mut record = GameRecord {
@@ -267,12 +314,20 @@ impl Experiment {
             capped: None,
             decision_kinds: spec.metrics.decision_stats.then(BTreeMap::new),
             timing: None,
+            cards: None,
+            interaction: None,
+            mana: None,
+            hand: None,
         };
         let mut game = match Game::new(Arc::clone(&self.pool), &setup) {
             Ok(g) => g,
             Err(e) => {
                 record.capped = Some(format!("setup failed: {e}"));
-                return Some(record);
+                return Some(Played {
+                    record,
+                    replay: None,
+                    events: None,
+                });
             }
         };
         let mut policies = self.policies(&seats);
@@ -283,6 +338,23 @@ impl Experiment {
         while let Some(d) = game.pending() {
             if cancel.load(Ordering::Relaxed) {
                 return None;
+            }
+            // The first decision of turn 1: every opening hand is final.
+            if hands.is_none() && game.turn().number >= 1 {
+                hands = Some(
+                    (0..n)
+                        .map(|seat| {
+                            game.player_state(seat_id(seat))
+                                .hand
+                                .iter()
+                                .filter_map(|id| game.object(*id).map(|o| o.def))
+                                .collect()
+                        })
+                        .collect(),
+                );
+                if opening {
+                    break;
+                }
             }
             if record.decisions >= spec.limits.max_decisions {
                 record.capped = Some("max_decisions".into());
@@ -312,7 +384,11 @@ impl Experiment {
                 policy_us[seat] += u64::try_from(t.elapsed().as_micros()).unwrap_or(u64::MAX);
                 choice.min(u32::try_from(count - 1).unwrap_or(0))
             };
-            if game.apply_option(option).is_err() {
+            let applied = match &mut recorder {
+                Some(r) => r.apply(&mut game, option),
+                None => game.apply_option(option),
+            };
+            if applied.is_err() {
                 record.capped = Some("engine rejected an offered option".into());
                 break;
             }
@@ -323,7 +399,15 @@ impl Experiment {
         for (seat, m) in record.mulligans.iter_mut().enumerate() {
             *m = game.player_state(seat_id(seat)).mulligans;
         }
+        let hands = hands.unwrap_or_default();
         match game.result() {
+            _ if opening => {
+                record.outcome = Outcome::NotPlayed;
+                record.capped = None;
+                record.hand = hands
+                    .first()
+                    .map(|h| h.iter().map(|d| self.pool.get(*d).name.clone()).collect());
+            }
             Some(GameResult::Win { player, .. }) => {
                 record.outcome = Outcome::Win;
                 record.winner = Some(player.0 as usize);
@@ -341,7 +425,38 @@ impl Experiment {
                 policy_us,
             });
         }
-        Some(record)
+        let m = &spec.metrics;
+        if !opening && (m.per_card.enabled || m.interaction || m.mana) {
+            let tracked: Vec<bool> = record
+                .seats
+                .iter()
+                .map(|d| {
+                    m.per_card.enabled
+                        && d != OPPONENT
+                        && (m.per_card.decks.is_empty() || m.per_card.decks.contains(d))
+                })
+                .collect();
+            let f = facts::extract(
+                &game,
+                &hands,
+                &setup.commanders,
+                facts::Want {
+                    card_seats: &tracked,
+                    interaction: m.interaction,
+                    mana: m.mana,
+                },
+            );
+            record.cards = f.cards;
+            record.interaction = f.interaction;
+            record.mana = f.mana;
+        }
+        let events = m.raw_events.then(|| game.events().to_vec());
+        let replay = recorder.map(|r| r.finish(&game, setup));
+        Some(Played {
+            record,
+            replay,
+            events,
+        })
     }
 
     /// Resolves and prepares an experiment from spec text.

@@ -6,10 +6,11 @@ use std::io::Write;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use kiln_protocol::{GameRecord, RunManifest, RunStatus};
+use kiln_protocol::spec::ReplayKeep;
+use kiln_protocol::{GameRecord, Outcome, RunManifest, RunStatus};
 use rayon::prelude::*;
 
-use super::{Experiment, ExperimentError};
+use super::{Experiment, ExperimentError, Played};
 
 /// Games played between checkpoints.
 const CHUNK: usize = 256;
@@ -153,17 +154,20 @@ pub fn run(
         total,
     });
     for chunk in todo.chunks(CHUNK) {
-        let records: Vec<Option<GameRecord>> = pool.install(|| {
+        let played: Vec<Option<Played>> = pool.install(|| {
             chunk
                 .par_iter()
-                .map(|(c, i)| exp.play_game(&configs[*c], *i, opts.cancel))
+                .map(|(c, i)| exp.play(&configs[*c], *i, opts.cancel, false))
                 .collect()
         });
         let mut lines = String::new();
-        for r in records.iter().flatten() {
-            lines.push_str(&serde_json::to_string(r).unwrap_or_default());
+        for p in played.iter().flatten() {
+            lines.push_str(&serde_json::to_string(&p.record).unwrap_or_default());
             lines.push('\n');
             manifest.games_done += 1;
+            if let Some(events) = &p.events {
+                write_events(dir, &p.record, events)?;
+            }
         }
         games_file
             .write_all(lines.as_bytes())
@@ -179,13 +183,134 @@ pub fn run(
             done: manifest.games_done,
             total,
         });
-        if records.iter().any(Option::is_none) || opts.cancel.load(Ordering::Relaxed) {
+        if played.iter().any(Option::is_none) || opts.cancel.load(Ordering::Relaxed) {
             manifest.status = RunStatus::Cancelled;
             write_manifest(dir, &manifest)?;
             return Ok(manifest);
         }
     }
+    write_replays(exp, dir, &read_records(dir)?)?;
     manifest.status = RunStatus::Complete;
     write_manifest(dir, &manifest)?;
     Ok(manifest)
+}
+
+fn game_file(r: &GameRecord) -> String {
+    format!("{}-{:06}", r.config, r.index)
+}
+
+/// `metrics.raw_events`: one JSON event per line.
+fn write_events(
+    dir: &Path,
+    r: &GameRecord,
+    events: &[kiln_engine::Event],
+) -> Result<(), ExperimentError> {
+    let events_dir = dir.join("events");
+    std::fs::create_dir_all(&events_dir).map_err(|e| io(&events_dir, e))?;
+    let path = events_dir.join(format!("{}.jsonl", game_file(r)));
+    let mut text = String::new();
+    for e in events {
+        text.push_str(&serde_json::to_string(e).unwrap_or_default());
+        text.push('\n');
+    }
+    std::fs::write(&path, text).map_err(|e| io(&path, e))
+}
+
+/// The games whose replays to keep (Metrics Catalog `replays`).
+pub fn replay_selection(keep: ReplayKeep, max: u64, records: &[GameRecord]) -> Vec<(String, u64)> {
+    let max = usize::try_from(max).unwrap_or(usize::MAX);
+    let key = |r: &GameRecord| (r.config.clone(), r.index);
+    let mut out: Vec<(String, u64)> = match keep {
+        ReplayKeep::None => Vec::new(),
+        ReplayKeep::All => records.iter().map(key).collect(),
+        ReplayKeep::Sample(n) => records
+            .iter()
+            .filter(|r| r.index % n == 0)
+            .take(max)
+            .map(key)
+            .collect(),
+        ReplayKeep::Interesting => {
+            let quarter = max.div_ceil(4).max(1);
+            let played: Vec<&GameRecord> = records
+                .iter()
+                .filter(|r| r.outcome != Outcome::NotPlayed)
+                .collect();
+            let mut wins: Vec<&&GameRecord> = played
+                .iter()
+                .filter(|r| r.outcome == Outcome::Win)
+                .collect();
+            wins.sort_by_key(|r| (r.turns, r.index));
+            let mut longest: Vec<&&GameRecord> = played.iter().collect();
+            longest.sort_by_key(|r| (std::cmp::Reverse(r.turns), r.index));
+            // Upsets: wins by the deck that won least often.
+            let mut by_deck: std::collections::BTreeMap<&str, u64> = Default::default();
+            for r in &wins {
+                if let Some(w) = r.winner {
+                    *by_deck.entry(r.seats[w].as_str()).or_default() += 1;
+                }
+            }
+            let weakest = by_deck.iter().min_by_key(|(_, n)| **n).map(|(d, _)| *d);
+            let upsets = wins
+                .iter()
+                .filter(|r| r.winner.map(|w| r.seats[w].as_str()) == weakest);
+            let capped = played.iter().filter(|r| r.outcome == Outcome::Capped);
+            let mut picked: Vec<(String, u64)> = Vec::new();
+            picked.extend(wins.iter().take(quarter).map(|r| key(r)));
+            picked.extend(upsets.take(quarter).map(|r| key(r)));
+            picked.extend(capped.take(quarter).map(|r| key(r)));
+            picked.extend(longest.iter().take(quarter).map(|r| key(r)));
+            picked.sort();
+            picked.dedup();
+            picked.truncate(max);
+            picked
+        }
+    };
+    out.sort();
+    out
+}
+
+/// Plays the selected games again with a recorder and writes their replays
+/// (`kiln-replay/1`). A game that doesn't reproduce its record is a
+/// determinism failure (exit code 5).
+fn write_replays(
+    exp: &Experiment,
+    dir: &Path,
+    records: &[GameRecord],
+) -> Result<(), ExperimentError> {
+    let spec = &exp.resolved.spec;
+    let keep = ReplayKeep::parse(&spec.outputs.replays.keep).unwrap_or(ReplayKeep::None);
+    let chosen = replay_selection(keep, spec.outputs.replays.max, records);
+    if chosen.is_empty() {
+        return Ok(());
+    }
+    let replays_dir = dir.join("replays");
+    std::fs::create_dir_all(&replays_dir).map_err(|e| io(&replays_dir, e))?;
+    let never = AtomicBool::new(false);
+    for (config, index) in chosen {
+        let Some(c) = exp.configs().iter().find(|c| c.name == config) else {
+            continue;
+        };
+        let Some(played) = exp.play(c, index, &never, true) else {
+            continue;
+        };
+        let Some(stored) = records
+            .iter()
+            .find(|r| r.config == config && r.index == index)
+        else {
+            continue;
+        };
+        if played.record.outcome != stored.outcome
+            || played.record.winner != stored.winner
+            || played.record.turns != stored.turns
+            || played.record.decisions != stored.decisions
+        {
+            return Err(ExperimentError::Divergence(format!(
+                "game {config}/{index} played differently the second time"
+            )));
+        }
+        let path = replays_dir.join(format!("{}.json", game_file(stored)));
+        let text = serde_json::to_string(&played.replay).unwrap_or_default();
+        std::fs::write(&path, text).map_err(|e| io(&path, e))?;
+    }
+    Ok(())
 }

@@ -43,6 +43,60 @@ pub struct GameRecord {
     /// Wall-clock time (`metrics.timing`): not deterministic.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub timing: Option<Timing>,
+    /// Per-card facts for tracked decks (`metrics.per_card`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cards: Option<Vec<SeatCards>>,
+    /// Per seat (`metrics.interaction`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub interaction: Option<Vec<SeatInteraction>>,
+    /// Per seat (`metrics.mana`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mana: Option<Vec<SeatMana>>,
+    /// `mode: opening_hands`: the hand seat 1 kept.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hand: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SeatCards {
+    pub seat: usize,
+    pub cards: Vec<CardFact>,
+}
+
+/// One card its owner saw (commanders and tokens aren't tracked).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CardFact {
+    pub name: String,
+    /// The turn it first reached its owner's hand; 0 = the opening hand.
+    pub seen: u32,
+    /// The turn it was first cast or played.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cast: Option<u32>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SeatInteraction {
+    /// Spells cast that counter spells or abilities.
+    pub counterspells: u32,
+    /// Its spells that were countered.
+    pub countered: u32,
+    /// Times its spells and abilities targeted a permanent another player controlled.
+    pub targeted_opponents: u32,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SeatMana {
+    pub lands_played: u32,
+    /// Mana added to its pool (each unit).
+    pub mana_produced: u32,
+    /// Of its first five turns, how many it took.
+    pub early_turns: u32,
+    /// Of those, turns with no land played.
+    pub missed_land_drops: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -52,6 +106,8 @@ pub enum Outcome {
     Draw,
     /// Stopped by a harness limit; excluded from win-rate denominators.
     Capped,
+    /// No game was played (`mode: opening_hands`).
+    NotPlayed,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

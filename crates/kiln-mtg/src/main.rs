@@ -14,6 +14,8 @@ use kiln_data::{BuildInput, CardDb, DEFAULT_CACHE_DIR};
 use kiln_sim::deck::{DeckReport, ValidateOptions, parse_deck, validate_with};
 use serde::Serialize;
 
+mod sim;
+
 #[derive(Debug, Parser)]
 #[command(name = "kiln", version, about = "MTG rules engine and simulation lab", long_about = None)]
 struct Cli {
@@ -32,6 +34,9 @@ enum Command {
     /// Developer tools.
     #[command(subcommand)]
     Dev(DevCmd),
+    /// Experiments: run a spec, check progress, read reports.
+    #[command(subcommand)]
+    Sim(sim::SimCmd),
 }
 
 #[derive(Debug, Args)]
@@ -296,6 +301,7 @@ fn run(cli: Cli) -> Result<ExitCode> {
             json,
         }) => cr_check(&cr, &paths, require, json),
         Command::Dev(DevCmd::Fuzz(args)) => fuzz(&args),
+        Command::Sim(cmd) => sim::sim(cmd),
         Command::Dev(DevCmd::VerifyCards { db, list, json }) => {
             let (db, _) = db.load()?;
             let r = kiln_testkit::real::verify(&db).map_err(|e| anyhow::anyhow!(e))?;

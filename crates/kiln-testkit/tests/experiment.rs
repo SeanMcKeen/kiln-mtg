@@ -151,3 +151,66 @@ fn the_coverage_gate_refuses_unverified_cards() {
     let err = play(&spec, &scratch("gate"), 1).expect_err("kinnan.txt has unsupported cards");
     assert_eq!(err.exit_code(), 3, "{err}");
 }
+
+#[test]
+fn opening_hands_ab_and_event_metrics() {
+    if library().is_none() {
+        return;
+    }
+    let hands = r#"
+spec: kiln-spec/1
+name: hands
+mode: opening_hands
+games: 20
+decks: [{ id: kinnan, source: { file: tests/fixtures/decks/kinnan-verified.txt } }]
+opening_hands: { features: { fast_mana: [Sol Ring, Mana Vault, Chrome Mox] } }
+"#;
+    let dir = scratch("hands");
+    let records = play(hands, &dir, 2).unwrap_or_else(|e| panic!("{e}"));
+    assert_eq!(records.len(), 20);
+    for r in &records {
+        assert_eq!(r.outcome, Outcome::NotPlayed);
+        // London mulligan (CR 103.5): one card to the bottom per mulligan.
+        let kept = r.hand.as_ref().map_or(0, Vec::len);
+        assert_eq!(kept, 7 - r.mulligans[0] as usize, "{r:?}");
+    }
+    let report = experiment::write_report(&dir).unwrap_or_else(|e| panic!("{e}"));
+    assert_eq!(report.opening_hands.len(), 1);
+    assert_eq!(report.opening_hands[0].hands, 20);
+    assert!(report.configs.is_empty());
+
+    let ab = POD
+        .replace("name: test-pod", "name: ab")
+        .replace("games: 8", "mode: ab\ngames: 8")
+        .replace(
+            "policies:",
+            "variants:\n  najeela_ring: { base: najeela, swap: { out: [Abrupt Decay], in: [Sol Ring] } }\nmetrics: { per_card: { decks: [kinnan], min_samples: 1 }, interaction: true, mana: true }\npolicies:",
+        );
+    let dir2 = scratch("ab");
+    let records = play(&ab, &dir2, 2).unwrap_or_else(|e| panic!("{e}"));
+    assert_eq!(
+        records.len(),
+        16,
+        "8 games for the base and 8 for the variant"
+    );
+    assert!(
+        records
+            .iter()
+            .all(|r| r.mana.is_some() && r.interaction.is_some())
+    );
+    assert!(
+        records
+            .iter()
+            .filter(|r| r.outcome != Outcome::Capped)
+            .all(|r| r.cards.as_ref().is_some_and(|c| c.len() == 1))
+    );
+    let report = experiment::write_report(&dir2).unwrap_or_else(|e| panic!("{e}"));
+    assert_eq!(report.ab.len(), 1);
+    assert!(report.ab[0].paired_games <= 8);
+    let base = &report.configs[0];
+    assert!(base.per_card.as_ref().is_some_and(|p| p.decks.len() == 1));
+    assert!(base.mana.as_ref().is_some_and(|m| m.len() == 4));
+    for d in [dir, dir2] {
+        let _ = std::fs::remove_dir_all(d);
+    }
+}

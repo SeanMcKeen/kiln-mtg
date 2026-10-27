@@ -22,6 +22,7 @@ kiln-data = { workspace = true, default-features = false }
 kiln-engine.workspace = true
 kiln-policy.workspace = true
 kiln-sim.workspace = true
+kiln-protocol.workspace = true
 kiln-testkit.workspace = true
 anyhow.workspace = true
 clap.workspace = true

@@ -125,11 +125,11 @@ pub struct GameShape {
 #[serde(deny_unknown_fields)]
 pub struct DeckShape {
     pub deck: String,
-    /// The turn of its wins.
+    /// Its own turn number when it won (its Nth turn, as in "a turn-4 win").
     pub win_turn: Option<Dist>,
     /// Win type → share of its wins.
     pub win_types: BTreeMap<String, Rate>,
-    /// The turn it left games it lost.
+    /// Its own turn number when it left games it lost.
     pub loss_turn: Option<Dist>,
 }
 

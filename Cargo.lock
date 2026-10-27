@@ -727,6 +727,7 @@ dependencies = [
  "kiln-data",
  "kiln-engine",
  "kiln-policy",
+ "kiln-protocol",
  "kiln-sim",
  "kiln-testkit",
  "kiln-types",

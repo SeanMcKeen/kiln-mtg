@@ -323,7 +323,7 @@
               "type": "null"
             }
           ],
-          "description": "The turn it left games it lost."
+          "description": "Its own turn number when it left games it lost."
         },
         "win_turn": {
           "anyOf": [
@@ -334,7 +334,7 @@
               "type": "null"
             }
           ],
-          "description": "The turn of its wins."
+          "description": "Its own turn number when it won (its Nth turn, as in \"a turn-4 win\")."
         },
         "win_types": {
           "additionalProperties": {

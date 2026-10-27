@@ -1,5 +1,34 @@
 {
   "$defs": {
+    "CardFact": {
+      "additionalProperties": false,
+      "description": "One card its owner saw (commanders and tokens aren't tracked).",
+      "properties": {
+        "cast": {
+          "description": "The turn it was first cast or played.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "seen": {
+          "description": "The turn it first reached its owner's hand; 0 = the opening hand.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "seen"
+      ],
+      "type": "object"
+    },
     "Elimination": {
       "additionalProperties": false,
       "properties": {
@@ -38,8 +67,98 @@
           "const": "capped",
           "description": "Stopped by a harness limit; excluded from win-rate denominators.",
           "type": "string"
+        },
+        {
+          "const": "not_played",
+          "description": "No game was played (`mode: opening_hands`).",
+          "type": "string"
         }
       ]
+    },
+    "SeatCards": {
+      "additionalProperties": false,
+      "properties": {
+        "cards": {
+          "items": {
+            "$ref": "#/$defs/CardFact"
+          },
+          "type": "array"
+        },
+        "seat": {
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "seat",
+        "cards"
+      ],
+      "type": "object"
+    },
+    "SeatInteraction": {
+      "additionalProperties": false,
+      "properties": {
+        "countered": {
+          "description": "Its spells that were countered.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "counterspells": {
+          "description": "Spells cast that counter spells or abilities.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "targeted_opponents": {
+          "description": "Times its spells and abilities targeted a permanent another player controlled.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "counterspells",
+        "countered",
+        "targeted_opponents"
+      ],
+      "type": "object"
+    },
+    "SeatMana": {
+      "additionalProperties": false,
+      "properties": {
+        "early_turns": {
+          "description": "Of its first five turns, how many it took.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "lands_played": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "mana_produced": {
+          "description": "Mana added to its pool (each unit).",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "missed_land_drops": {
+          "description": "Of those, turns with no land played.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "lands_played",
+        "mana_produced",
+        "early_turns",
+        "missed_land_drops"
+      ],
+      "type": "object"
     },
     "Timing": {
       "additionalProperties": false,
@@ -77,6 +196,16 @@
         "null"
       ]
     },
+    "cards": {
+      "description": "Per-card facts for tracked decks (`metrics.per_card`).",
+      "items": {
+        "$ref": "#/$defs/SeatCards"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
     "config": {
       "description": "`base`, or the A/B variant this game belongs to.",
       "type": "string"
@@ -105,11 +234,41 @@
       },
       "type": "array"
     },
+    "hand": {
+      "description": "`mode: opening_hands`: the hand seat 1 kept.",
+      "items": {
+        "type": "string"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
     "index": {
       "description": "The game's index; configurations share indices and seeds (paired runs).",
       "format": "uint64",
       "minimum": 0,
       "type": "integer"
+    },
+    "interaction": {
+      "description": "Per seat (`metrics.interaction`).",
+      "items": {
+        "$ref": "#/$defs/SeatInteraction"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "mana": {
+      "description": "Per seat (`metrics.mana`).",
+      "items": {
+        "$ref": "#/$defs/SeatMana"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
     },
     "mulligans": {
       "description": "Mulligans taken, per seat.",

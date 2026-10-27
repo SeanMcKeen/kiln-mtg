@@ -1,0 +1,15 @@
+# US-4: how often are 7-card hands kept, and what do kept hands contain?
+# Run: kiln sim run examples/specs/kinnan-opening-hands.yaml --threads 2
+spec: kiln-spec/1
+name: kinnan-opening-hands
+mode: opening_hands
+games: 2000
+seed: 4
+decks:
+  - { id: kinnan, source: { file: ../../tests/fixtures/decks/kinnan-verified.txt } }
+policies:
+  default: { kind: greedy }
+opening_hands:
+  features:
+    fast_mana: [Sol Ring, Mana Vault, Grim Monolith, Chrome Mox, Mox Diamond, Mox Opal, Mox Amber, Lotus Petal, Elvish Spirit Guide, Simian Spirit Guide]
+    tutor: [Demonic Tutor, Vampiric Tutor, Mystical Tutor, Worldly Tutor, Enlightened Tutor, Imperial Seal, Gamble]
