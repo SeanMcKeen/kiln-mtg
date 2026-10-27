@@ -958,6 +958,11 @@ pub enum ObjectSet {
         filter: ObjectFilter,
         count: Quantity,
     },
+    /// Every card in a player's zone ("target player's graveyard").
+    Zone {
+        owner: PlayerRef,
+        zone: ZoneName,
+    },
 }
 
 /// A player an effect refers to.
@@ -1054,6 +1059,9 @@ pub struct ObjectFilter {
     /// "a card with the chosen name".
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub named: Option<String>,
+    /// Whose card it is ("an opponent's graveyard": cards opponents own).
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub owner: PlayerRel,
     /// "non[color]": none of these color letters (Snuff Out: "nonblack").
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub not_color: Option<String>,

@@ -39,6 +39,9 @@ impl Game {
         if f.attached && !self.is_attached_to(this, id) {
             return false;
         }
+        if !self.player_rel(f.owner, you, o.owner) {
+            return false;
+        }
         if let Some(letters) = &f.not_color
             && letters
                 .chars()

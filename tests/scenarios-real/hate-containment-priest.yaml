@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: "Containment Priest: a nontoken creature entering without being cast is exiled instead (Animate Dead)"
+cr: ["614.1a", "303.4a"]
+verifies: [Containment Priest]
+players:
+  - battlefield: [Swamp, Swamp]
+    hand: [Animate Dead]
+    graveyard: [Grizzly Bears]
+  - battlefield: [Containment Priest]
+script:
+  - choose: Cast Animate Dead
+  - choose: Target Grizzly Bears
+  - choose: Pay with Swamp, Swamp
+  - pass_all
+  - pass_all
+  - pass_all
+expect:
+  zones:
+    exile: [Grizzly Bears]

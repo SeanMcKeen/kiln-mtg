@@ -262,6 +262,49 @@ impl Game {
         true
     }
 
+    // ---- "exile it instead" (CR 614.1a) ------------------------------------------
+
+    /// Where object `id` moving from `from` to `to` actually goes: Rest in
+    /// Peace and Leyline of the Void exile what would go to a graveyard;
+    /// Containment Priest exiles a nontoken creature entering without being
+    /// cast (a move from the stack is a resolving spell). Several such
+    /// replacements have the same result, so their order doesn't matter
+    /// (Open Questions Q28).
+    pub(crate) fn zone_replacement(
+        &self,
+        id: ObjectId,
+        from: crate::state::ZoneId,
+        to: crate::state::ZoneId,
+    ) -> crate::state::ZoneId {
+        use crate::state::ZoneId;
+        if !self.pool.has_zone_replacements() {
+            return to;
+        }
+        let to_graveyard = matches!(to, ZoneId::Graveyard(_));
+        let entering = to == ZoneId::Battlefield && from != ZoneId::Stack;
+        if !to_graveyard && !entering {
+            return to;
+        }
+        for &source in &self.battlefield {
+            let Some(o) = self.obj(source) else { continue };
+            for (_, a) in self.abilities_of(source) {
+                let Ability::Replacement(r) = a else { continue };
+                if !crate::support::is_exile_instead(&r.instead) {
+                    continue;
+                }
+                let filter = match (&r.event, to_graveyard) {
+                    (ReplaceEvent::WouldGoToGraveyard(f), true) => f,
+                    (ReplaceEvent::WouldEnter(f), false) if !f.this => f,
+                    _ => continue,
+                };
+                if self.matches_filter(id, filter, o.controller, Some(source)) {
+                    return ZoneId::Exile;
+                }
+            }
+        }
+        to
+    }
+
     // ---- rule statics (M4 plan R5; CR 613.11) ------------------------------------
 
     /// Rule-modifying statics in effect now (CR 613.11), from the layer cache.

@@ -1,0 +1,8 @@
+card: "Leyline of the Void"
+faces:
+  - abilities:
+      - opening_hand: { effect: { move: { what: { one: this }, to: battlefield } } }
+      # "If a card would be put into an opponent's graveyard from anywhere, exile it instead."
+      - replacement:
+          event: { would_go_to_graveyard: { owner: opponent, token: false } }
+          instead: { exile: { what: { one: triggering } } }

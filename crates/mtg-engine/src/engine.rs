@@ -806,6 +806,8 @@ impl Game {
         let old = *self.objects.get(id)?;
         // CR 903.9b: the owner may have chosen the command zone instead.
         let to = self.commander_destination(id, to);
+        // CR 614.1a: mandatory "exile it instead" replacements.
+        let to = self.zone_replacement(id, old.zone, to);
         // Last known information (CR 603.10, 608.2h) before the object leaves,
         // including what it was copying (CR 707.2).
         let (power, toughness) = (self.power(id), self.toughness(id));

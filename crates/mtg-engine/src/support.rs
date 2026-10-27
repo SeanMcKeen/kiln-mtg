@@ -507,6 +507,17 @@ fn layer_static(e: &StaticEffect) -> Check {
 }
 
 /// Replacement effects the engine applies (M4 plan R1–R4).
+/// "Exile it instead": the zone-change replacements the move itself applies.
+pub(crate) fn is_exile_instead(e: &Effect) -> bool {
+    matches!(
+        e,
+        Effect::Exile {
+            what: ObjectSet::One(ObjectRef::Triggering),
+            ..
+        }
+    )
+}
+
 fn replacement(r: &mtg_cards::ir::ReplacementAbility) -> Check {
     use mtg_cards::ir::ReplaceEvent as R;
     match (&r.event, &r.instead) {
@@ -520,6 +531,8 @@ fn replacement(r: &mtg_cards::ir::ReplacementAbility) -> Check {
             Err("conditional \"enters tapped\" (later in M4)".into())
         }
         (R::WouldEnter(f), instead) if f.this && r.condition.is_none() => effect(instead),
+        // "If [an object] would enter, exile it instead" (Containment Priest).
+        (R::WouldEnter(_), instead) if is_exile_instead(instead) && r.condition.is_none() => Ok(()),
         (R::WouldEnter(_), _) => Err("replacing other permanents entering (later)".into()),
         (R::WouldDraw { .. }, instead) => {
             if let Some(c) = &r.condition {
@@ -527,7 +540,15 @@ fn replacement(r: &mtg_cards::ir::ReplacementAbility) -> Check {
             }
             effect(instead)
         }
-        (R::WouldGoToGraveyard(_), _) => Err("graveyard replacement effects (later)".into()),
+        // "... exile it instead" (Rest in Peace, Leyline of the Void).
+        (R::WouldGoToGraveyard(_), instead)
+            if is_exile_instead(instead) && r.condition.is_none() =>
+        {
+            Ok(())
+        }
+        (R::WouldGoToGraveyard(_), _) => {
+            Err("graveyard replacements other than \"exile it instead\"".into())
+        }
         // Applied by the search itself when a player controls the search
         // (Opposition Agent, CR 723); the replacement records what it does.
         (R::WouldFindWhileSearching(_), instead) => effect(instead),
@@ -576,6 +597,7 @@ fn player(p: &PlayerRef) -> Check {
 
 fn set(s: &ObjectSet) -> Check {
     match s {
+        ObjectSet::Zone { owner, .. } => player(owner),
         ObjectSet::One(o) => object(o),
         ObjectSet::All(_) => Ok(()),
         ObjectSet::TopOfLibrary { owner, count } => {

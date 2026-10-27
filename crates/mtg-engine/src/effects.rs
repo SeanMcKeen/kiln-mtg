@@ -1886,6 +1886,17 @@ impl Game {
     /// Objects a set denotes right now. `ChosenFrom` sets go through [`Game::pick_for`].
     fn set_now(&self, ctx: &EffectCtx, set: &ObjectSet) -> Vec<ObjectId> {
         match set {
+            ObjectSet::Zone { owner, zone } => {
+                self.player_ref(ctx, owner).map_or_else(Vec::new, |p| {
+                    let pl = self.player(p);
+                    match zone {
+                        ZoneName::Graveyard => pl.graveyard.clone(),
+                        ZoneName::Hand => pl.hand.clone(),
+                        ZoneName::Library => pl.library.clone(),
+                        _ => Vec::new(),
+                    }
+                })
+            }
             ObjectSet::One(r) => self.object_refs(ctx, r).into_vec(),
             ObjectSet::All(f) => {
                 let zone = f.zone.unwrap_or(ZoneName::Battlefield);

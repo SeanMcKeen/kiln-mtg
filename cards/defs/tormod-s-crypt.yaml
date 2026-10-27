@@ -1,0 +1,7 @@
+card: "Tormod's Crypt"
+faces:
+  - abilities:
+      - activated:
+          cost: [tap, { sacrifice: { one: this } }]
+          targets: [{ what: { player: any } }]
+          effect: { exile: { what: { zone: { owner: { target: 0 }, zone: graveyard } } } }

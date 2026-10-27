@@ -935,6 +935,8 @@ pub struct CardPool {
     has_rule_statics: bool,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     tracks_spells: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    has_zone_replacements: bool,
     /// Hidden definitions holding each land type's intrinsic mana ability
     /// (CR 305.6), for lands that gain the type (Blood Moon, Urborg).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -1309,6 +1311,12 @@ impl CardPool {
             .abilities
             .iter()
             .any(|a| matches!(a, Ability::Static(s) if crate::layers::is_rule_static(&s.effect)));
+        self.has_zone_replacements |= def.abilities.iter().any(|a| {
+            matches!(a, Ability::Replacement(r)
+                if crate::support::is_exile_instead(&r.instead)
+                    && matches!(&r.event, ir::ReplaceEvent::WouldGoToGraveyard(_))
+                        | matches!(&r.event, ir::ReplaceEvent::WouldEnter(f) if !f.this))
+        });
         self.tracks_spells |= self.has_triggers
             || serde_json::to_string(&def.abilities).is_ok_and(|j| {
                 j.contains("\"spells_cast_this_turn\"")
@@ -1345,6 +1353,11 @@ impl CardPool {
     /// triggers, storm, and conditions and amounts that count spells.
     pub fn tracks_spells(&self) -> bool {
         self.tracks_spells
+    }
+
+    /// Whether some definition has an "exile it instead" zone replacement.
+    pub fn has_zone_replacements(&self) -> bool {
+        self.has_zone_replacements
     }
 
     pub fn has_rule_statics(&self) -> bool {

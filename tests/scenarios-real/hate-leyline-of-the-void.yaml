@@ -1,0 +1,21 @@
+scenario: mtg-scenario/1
+name: "Leyline of the Void: begin the game with it; opponents' cards that would go to a graveyard are exiled"
+cr: ["103.6a", "614.1a"]
+verifies: [Leyline of the Void]
+players:
+  - hand: [Leyline of the Void]
+  - battlefield: [Mountain]
+    hand: [Lightning Bolt]
+turn: { active: P1, step: pregame }
+script:
+  - choose: Begin the game with Leyline of the Void
+  - pass: 1
+  - { player: P2, choose: Cast Lightning Bolt }
+  - { player: P2, choose: Target P1 }
+  - { player: P2, choose: Pay with Mountain }
+  - pass_all
+expect:
+  life: { P1: 17 }
+  zones:
+    exile: [Lightning Bolt]
+    P1.battlefield: [Leyline of the Void]
