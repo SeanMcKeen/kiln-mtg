@@ -12,7 +12,7 @@ pub mod types;
 
 pub use color::{Color, Colors};
 pub use cr::CrRef;
-pub use ids::{ObjectId, OracleId, PlayerId};
+pub use ids::{ObjectId, OracleId, PlayerId, hash_ids_by_slot};
 pub use mana::{ManaCost, ManaSymbol};
 pub use stat::PrintedStat;
 pub use types::{CardType, Subtype, Supertype, TypeLine};

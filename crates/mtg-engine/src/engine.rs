@@ -280,6 +280,8 @@ pub struct Game {
     pub(crate) library_casts: Vec<ObjectId>,
     /// Additional combat phases still to come this turn (CR 500.8; Najeela).
     pub(crate) extra_combats: u8,
+    /// What Auras entering without being cast will enchant (CR 303.4f).
+    pub(crate) entering_hosts: Vec<(ObjectId, Target)>,
     /// Cards drawn this turn, by player (Faerie Mastermind's "second card",
     /// Sylvan Library's "drawn this turn").
     pub(crate) drawn_this_turn: Vec<(PlayerId, ObjectId)>,
@@ -380,6 +382,7 @@ impl Game {
             drawn_this_turn: Vec::new(),
             library_casts: Vec::new(),
             extra_combats: 0,
+            entering_hosts: Vec::new(),
         };
         // CR 903.6: each commander starts the game in the command zone.
         for (seat, defs) in setup.commanders.iter().enumerate() {
@@ -691,6 +694,9 @@ impl Game {
         if self.extra_combats > 0 {
             self.extra_combats.hash(&mut h);
         }
+        if !self.entering_hosts.is_empty() {
+            self.entering_hosts.hash(&mut h);
+        }
         h.finish()
     }
 
@@ -841,10 +847,6 @@ impl Game {
         self.detach(id, old.zone);
         if old.zone == ZoneId::Exile && !self.face_down.is_empty() {
             self.face_down.retain(|x| *x != id);
-        }
-        // CR 400.7: a new object; links to the old one end (CR 607.2a).
-        if old.zone == ZoneId::Battlefield && !self.linked.is_empty() {
-            self.linked.retain(|(s, _, _)| *s != id);
         }
         let was_copy = !self.copies.is_empty() && self.copies.contains(&id);
         if was_copy {
@@ -1815,6 +1817,7 @@ impl Game {
         }
         self.end_turn_effects();
         self.prune_attachments();
+        self.prune_links();
         // CR 514.3a: if SBAs would be performed, they are, then players get priority and another cleanup follows.
         // CR 514.3a: also when abilities have triggered during cleanup.
         if self.sba_pending() || !self.pending_triggers.is_empty() {
@@ -2375,6 +2378,25 @@ impl Game {
         {
             self.stack.remove(pos);
         }
+        self.prune_links();
+    }
+
+    /// CR 607.2a: a permanent's links end once it has left the battlefield
+    /// and none of its abilities is waiting or on the stack (Worldgorger
+    /// Dragon's leaves trigger still returns what its enters trigger exiled).
+    pub(crate) fn prune_links(&mut self) {
+        if self.linked.is_empty() {
+            return;
+        }
+        let linked = std::mem::take(&mut self.linked);
+        self.linked = linked
+            .into_iter()
+            .filter(|(s, _, _)| {
+                self.obj(*s).is_some_and(|o| o.zone == ZoneId::Battlefield)
+                    || self.stack.iter().any(|i| i.object == *s)
+                    || self.pending_triggers.iter().any(|p| p.source == *s)
+            })
+            .collect();
     }
 
     /// Deals damage (CR 120.3). Lifelink and deathtouch come from the source's keywords.

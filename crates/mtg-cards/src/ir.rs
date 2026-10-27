@@ -601,6 +601,10 @@ pub enum Effect {
     Move {
         what: ObjectSet,
         to: Destination,
+        /// "under their owners' control" (otherwise the effect's controller
+        /// puts permanents onto the battlefield under their own, CR 110.2).
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        under_owners: bool,
     },
     /// "[objects] get +N/+M until end of turn" (a layer 7c effect with a duration, CR 611.2).
     Pump {

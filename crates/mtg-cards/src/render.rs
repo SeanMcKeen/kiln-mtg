@@ -351,6 +351,7 @@ fn effect(e: &Effect, t: &[TargetSpec]) -> String {
         Effect::Move {
             what,
             to: Destination::Hand,
+            ..
         } => format!("return {} to its owner's hand", objects(what, t)),
         Effect::Counter(o) | Effect::CounterAndExile(o) => format!("counter {}", objects(o, t)),
         Effect::Unless {

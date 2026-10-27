@@ -326,6 +326,7 @@ pub(crate) const DASH_RETURN: u8 = 255;
 static DASH_RETURN_EFFECT: Effect = Effect::Move {
     what: ObjectSet::One(ObjectRef::This),
     to: Destination::Hand,
+    under_owners: false,
 };
 
 pub(crate) fn root(pool: &CardPool, a: AbilityRef) -> Option<&Effect> {
@@ -473,6 +474,21 @@ impl Game {
         // CR 903.9b: recorded, then the frame runs again and makes the move.
         if let DecisionKind::CommanderZone { commander, .. } = kind {
             self.commander_answer(commander, option == 1);
+            t.frames.push(frame);
+            self.tasks.push(Task::Effect(t));
+            return;
+        }
+        // CR 303.4f: likewise for what an entering Aura enchants.
+        if matches!(frame, Frame::Place { .. })
+            && let DecisionKind::ChooseCard {
+                source,
+                purpose: CardPurpose::Enchant,
+                cards,
+            } = &kind
+        {
+            if let Some(Some(h)) = cards.get(option) {
+                self.entering_hosts.push((*source, Target::Object(*h)));
+            }
             t.frames.push(frame);
             self.tasks.push(Task::Effect(t));
             return;
@@ -927,6 +943,26 @@ impl Game {
                     t.frames.push(Frame::Place { ids, to, who });
                     return Flow::Decide(p, kind, "614.12");
                 }
+                // CR 303.4f: an Aura not cast chooses what it enchants as it enters.
+                if matches!(
+                    to,
+                    Destination::Battlefield | Destination::BattlefieldTapped
+                ) && let Some((aura, hosts)) = ids.iter().find_map(|id| {
+                    self.aura_hosts(*id)
+                        .filter(|h| h.len() > 1)
+                        .map(|h| (*id, h))
+                }) {
+                    t.frames.push(Frame::Place { ids, to, who });
+                    return Flow::Decide(
+                        who,
+                        DecisionKind::ChooseCard {
+                            source: aura,
+                            purpose: CardPurpose::Enchant,
+                            cards: hosts.into_iter().map(Some).collect(),
+                        },
+                        "303.4f",
+                    );
+                }
                 for id in ids {
                     self.place(&mut t.ctx, id, to, who);
                 }
@@ -1101,7 +1137,11 @@ impl Game {
                 let ids = self.set_now(&t.ctx, what);
                 self.exile_all(&mut t.ctx, &ids, remember, face_down);
             }
-            Effect::Move { what, to } => {
+            Effect::Move {
+                what,
+                to,
+                under_owners,
+            } => {
                 let to = *to;
                 if let Some(p) = self.pick_for(t, what, purpose_for(to)) {
                     t.frames.push(Frame::Pick(Pick {
@@ -1113,7 +1153,29 @@ impl Game {
                 let who = t.ctx.each.unwrap_or(t.ctx.controller);
                 // One simultaneous move; commander owners answer first (CR 903.9b).
                 let ids = self.set_now(&t.ctx, what);
-                t.frames.push(Frame::Place { ids, to, who });
+                if *under_owners {
+                    // One move per owner, in seat order.
+                    let mut owners: Vec<PlayerId> = ids
+                        .iter()
+                        .filter_map(|id| self.obj(*id).map(|o| o.owner))
+                        .collect();
+                    owners.sort_unstable();
+                    owners.dedup();
+                    for p in owners.into_iter().rev() {
+                        let mine = ids
+                            .iter()
+                            .copied()
+                            .filter(|id| self.obj(*id).is_some_and(|o| o.owner == p))
+                            .collect();
+                        t.frames.push(Frame::Place {
+                            ids: mine,
+                            to,
+                            who: p,
+                        });
+                    }
+                } else {
+                    t.frames.push(Frame::Place { ids, to, who });
+                }
             }
             Effect::Pump {
                 what,
@@ -2483,7 +2545,8 @@ impl Game {
             || (matches!(
                 to,
                 Destination::Battlefield | Destination::BattlefieldTapped
-            ) && self.entering_question(id, who).is_some());
+            ) && (self.entering_question(id, who).is_some()
+                || self.aura_hosts(id).is_some_and(|h| h.len() > 1)));
         if needs {
             t.frames.push(Frame::Place {
                 ids: vec![id],
@@ -2531,6 +2594,24 @@ impl Game {
                 if self.entering_prohibited(id) {
                     return;
                 }
+                // CR 303.4f-g: an Aura enters attached to what it enchants, or
+                // stays where it is if nothing is legal.
+                let host = match self.aura_hosts(id) {
+                    None => self
+                        .entering_hosts
+                        .iter()
+                        .position(|(a, _)| *a == id)
+                        .map(|i| self.entering_hosts.remove(i).1),
+                    Some(hosts) => match hosts.as_slice() {
+                        [] => return,
+                        [only] => Some(Target::Object(*only)),
+                        // Every path asks first (invariant 11 catches a miss).
+                        _ => {
+                            self.unasked_entering += 1;
+                            return;
+                        }
+                    },
+                };
                 // CR 614.1a: "if this would enter, … instead" (R4: it runs after this effect).
                 let applied = ctx.applied.clone();
                 if self.replace_entering(id, who, &applied) {
@@ -2549,6 +2630,9 @@ impl Game {
                     }
                     g.bump_layers();
                 });
+                if let (Some(new), Some(h)) = (new, host) {
+                    self.attach(new, h, false);
+                }
                 follow_source(ctx, id, new, ZoneId::Battlefield);
             }
         }

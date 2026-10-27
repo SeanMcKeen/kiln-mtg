@@ -118,6 +118,12 @@ impl Game {
     /// The loop identity of the current state: everything except the
     /// monotonic quantities, the decision bookkeeping and the event log.
     fn loop_hash(&self) -> u64 {
+        // Objects that changed zones and came back to the same arena slot
+        // count as the same (Q26: Worldgorger Dragon, Underworld Breach).
+        mtg_core::hash_ids_by_slot(|| self.loop_hash_by_slot())
+    }
+
+    fn loop_hash_by_slot(&self) -> u64 {
         let mut h = StableHasher::default();
         for p in &self.players {
             (
@@ -131,9 +137,28 @@ impl Game {
             )
                 .hash(&mut h);
         }
+        // Not timestamps: a loop re-creates objects with later ones (CR 613.7).
         for (id, o) in self.objects.iter() {
-            (id, o).hash(&mut h);
+            (
+                id,
+                o.def,
+                o.owner,
+                o.controller,
+                o.zone,
+                o.tapped,
+                o.damage,
+                o.deathtouch_damage,
+                o.control_since,
+            )
+                .hash(&mut h);
         }
+        // Entries of objects that left are kept until cleanup (LKI); not those.
+        for a in &self.attachments {
+            if self.obj(a.0).is_some() {
+                a.hash(&mut h);
+            }
+        }
+        self.entering_hosts.hash(&mut h);
         self.battlefield.hash(&mut h);
         self.stack.hash(&mut h);
         self.exile.hash(&mut h);

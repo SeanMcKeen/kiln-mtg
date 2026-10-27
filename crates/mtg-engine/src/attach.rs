@@ -66,6 +66,32 @@ impl Game {
 
     /// Whether Aura `aura` may be attached to `host` now (CR 303.4c, 702.5a,
     /// 702.16c).
+    /// CR 303.4f: the objects Aura card `id` could enchant as it enters
+    /// without being cast, if it is one whose host isn't chosen yet.
+    /// (Auras that enchant players aren't in the pool.)
+    pub(crate) fn aura_hosts(&self, id: ObjectId) -> Option<Vec<ObjectId>> {
+        let o = self.obj(id)?;
+        if matches!(o.zone, ZoneId::Battlefield | ZoneId::Stack) {
+            return None;
+        }
+        self.def(o.def).enchant.as_ref()?;
+        if self.entering_hosts.iter().any(|(a, _)| *a == id) {
+            return None;
+        }
+        let graveyards = self
+            .players
+            .iter()
+            .flat_map(|p| p.graveyard.iter().copied());
+        Some(
+            self.battlefield
+                .iter()
+                .copied()
+                .chain(graveyards)
+                .filter(|h| *h != id && self.aura_legal(id, Target::Object(*h), false))
+                .collect(),
+        )
+    }
+
     fn aura_legal(&self, aura: ObjectId, host: Target, bound: bool) -> bool {
         let Some(c) = self.chars(aura) else {
             return false;

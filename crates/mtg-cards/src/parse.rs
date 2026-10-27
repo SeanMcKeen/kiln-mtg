@@ -686,6 +686,7 @@ fn clause(c: &mut Cur, ctx: &mut Ctx) -> Option<Effect> {
         return Some(Effect::Move {
             what,
             to: Destination::Hand,
+            under_owners: false,
         });
     }
     if c.lit("counter ") {

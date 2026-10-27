@@ -1,6 +1,8 @@
 //! Identifier newtypes.
 
+use std::cell::Cell;
 use std::fmt;
+use std::hash::{Hash, Hasher};
 use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
@@ -44,10 +46,39 @@ impl fmt::Display for PlayerId {
 /// An object that changes zones becomes a new object (CR 400.7), which the
 /// engine models by allocating a new `ObjectId`. The generation guards against
 /// reusing a slot while an old id is still held.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ObjectId {
     pub index: u32,
     pub generation: u32,
+}
+
+thread_local! {
+    static SLOT_ONLY: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Runs `f` with object ids hashing by arena slot only, without the
+/// generation. Loop detection (CR 732) uses it: a card that leaves and comes
+/// back to the same slot repeats the state, though it's a new object
+/// (CR 400.7).
+pub fn hash_ids_by_slot<T>(f: impl FnOnce() -> T) -> T {
+    struct Restore(bool);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            SLOT_ONLY.with(|c| c.set(self.0));
+        }
+    }
+    let _restore = Restore(SLOT_ONLY.with(|c| c.replace(true)));
+    f()
+}
+
+/// The same bytes as a derived `Hash`, unless inside [`hash_ids_by_slot`].
+impl Hash for ObjectId {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.index.hash(state);
+        if !SLOT_ONLY.with(Cell::get) {
+            self.generation.hash(state);
+        }
+    }
 }
 
 impl fmt::Display for ObjectId {

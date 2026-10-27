@@ -2,7 +2,7 @@
 type: index
 status: living
 tags: [open-questions]
-updated: 2026-10-20
+updated: 2026-10-27
 ---
 
 # Open Questions
@@ -25,8 +25,6 @@ Each question has an owner note and a target milestone. Move a question to **Res
 | Q12 | Constraint-aware factoring for attack/block requirements (CR 508.1d / 509.1c). **M2: done for menace** (block options are offered only if a matching keeps every menace attacker satisfiable). Requirements and restrictions ("attacks each combat if able") remain. | [[Combat]], [[Decision & Action Model]] | M4 |
 | Q29 | **Leaving mid-procedure.** A concession while another player's procedure is under way (e.g. choosing targets) can leave that procedure with no legal option; the engine ends the procedure, where CR 733 would rewind it. Choices an effect needs from a player who left are skipped rather than handed to another player (CR 800.4g–h). The fuzzer only has the deciding player concede, which never hits these. | [[Multiplayer]] | M7 |
 | Q28 | **CR 903.9b and other draw replacements.** When a commander is on top of its owner's library and another replacement would apply to the draw (Notion Thief), CR 616.1 lets the owner choose the order. M6 asks 903.9b only once the draw actually happens (after other draw replacements were applied or declined). Also open: two mandatory replacements with identical results (Rest in Peace + Leyline of the Void) technically form a CR 616.1 choice with no observable difference. | [[Commander]], [[Replacement & Prevention]] | M6 6.5 |
-| Q27 | An Aura put onto the battlefield without being cast (Worldgorger Dragon returning Animate Dead) chooses what it enchants as it enters (CR 303.4f). The effect's batch move would need to stop for that choice. Until then such an Aura has no host and is put into its graveyard (704.5m). | [[Continuous Effects & Layers]] | M6 |
-| Q26 | Detecting loops that move cards between zones (Underworld Breach, Worldgorger Dragon). Each zone change creates a new object id (CR 400.7), so the loop hash never repeats. Options: hash ids by arena index, keeping generation only for liveness; or canonicalize ids per loop. | [[Loops & Shortcuts]] | M5 |
 
 ## Cards
 | # | Question | Owner note | Target |
@@ -48,6 +46,8 @@ Each question has an owner note and a target milestone. Move a question to **Res
 ## Resolved
 | # | Question | Resolution |
 |---|---|---|
+| Q26 | Loops that move cards between zones | M6 6.7d: loop identity hashes object ids by arena slot (`mtg_core::hash_ids_by_slot`, CR 400.7), without object timestamps or attachments of departed objects. Worldgorger Dragon + Animate Dead is detected as a mandatory loop and drawn (T12, CR 104.4b). |
+| Q27 | An Aura entering without being cast chooses its host | M6 6.7d: it chooses as it enters (CR 303.4f; a `choose_card` decision with purpose `Enchant`, automatic with one legal object) and stays in its zone with none (303.4g). |
 | R1 | Language | Rust ([[ADR-0001 Rust as Engine Language]]) |
 | R2 | Who plays simulated games? | All four policy kinds, composable ([[ADR-0006 Pluggable Decision-Makers]]) |
 | R3 | Primary format | Commander-first ([[ADR-0010 Commander-First N-Player Core]]) |

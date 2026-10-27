@@ -1,0 +1,12 @@
+card: "Worldgorger Dragon"
+faces:
+  - abilities:
+      - keyword: flying
+      - keyword: trample
+      # Linked abilities (CR 607.2a): the leaves trigger returns what this exiled.
+      - triggered:
+          trigger: { enters: { this: true } }
+          effect: { exile: { what: { all: { other: true, controller: you } }, remember: worldgorger } }
+      - triggered:
+          trigger: { leaves_battlefield: { this: true } }
+          effect: { move: { what: { one: { remembered: worldgorger } }, to: battlefield, under_owners: true } }
