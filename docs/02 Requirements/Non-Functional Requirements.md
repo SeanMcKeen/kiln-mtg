@@ -85,6 +85,7 @@ Targets that fall out of this:
 | 2026-10-23 (M5) | — (state hash) | 13.8 µs (pre-M5: 11.1 µs) | Same board |
 
 | 2026-10-27 (M6) | NFR-P1 ≤ 5 ms per 4-player game | **22 ms** per random-policy game (104 turns, 4,275 decisions: ~5.2 µs per decision); **17 ms** per greedy game (48 turns, 2,327 decisions) | The four M6 test decks (100 verified cards each, real commanders), one core, Apple Silicon, checks off, policy time included (`kiln dev fuzz --verified --decks … --threads 1`) |
+| 2026-10-27 (M7) | M7 exit: 5,000 greedy games < 1 min on 8 cores | **31.8 s on 2 threads** (≈157 games/s) | US-1 spec: the four M6 decks, balanced rotation, greedy pilots, `kiln sim run --threads 2` |
 
 The M2 → M5 rise in per-game time (1.37 → 4.19 ms) leaves little NFR-P1 headroom; profiling is scheduled for M7.
 

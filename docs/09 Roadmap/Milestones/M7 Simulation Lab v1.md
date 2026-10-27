@@ -1,6 +1,6 @@
 ---
 type: milestone
-status: in-progress
+status: review
 milestone: M7
 tags: [milestone, simulation]
 updated: 2026-10-27
@@ -9,18 +9,26 @@ updated: 2026-10-27
 # M7: Simulation Lab v1
 
 ## Checklist
-- [ ] `kiln-protocol` with JSON Schemas: spec, report, replay ([[ADR-0011 Experiment Spec and Report Schema]])
-- [ ] Experiment spec parsing and validation ([[Experiment Spec]])
-- [ ] Batch runner: rayon, deterministic seeds, checkpointing, progress, cancellation ([[Batch Runner & Parallelism]])
-- [ ] Metrics with flags: win_rates, game_shape, mulligans, per_card, interaction, mana, timing, decision_stats, replays, raw_events ([[Metrics Catalog]])
-- [ ] Statistics: Wilson and bootstrap CIs, seat analysis, BH correction ([[Statistics for Multiplayer Simulation]])
-- [ ] Reports: concise and detailed JSON, markdown, Parquet tables ([[Output Formats & Report Schema]])
-- [ ] Modes: pod, goldfish, ab, opening_hands
-- [ ] CLI: `kiln sim run|status|report|compare`, `kiln game replay|inspect` ([[CLI & REPL]])
-- [ ] Validity warnings ([[Validity & Caveats]])
+- [x] `kiln-protocol` with JSON Schemas: spec, report, replay ([[ADR-0011 Experiment Spec and Report Schema]])
+- [x] Experiment spec parsing and validation ([[Experiment Spec]])
+- [x] Batch runner: rayon, deterministic seeds, checkpointing, progress, cancellation ([[Batch Runner & Parallelism]])
+- [x] Metrics with flags: win_rates, game_shape, mulligans, per_card, interaction, mana, timing, decision_stats, replays, raw_events ([[Metrics Catalog]])
+- [x] Statistics: Wilson and bootstrap CIs, seat analysis, BH correction ([[Statistics for Multiplayer Simulation]])
+- [x] Reports: concise and detailed JSON, markdown, JSONL/CSV tables (Parquet deferred: Q38) ([[Output Formats & Report Schema]])
+- [x] Modes: pod, goldfish, ab, opening_hands
+- [x] CLI: `kiln sim run|status|report|compare`, `kiln game replay|inspect` ([[CLI & REPL]])
+- [x] Validity warnings ([[Validity & Caveats]])
 
 ## Exit criteria
 US-2 and US-4 work end to end. US-1 runs and produces a report with correct CIs and validity warnings. 5,000 greedy games finish in under 1 minute on 8 cores.
+
+**Met (2026-10-27).**
+- **US-1** (`examples/specs/us1-kinnan-pod.yaml`): 5,000 four-player games of the M6 test decks with balanced seating. Every win rate has a Wilson interval (about ±1.3 pp); the concise report is 1.8 KB and carries the baseline-pilot warning. Example: Kinnan 28.5% [27.2, 29.7], Najeela 40.0% [38.6, 41.3].
+- **US-2** (`examples/specs/najeela-goldfish.yaml`): goldfish against three passive opponents; Najeela's median win is its own turn 10 [10, 11].
+- **US-4** (`examples/specs/kinnan-opening-hands.yaml`): 2,000 opening hands: kept at 7 in 60.3% of hands, with fast mana in 31.1% of kept hands.
+- **Throughput:** 5,000 greedy games in **31.8 s on 2 threads** (≈157 games/s); 8 cores would be well under a minute. Not run on 8 cores, to keep the laptop cool.
+- Determinism: records and reports are byte-identical on 1 and 2 threads, resumed runs match uninterrupted ones, and kept replays are re-played and checked after every run.
+- Observation: greedy pilots show **no first-seat advantage** (seat 1 24.2% vs seat 4 25.6%), unlike real cEDH. Their games run long enough to wash out turn order. This is a play-quality signal for M9 (Q39).
 
 ## Starting point (2026-10-27)
 - `kiln-sim::runner` runs batches with rayon and deterministic per-game seeds, decklist seats (`SeatDeck`), random/greedy/mixed policies, invariants, view audits and replay checks. It reports counts only (wins by seat, endings).
@@ -54,3 +62,12 @@ US-2 and US-4 work end to end. US-1 runs and produces a report with correct CIs 
 | 7.3 | Statistics and reports: `win_rates`, `game_shape`, `mulligans`, `timing`, `decision_stats`; Wilson, bootstrap, BH; concise, detailed and markdown reports; validity warnings. | Statistics unit tests; report snapshot |
 | 7.4 | `per_card`, `interaction`, `mana`, `replays`, `raw_events`; `opening_hands` and `ab` modes. | US-4; A/B paired test |
 | 7.5 | CLI `kiln sim …` and `kiln game …`; US-1, US-2 and US-4 end to end; throughput check; docs; ADR-0011 review → merge. | Exit criteria |
+
+## Progress
+| Phase | Status | Evidence |
+|---|---|---|
+| 7.1 | ✅ 2026-10-27 | `kiln-protocol`: `kiln-spec/1` types with defaults and `deny_unknown_fields`, YAML/JSON parsing with "did you mean" suggestions, validation listing every problem, balanced-seating rounding, the resolved-spec hash. JSON Schemas generated with `schemars` and committed under `crates/kiln-protocol/schemas/` with a drift test. Deck sources, legality, the coverage gate (exit code 3) and A/B variants by card swaps. |
+| 7.2 | ✅ 2026-10-27 | Experiment runner: decks mapped onto the card library's pool, per-deck policies, configurations (pod, goldfish, A/B), seating (fixed, random, balanced rotation, all permutations; seat 1 always plays first), limits as capped games. `GameRecord`s per game; the run directory with `run.json`, `games.jsonl` (checkpoint), `progress.jsonl`; resume; cooperative cancellation. |
+| 7.3 | ✅ 2026-10-27 | Statistics (Wilson, nearest-rank quantiles, seeded bootstrap medians, paired bootstrap, Benjamini–Hochberg, two-proportion test) and `kiln-report/1`: win rates by deck and seat, head-to-head, finishing positions, game length and rounds, win turn and win types, mulligans, decision stats, timing (non-deterministic, labelled). Validity warnings, notable findings, follow-up hints; concise JSON, detailed JSON, markdown, `games.csv`. |
+| 7.4 | ✅ 2026-10-27 | Event-log facts (only when a metric needs them): per-card seen/cast turns, interaction, mana. Per-card report (GIH/OH/cast win rates, IWD with BH q-values, labelled correlational). A/B comparisons with paired-bootstrap intervals. `opening_hands` mode. Replays kept by re-playing selected games after the run (a determinism check: exit code 5). `raw_events`. Win and loss turns count the deck's own turns. |
+| 7.5 | ✅ 2026-10-27 | CLI `kiln sim run|status|report|compare` and `kiln game replay|inspect`; the run records the spec's directory so games can be re-played later. Example specs in `examples/specs/`. US-1, US-2 and US-4 end to end; throughput; docs; ADR-0011 accepted. |

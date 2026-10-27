@@ -14,6 +14,7 @@ use kiln_data::{BuildInput, CardDb, DEFAULT_CACHE_DIR};
 use kiln_sim::deck::{DeckReport, ValidateOptions, parse_deck, validate_with};
 use serde::Serialize;
 
+mod game;
 mod sim;
 
 #[derive(Debug, Parser)]
@@ -37,6 +38,9 @@ enum Command {
     /// Experiments: run a spec, check progress, read reports.
     #[command(subcommand)]
     Sim(sim::SimCmd),
+    /// Single games: replay a replay file, inspect a game of a run.
+    #[command(subcommand)]
+    Game(game::GameCmd),
 }
 
 #[derive(Debug, Args)]
@@ -302,6 +306,7 @@ fn run(cli: Cli) -> Result<ExitCode> {
         }) => cr_check(&cr, &paths, require, json),
         Command::Dev(DevCmd::Fuzz(args)) => fuzz(&args),
         Command::Sim(cmd) => sim::sim(cmd),
+        Command::Game(cmd) => game::game(cmd),
         Command::Dev(DevCmd::VerifyCards { db, list, json }) => {
             let (db, _) = db.load()?;
             let r = kiln_testkit::real::verify(&db).map_err(|e| anyhow::anyhow!(e))?;

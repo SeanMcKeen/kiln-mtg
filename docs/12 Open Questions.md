@@ -35,6 +35,7 @@ Each question has an owner note and a target milestone. Move a question to **Res
 ## Simulation & policies
 | # | Question | Owner note | Target |
 |---|---|---|---|
+| Q39 | **No seat-1 advantage with baseline pilots.** In US-1 (5,000 greedy games) seat 1 wins 24.2% and seat 4 25.6%, while real cEDH shows a strong first-seat edge ([[Statistics for Multiplayer Simulation]]). Greedy games run long (median 46 turns), so turn order washes out. Reproducing the seat-1 advantage should be one of M9's play-quality checks ([[Measuring Play Quality]]). | [[Measuring Play Quality]] | M9 |
 | Q30 | Playbook language: Rhai vs. Lua vs. declarative YAML | [[B - Playbooks]] | M8 |
 | Q31 | Multiplayer search backup rule (max^n vs. paranoid vs. other) | [[D - Search AI]] | M9 |
 | Q32 | Should `open_decklists` default to true? | [[Hidden Information & Player Views]] | M7 |

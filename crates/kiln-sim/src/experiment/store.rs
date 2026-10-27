@@ -130,6 +130,7 @@ pub fn run(
         games_done: done.len() as u64,
         status: RunStatus::Running,
         warnings: exp.warnings.clone(),
+        spec_dir: exp.spec_dir.as_ref().map(|d| d.display().to_string()),
     };
     write_manifest(dir, &manifest)?;
 

@@ -9,7 +9,7 @@ Crate and packages: `kiln-mtg` (crates.io, PyPI, npm). CLI binary: `kiln`.
 
 ## Status
 
-**Milestone M2 (Core Game Loop) is in review.** The N-player engine plays complete games: lands, mana with payment plans, casting, the stack, combat (first and double strike, trample, deathtouch, lifelink, menace, flying, reach), state-based actions, mulligans, player views, deterministic replays, and a parallel fuzz runner. Cards are a small synthetic test set plus real vanilla creatures and basic lands. Real card behaviour arrives in M3. All scope, research, architecture and decisions live in the Obsidian vault under [`docs/`](docs/00%20Home.md). Start at **[docs/00 Home.md](docs/00%20Home.md)**.
+**Milestone M7 (Simulation Lab v1) is in review.** The N-player Commander engine runs 278 verified real cards (the curated cEDH pool) with layers, triggers, replacement effects, loops and shortcuts, and the simulation lab runs declarative experiments: `kiln sim run spec.yaml` plays thousands of games of real decklists with balanced seating and reports win rates with 95% intervals, game shape, mulligans, per-card statistics, A/B comparisons and validity warnings. Pilots are baseline policies (random, greedy) until playbooks (M8) and search AI (M9). All scope, research, architecture and decisions live in the Obsidian vault under [`docs/`](docs/00%20Home.md). Start at **[docs/00 Home.md](docs/00%20Home.md)**.
 
 ## Quick start
 
@@ -23,13 +23,19 @@ cargo build --release
 ./target/release/kiln deck check my-deck.txt --commander "Kinnan, Bonder Prodigy" --json
 ```
 
-Every card currently reports `unsupported` coverage, because card behaviour arrives in M3. The engine refuses to pretend otherwise.
+Cards are `verified` (hand-written definitions checked by scenarios), `parsed` (from the Oracle-text parser) or `unsupported`. Experiments refuse unverified cards unless the spec allows them; the engine never pretends a card works.
 
 ```bash
-# Play 10,000 random 4-player games with every invariant checked
+# Run an experiment: four verified Commander decks, 400 games, greedy pilots
+./target/release/kiln sim run examples/specs/m6-pod.yaml --threads 2
+# Goldfish speed test, opening-hand analysis, and an A/B card swap
+./target/release/kiln sim run examples/specs/najeela-goldfish.yaml --threads 2
+./target/release/kiln sim run examples/specs/kinnan-opening-hands.yaml --threads 2
+./target/release/kiln sim run examples/specs/m6-ab.yaml --threads 2
+# Look at one game of a run again, event by event
+./target/release/kiln game inspect runs/m6-pod 247
+# Fuzz the engine: random 4-player games with every invariant checked
 ./target/release/kiln dev fuzz --games 10000 --invariants --views --replay-every 100
-# The same with real vanilla creatures and basic lands from the card DB
-./target/release/kiln dev fuzz --games 10000 --real
 ```
 
 ## What this is

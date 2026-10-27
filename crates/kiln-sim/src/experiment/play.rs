@@ -56,6 +56,8 @@ pub struct Config {
 #[derive(Debug)]
 pub struct Experiment {
     pub resolved: ResolvedSpec,
+    /// The directory the spec's deck paths are relative to.
+    pub spec_dir: Option<std::path::PathBuf>,
     pub decks: Vec<ResolvedDeck>,
     pub warnings: Vec<String>,
     pub card_db: String,
@@ -183,6 +185,7 @@ impl Experiment {
         }
         Ok(Self {
             card_db: db.id(),
+            spec_dir: std::fs::canonicalize(spec_dir).ok(),
             resolved,
             decks,
             warnings,
@@ -230,6 +233,12 @@ impl Experiment {
                 order
             }
         }
+    }
+
+    /// [`Experiment::play`] with the event log on (for inspecting a game).
+    pub fn play_logged(&self, config: &Config, index: u64) -> Option<(Played, Option<Game>)> {
+        let never = AtomicBool::new(false);
+        self.play_inner(config, index, &never, true, true)
     }
 
     /// The game setup and seat decks for game `index` of `config`.
@@ -292,8 +301,21 @@ impl Experiment {
         cancel: &AtomicBool,
         replay: bool,
     ) -> Option<Played> {
+        self.play_inner(config, index, cancel, replay, false)
+            .map(|(p, _)| p)
+    }
+
+    fn play_inner(
+        &self,
+        config: &Config,
+        index: u64,
+        cancel: &AtomicBool,
+        replay: bool,
+        log_events: bool,
+    ) -> Option<(Played, Option<Game>)> {
         let spec = &self.resolved.spec;
-        let (setup, seats) = self.setup(config, index);
+        let (mut setup, seats) = self.setup(config, index);
+        setup.rules.log_events |= log_events;
         let opening = spec.mode == Mode::OpeningHands;
         let mut recorder = replay.then(Recorder::new);
         let mut hands: Option<Vec<Vec<DefId>>> = None;
@@ -323,11 +345,14 @@ impl Experiment {
             Ok(g) => g,
             Err(e) => {
                 record.capped = Some(format!("setup failed: {e}"));
-                return Some(Played {
-                    record,
-                    replay: None,
-                    events: None,
-                });
+                return Some((
+                    Played {
+                        record,
+                        replay: None,
+                        events: None,
+                    },
+                    None,
+                ));
             }
         };
         let mut policies = self.policies(&seats);
@@ -452,11 +477,14 @@ impl Experiment {
         }
         let events = m.raw_events.then(|| game.events().to_vec());
         let replay = recorder.map(|r| r.finish(&game, setup));
-        Some(Played {
-            record,
-            replay,
-            events,
-        })
+        Some((
+            Played {
+                record,
+                replay,
+                events,
+            },
+            Some(game),
+        ))
     }
 
     /// Resolves and prepares an experiment from spec text.

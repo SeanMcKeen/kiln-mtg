@@ -141,6 +141,9 @@ pub struct RunManifest {
     pub games_done: u64,
     pub status: RunStatus,
     pub warnings: Vec<String>,
+    /// Where the spec's relative deck paths start (for `kiln game inspect`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spec_dir: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

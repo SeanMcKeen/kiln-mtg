@@ -1,7 +1,7 @@
 # CLAUDE.md: orientation for AI sessions
 
 ## Project
-**Kiln** (crate `kiln-mtg`, CLI binary `kiln`) is a Rust MTG rules engine plus a simulation lab. Crates use the `kiln-` prefix, MCP tools the `kiln_` prefix (see `docs/10 Decisions/ADR-0013 Project Name.md`). The headline use case: an AI agent runs "deck X vs Y, Z, C in a cEDH pod" for thousands of games and gets statistics. Commander-first, with N players from day one. **Current phase: M6 (Commander rules, multiplayer, the curated cEDH pool) complete and in review; M7 next.** The engine executes card IR v1; the card library (ADR-0007 hybrid, accepted) supports 3,074 Commander-legal cards, 278 of them verified. Four verified 100-card Commander test decks are in `tests/fixtures/decks/`. Check `docs/09 Roadmap/Roadmap.md` for the active milestone.
+**Kiln** (crate `kiln-mtg`, CLI binary `kiln`) is a Rust MTG rules engine plus a simulation lab. Crates use the `kiln-` prefix, MCP tools the `kiln_` prefix (see `docs/10 Decisions/ADR-0013 Project Name.md`). The headline use case: an AI agent runs "deck X vs Y, Z, C in a cEDH pod" for thousands of games and gets statistics. Commander-first, with N players from day one. **Current phase: M7 (Simulation Lab v1: experiment specs, runner, metrics, reports, `kiln sim`/`kiln game`) complete and in review; M8 next.** The engine executes card IR v1; the card library (ADR-0007 hybrid, accepted) supports 3,074 Commander-legal cards, 278 of them verified. Four verified 100-card Commander test decks are in `tests/fixtures/decks/`; example experiment specs are in `examples/specs/`. Check `docs/09 Roadmap/Roadmap.md` for the active milestone.
 
 ## Where things are
 - `crates/` is the Cargo workspace (layout in `docs/03 Architecture/Crate Layout.md`). The CLI binary is `kiln` (`crates/kiln-mtg`).
@@ -9,6 +9,7 @@
 - `cards/defs/*.yaml` are card definitions (IR only, never Oracle text). `tests/scenarios-real/*.yaml` verify real cards (`verifies:` lists) and need the local card DB; `kiln dev verify-cards` reports coverage.
 - `tests/scenarios/*.yaml` are CR-cited rules scenarios on synthetic cards (format: `docs/08 Testing/Scenario File Format.md`); `tests/golden/*.json` are golden replays (re-bless with `KILN_BLESS=1 cargo test -p kiln-sim --test golden` and say why).
 - `tests/fixtures/` holds **synthetic** card fixtures (`cards-mini.jsonl` in Scryfall's shape; `synthetic-ir-cards.yaml`, made-up IR cards for engine tests) and decklists. Real card data stays in `data/cache/` (gitignored).
+- Experiments: `kiln-protocol` holds the wire formats (`kiln-spec/1`, `kiln-report/1`, game records; JSON Schemas in `crates/kiln-protocol/schemas/`, re-bless with `KILN_BLESS=1 cargo test -p kiln-protocol --test schemas`). `kiln-sim::experiment` resolves decks, plays games, checkpoints `runs/<name>/games.jsonl` and builds reports from those records. `runs/` is gitignored.
 - `tools/corpus-analysis/` has Python scripts for Oracle-text statistics. Run them with `python3 -I`.
 - `docs/` is an Obsidian vault and the source of truth for scope and design. The hub is `docs/00 Home.md`.
 - Decisions are in `docs/10 Decisions/` (ADRs). **Don't contradict an Accepted ADR. Supersede it with a new ADR instead.**
@@ -34,6 +35,8 @@ cargo clippy --workspace --all-targets -- -D warnings && cargo fmt --all --check
 ./target/release/kiln deck check tests/fixtures/decks/kinnan.txt --json
 ./target/release/kiln dev fuzz --games 10000 --invariants --views --replay-every 100   # engine fuzzing (--verified / --library for real cards; --commander, --concede N)
 ./target/release/kiln dev fuzz --verified --decks tests/fixtures/decks/{kinnan-verified,thrasios-tymna,najeela,rograkh-silas}.txt --policy mixed   # real decks
+./target/release/kiln sim run examples/specs/m6-pod.yaml --threads 2                  # an experiment (kiln-spec/1) → runs/m6-pod/report.md
+./target/release/kiln game inspect runs/m6-pod 247                                    # replay one game of a run with its events
 ./target/release/kiln data coverage                                                    # card library coverage and top gaps
 ./target/release/kiln dev verify-cards --list                                          # real-card verification (needs the card DB)
 cargo bench -p kiln-engine                                                             # clone / enumeration / game benchmarks

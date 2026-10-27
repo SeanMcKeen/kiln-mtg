@@ -33,6 +33,13 @@
     "run": {
       "type": "string"
     },
+    "spec_dir": {
+      "description": "Where the spec's relative deck paths start (for `kiln game inspect`).",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "spec_hash": {
       "type": "string"
     },

@@ -19,6 +19,11 @@ use super::stats::{
 };
 use super::{ExperimentError, OPPONENT, store};
 
+/// Rounds to 4 decimal places, as reports do.
+pub fn r4_pub(x: f64) -> f64 {
+    r4(x)
+}
+
 /// The Comprehensive Rules version the engine implements.
 pub const CR_VERSION: &str = "2026-06-19";
 
