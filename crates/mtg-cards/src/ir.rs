@@ -135,6 +135,10 @@ pub struct SpellAbility {
     /// Additional costs (CR 601.2b).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub additional_costs: Vec<CostPart>,
+    /// Strive: "costs [this] more to cast for each target beyond the first"
+    /// (CR 601.2f).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub per_extra_target: Vec<CostPart>,
 }
 
 /// An alternative cost (CR 118.9), optionally conditional.
@@ -476,6 +480,18 @@ pub struct CopyExcept {
     /// "except it isn't legendary".
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub not_legendary: bool,
+    /// "it enters with an additional [counter] on it if it's a [type]"
+    /// (Spark Double). Not a copiable value (CR 707.9).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub counters: Vec<TypedCounter>,
+}
+
+/// A counter a copy enters with if it has a card type.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TypedCounter {
+    pub if_type: String,
+    pub counter: CounterKind,
 }
 
 /// Player-affecting rules an effect can create (CR 613.10).
@@ -685,6 +701,9 @@ pub enum Effect {
     TapOrUntap(ObjectSet),
     /// "End the turn" (CR 724.1; Sundial of the Infinite).
     EndTheTurn,
+    /// "Exile [objects], then return those cards to the battlefield under
+    /// their owners' control" (Displacer Kitten; new objects, CR 400.7).
+    Flicker(ObjectSet),
     /// "Until end of turn, [objects] have base power and toughness P/T and
     /// become [subtypes] in addition to their other types" (Allosaurus
     /// Shepherd; CR 613.4b, 613.1d, 611.2c).

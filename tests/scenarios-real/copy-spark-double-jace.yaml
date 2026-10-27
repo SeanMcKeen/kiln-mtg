@@ -1,0 +1,15 @@
+scenario: mtg-scenario/1
+name: "Spark Double copying a planeswalker enters with its loyalty plus one"
+cr: ["306.5b", "707.9", "707.2"]
+verifies: [Spark Double]
+players:
+  - battlefield: [Island, Island, Island, Island, { card: "Jace, Wielder of Mysteries", counters: { loyalty: 4 } }]
+    hand: [Spark Double]
+  - {}
+script:
+  - choose: Cast Spark Double
+  - choose: "Pay with Island, Island, Island, Island"
+  - pass_all
+  - choose: "Copy Jace, Wielder of Mysteries (P1)"
+expect:
+  counters: { "Jace, Wielder of Mysteries#2": { loyalty: 5 } }

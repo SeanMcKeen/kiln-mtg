@@ -1,0 +1,7 @@
+card: "Displacer Kitten"
+faces:
+  - abilities:
+      - triggered:
+          trigger: { cast: { by: you, spell: { not_types: [creature] } } }
+          targets: [{ what: { object: { not_types: [land], controller: you } }, up_to: 1 }]
+          effect: { flicker: { one: { target: 0 } } }

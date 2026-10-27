@@ -820,6 +820,10 @@ impl Game {
         entering: impl FnOnce(&mut Self, ObjectId),
     ) -> Option<ObjectId> {
         let old = *self.objects.get(id)?;
+        // CR 111.8: a token that has left the battlefield stays where it is.
+        if !self.tokens_off_field.is_empty() && self.tokens_off_field.contains(&id) {
+            return None;
+        }
         // CR 903.9b: the owner may have chosen the command zone instead.
         let to = self.commander_destination(id, to);
         // CR 614.1a: mandatory "exile it instead" replacements.
@@ -867,17 +871,6 @@ impl Game {
             let v = self.zone_vec_mut(to);
             if top { v.push(new) } else { v.insert(0, new) }
         }
-        // CR 306.5b: a planeswalker enters with its printed loyalty.
-        if to == ZoneId::Battlefield
-            && let Some(n) = self.def(old.def).loyalty
-            && self.def(old.def).is(CardType::Planeswalker)
-        {
-            self.add_counters(
-                new,
-                ir::CounterKind::Loyalty,
-                u32::try_from(n.max(0)).unwrap_or(0),
-            );
-        }
         self.commander_moved(id, Some(new), to);
         if !self.uncounterable.is_empty() {
             self.uncounterable.retain(|x| *x != id);
@@ -921,6 +914,20 @@ impl Game {
             self.tokens_off_field.push(new);
         }
         entering(self, new);
+        // CR 306.5b: a planeswalker enters with its printed loyalty (a
+        // copy's, since the copy effect applies as it enters, CR 707.2).
+        if to == ZoneId::Battlefield {
+            let def = self.chars(new).map_or(old.def, |c| c.def_id());
+            if let Some(n) = self.def(def).loyalty
+                && self.def(def).is(CardType::Planeswalker)
+            {
+                self.add_counters(
+                    new,
+                    ir::CounterKind::Loyalty,
+                    u32::try_from(n.max(0)).unwrap_or(0),
+                );
+            }
+        }
         self.log(Event::ZoneChange {
             def: lki_def,
             owner: old.owner,

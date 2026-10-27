@@ -1684,6 +1684,7 @@ fn spell(targets: Vec<TargetSpec>, effect: ir::Effect) -> SpellAbility {
         effect,
         alternative_costs: Vec::new(),
         additional_costs: Vec::new(),
+        per_extra_target: Vec::new(),
     }
 }
 

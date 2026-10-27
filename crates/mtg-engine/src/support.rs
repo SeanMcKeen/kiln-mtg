@@ -179,6 +179,7 @@ fn spell(s: &SpellAbility) -> Check {
         }
     }
     cast_cost(&s.additional_costs)?;
+    cast_cost(&s.per_extra_target)?;
     if s.targets.len() > 32 {
         return Err("more than 32 target slots".into());
     }
@@ -367,6 +368,7 @@ fn effect(e: &Effect) -> Check {
         }
         Effect::ChangeTargets(r) => object(r),
         Effect::EndTheTurn | Effect::CopyTriggeringAbility { .. } => Ok(()),
+        Effect::Flicker(what) => set(what),
         Effect::Become {
             what,
             base_pt,

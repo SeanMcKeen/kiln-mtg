@@ -530,6 +530,19 @@ fn pass_once(game: &mut Game) -> Result<(), String> {
     game.apply_option(0).map_err(|e| e.to_string())
 }
 
+/// The permanent called `name`; "Name#2" is the second one with that name,
+/// in the order they are on the battlefield.
+fn permanent_named(game: &Game, name: &str) -> Option<mtg_core::ObjectId> {
+    let (base, nth) = name
+        .rsplit_once('#')
+        .and_then(|(b, k)| Some((b, k.parse::<usize>().ok()?.checked_sub(1)?)))
+        .unwrap_or((name, 0));
+    game.objects_in(ZoneId::Battlefield)
+        .into_iter()
+        .filter(|id| game.object_name(*id) == Some(base))
+        .nth(nth)
+}
+
 fn check_expect(game: &Game, e: &Expect, at: &str) -> Result<(), ScenarioError> {
     let fail = |message: String| ScenarioError::Expect {
         at: at.to_owned(),
@@ -640,10 +653,7 @@ fn check_expect(game: &Game, e: &Expect, at: &str) -> Result<(), ScenarioError> 
         }
     }
     for (name, want) in &e.pt {
-        let found = game
-            .objects_in(ZoneId::Battlefield)
-            .into_iter()
-            .find(|id| game.object_name(*id) == Some(name.as_str()));
+        let found = permanent_named(game, name);
         let Some(id) = found else {
             return Err(fail(format!("no permanent named {name:?}")));
         };
@@ -655,10 +665,7 @@ fn check_expect(game: &Game, e: &Expect, at: &str) -> Result<(), ScenarioError> 
         }
     }
     for (name, want) in &e.counters {
-        let found = game
-            .objects_in(ZoneId::Battlefield)
-            .into_iter()
-            .find(|id| game.object_name(*id) == Some(name.as_str()));
+        let found = permanent_named(game, name);
         let Some(id) = found else {
             return Err(fail(format!("no permanent named {name:?}")));
         };
@@ -682,10 +689,7 @@ fn check_expect(game: &Game, e: &Expect, at: &str) -> Result<(), ScenarioError> 
         }
     }
     for (name, tapped) in &e.tapped {
-        let found = game
-            .objects_in(ZoneId::Battlefield)
-            .into_iter()
-            .find(|id| game.object_name(*id) == Some(name.as_str()));
+        let found = permanent_named(game, name);
         let Some(id) = found else {
             return Err(fail(format!("no permanent named {name:?}")));
         };

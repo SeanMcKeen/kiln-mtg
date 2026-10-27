@@ -65,6 +65,8 @@ Option labels come from `Game::option_label`, for example:
 - `zones`: `P1.hand`, `P1.library`, `P1.graveyard`, `P1.battlefield` (permanents P1 controls), `stack`, `exile`, `command`. Each is compared as a multiset of card names.
 - `commander_damage`: player → commander name → combat damage dealt (CR 903.10a).
 - `tapped`: card name → expected state.
+- `pt` (card name → `[power, toughness]`), `counters` (card name → kind → count), `pool` (player → mana string such as `"{C}{C}"`) and `library_top` (player → names, top first).
+- In `tapped`, `pt` and `counters`, `"Name#2"` is the second permanent with that name, in battlefield order (a copy and its original).
 - `step`: the current step.
 - `decision`: `player`, `kind` (`priority`, `declare_blocker`, `assign_damage`, …), `options` (exact, in order), `options_include` and `options_exclude`.
 

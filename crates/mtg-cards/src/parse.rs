@@ -74,6 +74,7 @@ fn parse_face_with(text: &str, name: &str, is_spell: bool, lint: bool) -> Parsed
                     effect: Effect::Seq(Vec::new()),
                     alternative_costs: Vec::new(),
                     additional_costs: Vec::new(),
+                    per_extra_target: Vec::new(),
                 });
                 let offset = u8::try_from(s.targets.len()).unwrap_or(0);
                 s.targets.extend(targets);

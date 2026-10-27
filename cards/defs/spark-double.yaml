@@ -1,0 +1,13 @@
+card: "Spark Double"
+faces:
+  - abilities:
+      - replacement:
+          event: { would_enter: { this: true } }
+          instead:
+            enter_as_copy:
+              of: { types: [creature, planeswalker], controller: you }
+              except:
+                not_legendary: true
+                counters:
+                  - { if_type: creature, counter: +1/+1 }
+                  - { if_type: planeswalker, counter: loyalty }

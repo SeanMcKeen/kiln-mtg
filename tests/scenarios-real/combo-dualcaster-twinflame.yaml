@@ -1,0 +1,31 @@
+scenario: mtg-scenario/1
+name: "T07: Dualcaster Mage copies Twinflame targeting itself; each hasty token copy copies Twinflame again"
+cr: ["707.10", "707.10c", "707.9a"]
+verifies: [Twinflame, Dualcaster Mage]
+players:
+  - battlefield: [Grizzly Bears, Mountain, Mountain, Mountain, Mountain, Mountain]
+    hand: [Twinflame, Dualcaster Mage]
+  - {}
+script:
+  - choose: Cast Twinflame
+  - choose: Target Grizzly Bears (P1)
+  - choose: "Pay with Mountain, Mountain"
+  - choose: Cast Dualcaster Mage
+  - choose: "Pay with Mountain, Mountain, Mountain"
+  - pass_all
+  - choose: Target Twinflame
+  - pass_all
+  # CR 707.10c: the copy may target the Mage instead.
+  - choose: New target Dualcaster Mage (P1)
+  # A hasty token Dualcaster Mage enters; its ETB copies Twinflame again.
+  - pass_all
+  - choose: Target Twinflame
+  - pass_all
+  - choose: Keep target Grizzly Bears (P1)
+  - pass_all
+  # Then the original Twinflame resolves.
+  - pass_all
+expect:
+  zones:
+    P1.battlefield: [Grizzly Bears, Mountain, Mountain, Mountain, Mountain, Mountain, Dualcaster Mage, Dualcaster Mage, Grizzly Bears, Grizzly Bears]
+    P1.graveyard: [Twinflame]

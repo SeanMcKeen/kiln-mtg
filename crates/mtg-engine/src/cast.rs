@@ -737,6 +737,12 @@ impl Game {
                 return false;
             }
         }
+        // An Aura spell targets what it will enchant (CR 303.4a).
+        if let Some(spec) = &def.enchant
+            && !self.slot_ok(spec, p, None, def)
+        {
+            return false;
+        }
         let ctx = cast_ctx(def_id, def, None, id, p);
         // Cost increases and additional costs still apply (CR 601.2f).
         self.spell_shape(def, None, CastCost::WithoutPaying, id)
@@ -752,6 +758,48 @@ impl Game {
 
     fn item_mut(&mut self, spell: ObjectId) -> Option<&mut StackItem> {
         self.stack.iter_mut().rev().find(|s| s.object == spell)
+    }
+
+    /// The stage after modes: a triggered ability has no costs, so its
+    /// targets come next (CR 603.3c-d).
+    fn after_modes(&self, spell: ObjectId) -> CastStage {
+        let trigger = self.item(spell).is_some_and(|i| {
+            i.ability.is_some_and(|a| {
+                matches!(
+                    self.def(i.source_def).abilities.get(usize::from(a)),
+                    Some(Ability::Triggered(_))
+                )
+            })
+        });
+        if trigger {
+            CastStage::Targets
+        } else {
+            CastStage::Cost
+        }
+    }
+
+    /// Strive: whether the total cost stays payable with one more target.
+    fn another_target_payable(
+        &self,
+        def: &CardDef,
+        item: &StackItem,
+        p: PlayerId,
+        ctx: &crate::effects::EffectCtx,
+        except: Option<ObjectId>,
+    ) -> bool {
+        let Some(extra) = def
+            .spell()
+            .map(|s| s.per_extra_target.as_slice())
+            .filter(|c| !c.is_empty())
+        else {
+            return true;
+        };
+        self.spell_shape(def, None, item.cost, item.object)
+            .map(|mut s| {
+                add_parts(&mut s, extra);
+                s
+            })
+            .is_some_and(|s| self.shape_payable(p, ctx, &s, item.x, &item.pays, except))
     }
 
     fn advance(&mut self, t: CastTask, stage: CastStage) {
@@ -974,11 +1022,18 @@ impl Game {
                 let max = spec.up_to.unwrap_or(1) as usize;
                 let min = usize::from(spec.up_to.is_none());
                 // CR 115.3: the same target can't be chosen twice for one "target".
-                let candidates: Vec<Target> = self
+                let mut candidates: Vec<Target> = self
                     .legal_targets(&spec.what, t.caster, Some(t.spell), Some(def))
                     .into_iter()
                     .filter(|c| !chosen.contains(c))
                     .collect();
+                // Strive: a target beyond the first must leave the cost payable.
+                if item.is_spell()
+                    && !item.targets.is_empty()
+                    && !self.another_target_payable(def, &item, t.caster, &ctx, except)
+                {
+                    candidates.clear();
+                }
                 if chosen.len() >= max || (chosen.len() >= min && candidates.is_empty()) {
                     self.tasks.push(Task::Cast(next_slot));
                     return;
@@ -1156,6 +1211,20 @@ impl Game {
                 reduce_keeping_one(&mut shape.symbols, cut);
             }
         }
+        // Strive: "costs [cost] more for each target beyond the first" (CR 601.2f).
+        if ability.is_none()
+            && let Some(s) = def.spell()
+            && !s.per_extra_target.is_empty()
+            && let Some(item) = self
+                .stack
+                .iter()
+                .rev()
+                .find(|i| i.is_spell() && i.object == object)
+        {
+            for _ in 1..item.targets.len() {
+                add_parts(&mut shape, &s.per_extra_target);
+            }
+        }
         // CR 702.33: a paid kicker is part of the total cost.
         if ability.is_none()
             && self.kicked.contains(&object)
@@ -1205,7 +1274,10 @@ impl Game {
     pub(crate) fn cast_answer(&mut self, t: CastTask, kind: DecisionKind, option: usize) {
         match kind {
             DecisionKind::ChooseMode { modes, .. } => match modes[option] {
-                None => self.advance(t, CastStage::Cost),
+                None => {
+                    let next = self.after_modes(t.spell);
+                    self.advance(t, next);
+                }
                 Some(m) => {
                     if let Some(i) = self.item_mut(t.spell) {
                         i.modes.push(m);

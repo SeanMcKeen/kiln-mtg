@@ -1,0 +1,21 @@
+scenario: mtg-scenario/1
+name: "Twinflame: strive adds {2}{R} per extra target; hasty token copies are exiled at the next end step"
+cr: ["601.2f", "707.9a", "603.7"]
+verifies: [Twinflame]
+players:
+  - battlefield: [Grizzly Bears, Llanowar Elves, Mountain, Mountain, Mountain, Mountain, Mountain]
+    hand: [Twinflame]
+  - {}
+turn: { number: 3, active: P1, step: postcombat_main }
+script:
+  - choose: Cast Twinflame
+  - choose: Target Grizzly Bears (P1)
+  - choose: Target Llanowar Elves (P1)
+  - choose: "Pay with Mountain, Mountain, Mountain, Mountain, Mountain"
+  - pass_all
+  - check:
+      zones: { P1.battlefield: [Grizzly Bears, Llanowar Elves, Mountain, Mountain, Mountain, Mountain, Mountain, Grizzly Bears, Llanowar Elves] }
+  - pass_all
+  - pass_all
+expect:
+  zones: { P1.battlefield: [Grizzly Bears, Llanowar Elves, Mountain, Mountain, Mountain, Mountain, Mountain] }

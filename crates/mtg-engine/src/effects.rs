@@ -1297,6 +1297,28 @@ impl Game {
                 t.frames.clear();
                 self.end_the_turn();
             }
+            Effect::Flicker(set) => {
+                let mut back: Vec<(ObjectId, PlayerId)> = Vec::new();
+                for id in self.set_now(&t.ctx, set) {
+                    if !self.on_battlefield_now(id) {
+                        continue;
+                    }
+                    let Some(owner) = self.obj(id).map(|o| o.owner) else {
+                        continue;
+                    };
+                    if let Some(new) = self.fx_move(&mut t.ctx, id, ZoneId::Exile, true) {
+                        back.push((new, owner));
+                    }
+                }
+                // Under each owner's control; as-enters choices are asked (CR 614.12).
+                for (new, owner) in back.into_iter().rev() {
+                    t.frames.push(Frame::Place {
+                        ids: vec![new],
+                        to: Destination::Battlefield,
+                        who: owner,
+                    });
+                }
+            }
             Effect::Become {
                 what,
                 base_pt,
@@ -2660,6 +2682,14 @@ impl Game {
 
     /// The copiable values of `id` plus a copy effect's exceptions (CR 707.9);
     /// granted abilities come from the granting definition.
+    /// Whether copiable values `cv` include the card type named `word`.
+    fn copy_has_type(&self, cv: &crate::layers::CopyValues, word: &str) -> bool {
+        mtg_core::CardType::ALL
+            .iter()
+            .find(|t| t.word().eq_ignore_ascii_case(word))
+            .is_some_and(|t| cv.types.contains(t) || self.def(cv.def).is(*t))
+    }
+
     fn copy_values_with(
         &self,
         id: ObjectId,
@@ -3168,6 +3198,18 @@ impl Game {
                 let cv = picked
                     .first()
                     .and_then(|id| self.copy_values_with(*id, &except, granter));
+                // Spark Double: counters by the copy's card type (CR 707.9, 614.1c).
+                let extra: Vec<mtg_cards::ir::CounterKind> = cv
+                    .as_ref()
+                    .map(|cv| {
+                        except
+                            .counters
+                            .iter()
+                            .filter(|c| self.copy_has_type(cv, &c.if_type))
+                            .map(|c| c.counter)
+                            .collect()
+                    })
+                    .unwrap_or_default();
                 let this = t.ctx.source;
                 let controller = t.ctx.controller;
                 self.move_object_with(this, ZoneId::Battlefield, true, |g, new| {
@@ -3176,6 +3218,9 @@ impl Game {
                     }
                     if let Some(cv) = cv {
                         g.add_copy_effect(new, cv);
+                    }
+                    for k in extra {
+                        g.add_counters(new, k, 1);
                     }
                 });
             }

@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: "T45: Spark Double copying a commander isn't legendary, gets a +1/+1 counter, and isn't a commander"
+cr: ["707.9b", "707.9", "903.3", "704.5j"]
+verifies: [Spark Double]
+players:
+  - battlefield: [Island, Island, Island, Island]
+    hand: [Spark Double]
+    commanders: [{ card: "Thrasios, Triton Hero", zone: battlefield }]
+  - {}
+script:
+  - choose: Cast Spark Double
+  - choose: "Pay with Island, Island, Island, Island"
+  - pass_all
+  - choose: "Copy Thrasios, Triton Hero (P1)"
+  - check:
+      decision: { player: P1, kind: priority }
+expect:
+  zones: { P1.battlefield: [Island, Island, Island, Island, "Thrasios, Triton Hero", "Thrasios, Triton Hero"] }
+  pt: { "Thrasios, Triton Hero": [1, 3], "Thrasios, Triton Hero#2": [2, 4] }
+  counters: { "Thrasios, Triton Hero#2": { +1/+1: 1 } }
