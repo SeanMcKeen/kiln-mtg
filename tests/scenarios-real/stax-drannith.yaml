@@ -1,0 +1,18 @@
+scenario: mtg-scenario/1
+name: "T22: Drannith Magistrate: opponents can't cast commanders from the command zone (or spells from anywhere but their hands)"
+cr: ["101.2", "903.8"]
+verifies: [Drannith Magistrate]
+players:
+  - battlefield: [Forest, Island, Island]
+    hand: [Opt]
+    commanders: ["Thrasios, Triton Hero"]
+  - battlefield: [Drannith Magistrate]
+script:
+  - check:
+      decision:
+        player: P1
+        kind: priority
+        options_include: [Cast Opt]
+        options_exclude: ["Cast Thrasios, Triton Hero"]
+expect:
+  zones: { command: ["Thrasios, Triton Hero"] }

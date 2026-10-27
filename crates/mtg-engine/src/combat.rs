@@ -48,7 +48,10 @@ impl Game {
     pub(crate) fn attack_task(&self) -> AttackTask {
         let active = self.turn.active;
         let has_opponent = self.players.iter().any(|p| p.in_game() && p.id != active);
-        let candidates = if self.in_game(active) && has_opponent {
+        // "Creatures can't attack this turn" (Orim's Chant, kicked).
+        let barred =
+            self.has_player_rule(active, mtg_cards::ir::PlayerRuleKind::CreaturesCantAttack);
+        let candidates = if self.in_game(active) && has_opponent && !barred {
             self.battlefield
                 .iter()
                 .copied()

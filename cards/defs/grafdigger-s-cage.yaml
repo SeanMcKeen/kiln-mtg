@@ -1,0 +1,4 @@
+card: "Grafdigger's Cage"
+faces:
+  - abilities:
+      - static: { effect: { rule: graveyard_library_lock } }

@@ -1,0 +1,4 @@
+card: "Rule of Law"
+faces:
+  - abilities:
+      - static: { effect: { rule: one_spell_each_turn } }

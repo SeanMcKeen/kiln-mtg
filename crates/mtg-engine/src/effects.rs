@@ -2068,6 +2068,10 @@ impl Game {
                 self.fx_move(ctx, id, ZoneId::Exile, true);
             }
             Destination::Battlefield | Destination::BattlefieldTapped => {
+                // Grafdigger's Cage: it stays where it is.
+                if self.entering_prohibited(id) {
+                    return;
+                }
                 // CR 614.1a: "if this would enter, … instead" (R4: it runs after this effect).
                 let applied = ctx.applied.clone();
                 if self.replace_entering(id, who, &applied) {

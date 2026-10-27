@@ -1313,6 +1313,7 @@ impl CardPool {
             || serde_json::to_string(&def.abilities).is_ok_and(|j| {
                 j.contains("\"spells_cast_this_turn\"")
                     || j.contains("\"most_spells_cast_by_an_opponent\"")
+                    || j.contains("\"one_spell_each_turn\"")
             });
         let id = DefId(u32::try_from(self.defs.len()).unwrap_or(u32::MAX));
         self.defs.push(def);

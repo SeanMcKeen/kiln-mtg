@@ -1,0 +1,26 @@
+scenario: mtg-scenario/1
+name: "T24: Thalia makes noncreature spells cost {1} more, alternative costs included (Force of Will)"
+cr: ["601.2f", "118.9"]
+verifies: ["Thalia, Guardian of Thraben"]
+players:
+  - battlefield: [Mountain, Mountain]
+    hand: [Lightning Bolt]
+  - battlefield: ["Thalia, Guardian of Thraben", Island]
+    hand: [Force of Will, Brainstorm]
+script:
+  - choose: Cast Lightning Bolt
+  - choose: Target P2
+  - check:
+      decision: { player: P1, kind: pay_mana, options_include: ["Pay with Mountain, Mountain"] }
+  - choose: Pay with Mountain, Mountain
+  - pass: 1
+  # The alternative cost (1 life, exile a blue card) plus Thalia's {1}.
+  - { player: P2, choose: Cast Force of Will }
+  - { player: P2, choose: Target Lightning Bolt }
+  - { player: P2, choose: Pay with Island }
+  - pass_all
+expect:
+  life: { P2: 19 }
+  zones:
+    exile: [Brainstorm]
+    P1.graveyard: [Lightning Bolt]

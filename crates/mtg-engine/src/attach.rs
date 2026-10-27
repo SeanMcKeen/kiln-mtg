@@ -177,6 +177,8 @@ impl Game {
         if self
             .obj(card)
             .is_none_or(|o| !matches!(o.zone, ZoneId::Graveyard(_)))
+            // Grafdigger's Cage: it can't enter (the Aura then has no host, CR 704.5m).
+            || self.entering_prohibited(card)
         {
             return;
         }

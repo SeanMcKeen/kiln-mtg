@@ -398,6 +398,8 @@ pub enum StaticEffect {
         who: PlayerRel,
         rule: PlayerRuleKind,
     },
+    /// "[spells] cost {N} more to cast" (Thalia; CR 601.2f).
+    CostIncrease { spells: ObjectFilter, amount: u32 },
     /// Named rule modifications.
     Rule(RuleMod),
 }
@@ -418,6 +420,15 @@ pub enum RuleMod {
     CantBeCountered,
     /// "Creatures entering don't cause abilities to trigger" (Torpor Orb).
     CreaturesEnteringDontTrigger,
+    /// "Each player can't cast more than one spell each turn" (Rule of Law).
+    OneSpellEachTurn,
+    /// "Your opponents can't cast spells from anywhere other than their
+    /// hands" (Drannith Magistrate).
+    OpponentsCastOnlyFromHand,
+    /// "Creature cards in graveyards and libraries can't enter the
+    /// battlefield. Players can't cast spells from graveyards or libraries."
+    /// (Grafdigger's Cage).
+    GraveyardLibraryLock,
 }
 
 /// The exceptions to a copy effect (CR 707.9). They become part of the
@@ -455,6 +466,11 @@ pub enum PlayerRuleKind {
     SpellsCantBeCountered,
     /// "You have hexproof from [colors]" (CR 702.11d).
     HexproofFrom(mtg_core::Colors),
+    /// "[player] can't cast spells" (Silence, Orim's Chant).
+    CantCastSpells,
+    /// "Creatures [player] controls can't attack" (Orim's Chant kicked:
+    /// "creatures can't attack this turn" applies to every player).
+    CreaturesCantAttack,
 }
 
 /// A base power or toughness set by a static ability (CR 613.4b).

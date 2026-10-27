@@ -284,10 +284,14 @@ pub(crate) fn is_rule_static(e: &StaticEffect) -> bool {
             | StaticEffect::CantActivate { .. }
             | StaticEffect::PlayerRule { .. }
             | StaticEffect::GrantEscape { .. }
+            | StaticEffect::CostIncrease { .. }
             | StaticEffect::Rule(
                 mtg_cards::ir::RuleMod::CreaturesEnteringDontTrigger
                     | mtg_cards::ir::RuleMod::ControlOpponentsWhileSearching
                     | mtg_cards::ir::RuleMod::MayPlayExiledWithThis { .. }
+                    | mtg_cards::ir::RuleMod::OneSpellEachTurn
+                    | mtg_cards::ir::RuleMod::OpponentsCastOnlyFromHand
+                    | mtg_cards::ir::RuleMod::GraveyardLibraryLock
             )
     )
 }

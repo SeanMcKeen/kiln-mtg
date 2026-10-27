@@ -281,13 +281,68 @@ impl Game {
 
     /// "[who] can't cast [spells]" (Grand Abolisher): whether `p` may cast `card`.
     pub(crate) fn cast_allowed(&self, p: PlayerId, card: ObjectId) -> bool {
+        // "[player] can't cast spells this turn" (Silence, Orim's Chant).
+        if self.has_player_rule(p, ir::PlayerRuleKind::CantCastSpells) {
+            return false;
+        }
+        let zone = self.obj(card).map(|o| o.zone);
         self.active_rule_statics()
             .iter()
-            .all(|(source, controller, e)| {
-                !matches!(e, StaticEffect::CantCast { who, spells }
-                if self.player_rel(*who, *controller, p)
-                    && self.matches_filter(card, spells, *controller, Some(*source)))
+            .all(|(source, controller, e)| match e {
+                StaticEffect::CantCast { who, spells } => {
+                    !(self.player_rel(*who, *controller, p)
+                        && self.matches_filter(card, spells, *controller, Some(*source)))
+                }
+                StaticEffect::Rule(ir::RuleMod::OneSpellEachTurn) => {
+                    !self.cast_this_turn.iter().any(|r| r.player == p)
+                }
+                StaticEffect::Rule(ir::RuleMod::OpponentsCastOnlyFromHand) => {
+                    p == *controller || zone == Some(crate::state::ZoneId::Hand(p))
+                }
+                StaticEffect::Rule(ir::RuleMod::GraveyardLibraryLock) => !matches!(
+                    zone,
+                    Some(crate::state::ZoneId::Graveyard(_) | crate::state::ZoneId::Library(_))
+                ),
+                _ => true,
             })
+    }
+
+    /// CR 601.2f: generic mana added to the cost of spell `card` by cost
+    /// increases (Thalia).
+    pub(crate) fn cost_increase(&self, card: ObjectId) -> u32 {
+        if !self.pool.has_rule_statics() {
+            return 0;
+        }
+        self.active_rule_statics()
+            .iter()
+            .filter_map(|(source, controller, e)| match e {
+                StaticEffect::CostIncrease { spells, amount }
+                    if self.matches_filter(card, spells, *controller, Some(*source)) =>
+                {
+                    Some(*amount)
+                }
+                _ => None,
+            })
+            .sum()
+    }
+
+    /// Grafdigger's Cage: creature card `id` in a graveyard or library can't
+    /// enter the battlefield.
+    pub(crate) fn entering_prohibited(&self, id: ObjectId) -> bool {
+        self.pool.has_rule_statics()
+            && self.obj(id).is_some_and(|o| {
+                matches!(
+                    o.zone,
+                    crate::state::ZoneId::Graveyard(_) | crate::state::ZoneId::Library(_)
+                )
+            })
+            && self
+                .chars(id)
+                .is_some_and(|c| c.is(mtg_core::CardType::Creature))
+            && self
+                .active_rule_statics()
+                .iter()
+                .any(|(_, _, e)| matches!(e, StaticEffect::Rule(ir::RuleMod::GraveyardLibraryLock)))
     }
 
     /// "[who] can't activate abilities of [sources]": whether `p` may

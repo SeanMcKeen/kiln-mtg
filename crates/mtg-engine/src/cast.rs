@@ -1086,6 +1086,13 @@ impl Game {
         {
             add_parts(&mut shape, k);
         }
+        // CR 601.2f: cost increases apply whatever cost is paid (T24).
+        if ability.is_none() {
+            let more = self.cost_increase(object);
+            if more > 0 {
+                shape.symbols.push(ManaSymbol::Generic(more));
+            }
+        }
         // CR 903.8: commander tax, an additional cost whatever cost is paid.
         if ability.is_none() {
             let tax = self.commander_tax(object);

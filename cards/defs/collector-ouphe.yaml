@@ -1,0 +1,5 @@
+card: "Collector Ouphe"
+faces:
+  - abilities:
+      # Mana abilities included (CR 605).
+      - static: { effect: { cant_activate: { who: any, sources: { types: [artifact] } } } }
