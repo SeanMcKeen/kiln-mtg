@@ -1,0 +1,5 @@
+card: Divination
+faces:
+  - abilities:
+      - spell:
+          effect: { draw: { who: you, amount: 2 } }

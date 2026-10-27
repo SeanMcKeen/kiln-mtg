@@ -1,6 +1,6 @@
 ---
 type: architecture
-status: proposed
+status: accepted-in-part
 tags: [architecture, rust, crates]
 updated: 2026-10-22
 ---
@@ -50,6 +50,33 @@ kiln-testkit     ← scenario file loader, assertion helpers, golden replay runn
 | `kiln-testkit` | lib (dev) | `proptest`, `insta` | M1 |
 
 **Naming:** every crate uses the `kiln-` prefix. `kiln-core` and `kiln-cli` were already taken on crates.io, so the primitives crate is `kiln-types` and the CLI crate is `kiln-mtg`, which is also the crate users install (`cargo install kiln-mtg` gives the `kiln` binary). See [[ADR-0013 Project Name]].
+
+## As built (M1, 2026-10-20)
+All crates exist under `crates/`. The ones M1 doesn't implement are stubs whose crate docs point at their design note and milestone.
+
+| Crate | M1 state | Dependencies chosen |
+|---|---|---|
+| `mtg-core` | ids, `Color`/`Colors`, `ManaSymbol`/`ManaCost`, `TypeLine`, `PrintedStat`, `CrRef` | `serde`, `smallvec`, `uuid`, `thiserror` |
+| `mtg-cards` | only the coverage model (`Coverage`, `Provenance`, `CardDefinition` without IR) | `serde` |
+| `mtg-data` | Scryfall fetch, normalization, binary DB, name index | **`postcard`** for the DB (bincode is unmaintained; rkyv deferred until load time matters, since ~210 ms already beats NFR-P6), **`ureq` 3** (blocking, behind the `fetch` feature), `flate2`, `sha2`, `strsim`, `unicode-normalization` |
+| `mtg-sim` | deck import and Commander validation only | `csv`, `sha2` |
+| `mtg-testkit` | CR rule tree and citation checker | `regex` |
+| `mtg-cli` | `mtg data …`, `mtg deck check`, `mtg dev cr-check` | `clap` (derive, env), `anyhow` |
+
+Workspace conventions:
+- edition 2024, toolchain pinned in `rust-toolchain.toml`
+- `unsafe_code = "forbid"`, a small set of clippy lints, and CI runs `-D warnings`
+
+### M2 additions (2026-10-21)
+| Crate | M2 state | Dependencies chosen |
+|---|---|---|
+| `mtg-engine` | `Game` (task-stack decision state machine), M2 card IR, mana plans, casting, combat, SBAs, views, replays, invariants, scenario builder, synthetic test decks; criterion benches | **`rand_chacha` 0.10** (ChaCha8; sampling and shuffles are our own code), `smallvec`, `serde_json` (replay pool hash) |
+| `mtg-policy` | `Policy` trait; random (pass bias), passive, scripted | — |
+| `mtg-sim` | `runner` (rayon batch runner with checks), `vanilla` (real-card pools for M2) | **`rayon`** |
+| `mtg-testkit` | YAML scenario loader | **`yaml_serde`** (YAML organization's maintained serde_yaml) |
+| `mtg-cli` | `mtg dev fuzz` | — |
+
+Deck import landed in `mtg-sim` as this note says. If it stays CLI-only through M6, consider moving it to `mtg-data` so the CLI doesn't pull in simulation code.
 
 ## Rules
 - **The engine doesn't know specific card names.** Card behaviour arrives only through the IR. The one exception is rules that name cards: the CR names a few, and some cards reference others by name, which goes through IR filters.

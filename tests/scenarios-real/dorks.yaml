@@ -1,0 +1,27 @@
+scenario: mtg-scenario/1
+name: "Mana creatures tap for mana once their controller has controlled them since the turn began"
+cr: ["605.1a", "302.6"]
+verifies: [Birds of Paradise, Llanowar Elves, Elvish Mystic, Fyndhorn Elves, Avacyn's Pilgrim, Boreal Druid]
+players:
+  - battlefield:
+      - Birds of Paradise
+      - Llanowar Elves
+      - Elvish Mystic
+      - Fyndhorn Elves
+      - Avacyn's Pilgrim
+      - Boreal Druid
+      - { card: Llanowar Elves, sick: true }
+  - {}
+script:
+  - choose: "Tap Llanowar Elves for {G}"
+  - choose: "Tap Elvish Mystic for {G}"
+  - choose: "Tap Fyndhorn Elves for {G}"
+  - choose: "Tap Avacyn's Pilgrim for {W}"
+  - choose: "Tap Boreal Druid for {C}"
+  - choose: Tap Birds of Paradise for mana
+  - choose: "Add {U}"
+  # The second Llanowar Elves came under control this turn.
+  - check:
+      decision: { player: P1, kind: priority, options_exclude: ["Tap Llanowar Elves for {G}"] }
+expect:
+  pool: { P1: "{W}{U}{G}{G}{G}{C}" }

@@ -1,0 +1,12 @@
+card: "Sensei's Divining Top"
+faces:
+  - abilities:
+      - activated:
+          cost: [{ mana: "{1}" }]
+          effect: { look_at_top: { who: you, count: 3, rest: top_any_order } }
+      - activated:
+          cost: [tap]
+          effect:
+            seq:
+              - draw: { who: you, amount: 1 }
+              - move: { what: { one: this }, to: top_of_library }

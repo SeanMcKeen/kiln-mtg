@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: "\"Up to two targets\": targets are chosen one at a time, never the same one twice"
+cr: ["601.2c", "115.3"]
+players:
+  - battlefield: [Test Mountain, Test Wastes]
+    hand: [Test Volley]
+  - battlefield: [Test Bird, Test Assassin]
+script:
+  - choose: Cast Test Volley
+  - check:
+      decision: { player: P1, kind: choose_target, options: [No more targets, Target Test Bird (P2), Target Test Assassin (P2)] }
+  - choose: Target Test Bird (P2)
+  - check:
+      decision: { player: P1, kind: choose_target, options: [No more targets, Target Test Assassin (P2)] }
+  - choose: Target Test Assassin (P2)
+  - choose: Pay with Test Mountain, Test Wastes
+  - pass_all
+expect:
+  zones:
+    P2.graveyard: [Test Bird, Test Assassin]

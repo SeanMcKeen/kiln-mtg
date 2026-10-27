@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: "Read the Bones: scry 2, draw two, lose 2 life"
+cr: ["701.22a", "121.1", "119.3"]
+verifies: [Read the Bones]
+players:
+  - battlefield: [Swamp, Swamp, Swamp]
+    hand: [Read the Bones]
+    library: [Opt, Divination, Murder]
+  - {}
+script:
+  - choose: Cast Read the Bones
+  - choose: Pay with Swamp, Swamp, Swamp
+  - pass_all
+  - choose: Put on bottom Opt
+  - choose: Stop
+expect:
+  life: { P1: 18 }
+  zones:
+    P1.hand: [Divination, Murder]

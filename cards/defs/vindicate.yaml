@@ -1,0 +1,6 @@
+card: Vindicate
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { object: {} } }]
+          effect: { destroy: { one: { target: 0 } } }

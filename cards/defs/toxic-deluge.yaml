@@ -1,0 +1,9 @@
+card: Toxic Deluge
+faces:
+  - abilities:
+      - spell:
+          # CR 107.3a: X is announced for the additional cost.
+          additional_costs: [{ pay_life: x }]
+          effect:
+            # CR 611.2c: the creatures on the battlefield as it resolves.
+            pump: { what: { all: { types: [creature] } }, power: { neg: x }, toughness: { neg: x } }

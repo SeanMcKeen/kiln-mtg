@@ -1,0 +1,11 @@
+card: "Talion, the Kindly Lord"
+faces:
+  - abilities:
+      - keyword: flying
+      - as_enters: { choose: { number: { min: 1, max: 10 } }, store: chosen_number }
+      - triggered:
+          trigger: { cast: { by: opponent, spell: { number_is: chosen_number } } }
+          effect:
+            seq:
+              - lose_life: { who: triggering, amount: 2 }
+              - draw: { who: you, amount: 1 }

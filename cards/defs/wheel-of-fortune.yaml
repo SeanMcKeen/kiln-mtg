@@ -1,0 +1,8 @@
+card: Wheel of Fortune
+faces:
+  - abilities:
+      - spell:
+          effect:
+            seq:
+              - for_each_player: { players: any, effect: { discard: { who: each, what: hand } } }
+              - for_each_player: { players: any, effect: { draw: { who: each, amount: 7 } } }

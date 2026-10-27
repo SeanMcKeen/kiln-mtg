@@ -1,0 +1,10 @@
+card: "Archivist of Oghma"
+faces:
+  - abilities:
+      - keyword: flash
+      - triggered:
+          trigger: { searches: { by: opponent } }
+          effect:
+            seq:
+              - gain_life: { who: you, amount: 1 }
+              - draw: { who: you, amount: 1 }

@@ -1,0 +1,33 @@
+scenario: mtg-scenario/1
+name: "Pact of Negation: paying the upkeep cost keeps its controller in the game; the trigger happens once"
+cr: ["603.7a", "603.7c", "118.12"]
+verifies: [Pact of Negation]
+players:
+  - battlefield: [Island, Island, Island, Island, Island]
+    hand: [Pact of Negation]
+  - battlefield: [Mountain]
+    hand: [Lightning Bolt]
+turn: { number: 2, active: P2, step: end }
+script:
+  - choose: Cast Lightning Bolt
+    player: P2
+  - choose: Target P1
+  - choose: Pay with Mountain
+  - pass: 1
+  - choose: Cast Pact of Negation
+  - choose: Target Lightning Bolt
+  - pass_all
+  - pass_all
+  - check:
+      step: upkeep
+  - pass_all
+  - choose: Pay
+  - choose: Pay with Island, Island, Island, Island, Island
+  - check:
+      decision: { player: P1, kind: priority }
+      step: upkeep
+expect:
+  result: in_progress
+  tapped: { Island: true }
+  zones:
+    stack: []

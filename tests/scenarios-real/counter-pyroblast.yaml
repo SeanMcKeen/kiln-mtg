@@ -1,0 +1,33 @@
+scenario: mtg-scenario/1
+name: "Pyroblast targets any spell but counters it only if it's blue; Red Elemental Blast targets only blue"
+cr: ["700.2", "608.2b", "701.6a"]
+verifies: [Pyroblast, Red Elemental Blast]
+players:
+  - battlefield: [Island, Island]
+    hand: [Opt, Brainstorm]
+  - battlefield: [Mountain, Mountain]
+    hand: [Pyroblast, Red Elemental Blast]
+script:
+  - choose: Cast Opt
+  - choose: Pay with Island
+  - pass: 1
+  - { player: P2, choose: Cast Pyroblast }
+  - { player: P2, choose: Mode 1 }
+  - { player: P2, choose: Target Opt }
+  - { player: P2, choose: Pay with Mountain }
+  - pass_all
+  - pass_all
+  - choose: Cast Brainstorm
+  - choose: Pay with Island
+  - pass: 1
+  - { player: P2, choose: Cast Red Elemental Blast }
+  - { player: P2, choose: Mode 1 }
+  - { player: P2, choose: Target Brainstorm }
+  - { player: P2, choose: Pay with Mountain }
+  - pass_all
+  - pass_all
+expect:
+  zones:
+    P1.graveyard: [Opt, Brainstorm]
+    P1.hand: []
+    P2.graveyard: [Pyroblast, Red Elemental Blast]

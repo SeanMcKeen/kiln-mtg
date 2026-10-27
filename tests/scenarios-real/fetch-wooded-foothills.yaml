@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: "Wooded Foothills fetches a Mountain or Forest card, including a dual land with those types"
+cr: ["602.2", "701.23b", "305.7"]
+verifies: [Wooded Foothills]
+players:
+  - battlefield: [Wooded Foothills]
+    library: [Plains, Island, Swamp, Mountain, Forest, Taiga]
+  - {}
+script:
+  - choose: Activate Wooded Foothills ability 1
+  - check:
+      life: { P1: 19 }
+  - pass_all
+  - check:
+      decision: { player: P1, kind: choose_card, options: [Stop, Find Mountain, Find Forest, Find Taiga] }
+  - choose: Find Taiga
+expect:
+  zones:
+    P1.battlefield: [Taiga]
+    P1.graveyard: [Wooded Foothills]

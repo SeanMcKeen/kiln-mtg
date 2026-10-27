@@ -1,0 +1,26 @@
+scenario: mtg-scenario/1
+name: "Delighted Halfling: mana only for legendary spells, and a spell cast with it can't be countered"
+cr: ["106.6", "101.2", "701.6a"]
+verifies: [Delighted Halfling]
+players:
+  - battlefield: [Delighted Halfling, Forest]
+    hand: ["Kinnan, Bonder Prodigy", Lightning Bolt]
+  - battlefield: [Island, Island]
+    hand: [Counterspell]
+script:
+  - choose: Activate Delighted Halfling for mana
+  - choose: "Add {U}"
+  - check:
+      decision: { player: P1, kind: priority, options_exclude: [Cast Lightning Bolt] }
+  - choose: "Cast Kinnan, Bonder Prodigy"
+  - choose: "Pay with Forest, 1 from pool"
+  - pass: 1
+  - { player: P2, choose: Cast Counterspell }
+  - { player: P2, choose: "Target Kinnan, Bonder Prodigy" }
+  - { player: P2, choose: "Pay with Island, Island" }
+  - pass_all
+  - pass_all
+expect:
+  zones:
+    P1.battlefield: [Delighted Halfling, Forest, "Kinnan, Bonder Prodigy"]
+    P2.graveyard: [Counterspell]

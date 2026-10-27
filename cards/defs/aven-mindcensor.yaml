@@ -1,0 +1,6 @@
+card: "Aven Mindcensor"
+faces:
+  - abilities:
+      - keyword: flash
+      - keyword: flying
+      - static: { effect: { rule: opponents_search_top_four } }

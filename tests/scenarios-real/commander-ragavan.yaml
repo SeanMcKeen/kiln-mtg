@@ -1,0 +1,42 @@
+scenario: mtg-scenario/1
+name: "Ragavan: dashed it has haste and returns at the next end step; combat damage makes a Treasure and exiles a card it may cast this turn"
+cr: ["702.109a", "603.7", "111.10a"]
+verifies: ["Ragavan, Nimble Pilferer"]
+players:
+  - battlefield: [Mountain, Mountain]
+    hand: ["Ragavan, Nimble Pilferer"]
+  - library: [Lightning Bolt, Island]
+script:
+  - choose: Cast Ragavan, Nimble Pilferer
+  - check:
+      decision: { player: P1, kind: choose_cost, options: [Pay the mana cost, Pay the dash cost] }
+  - choose: Pay the dash cost
+  - choose: Pay with Mountain, Mountain
+  - pass_all
+  # Main phase, then combat: dashed, it attacks this turn.
+  - pass_all
+  - pass_all
+  - choose: Ragavan, Nimble Pilferer attacks P2
+  - pass_all
+  - pass_all
+  - pass_all
+  - check:
+      life: { P2: 18 }
+      zones: { exile: [Lightning Bolt] }
+  - choose: Activate Treasure for mana
+  - choose: "Add {R}"
+  - check:
+      decision: { player: P1, kind: priority, options_include: [Cast Lightning Bolt] }
+  - choose: Cast Lightning Bolt
+  - choose: Target P2
+  - choose: Pay with 1 from pool
+  - pass_all
+  - check:
+      life: { P2: 15 }
+  # To the end step: the dash trigger returns Ragavan to hand.
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+expect:
+  zones: { P1.hand: ["Ragavan, Nimble Pilferer"] }

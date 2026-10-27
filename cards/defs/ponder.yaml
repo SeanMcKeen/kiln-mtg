@@ -1,0 +1,9 @@
+card: Ponder
+faces:
+  - abilities:
+      - spell:
+          effect:
+            seq:
+              - look_at_top: { who: you, count: 3, rest: top_any_order }
+              - may: { shuffle: you }
+              - draw: { who: you, amount: 1 }

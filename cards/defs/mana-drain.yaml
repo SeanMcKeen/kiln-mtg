@@ -1,0 +1,12 @@
+card: Mana Drain
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { spell: {} } }]
+          effect:
+            seq:
+              - counter: { one: { target: 0 } }
+              # CR 603.7: a delayed trigger; "that spell" uses last known information (CR 608.2h).
+              - delayed:
+                  at: { beginning_of: { step: main, whose: you } }
+                  effect: { add_mana: { mana: { colorless: { mana_value_of: { target: 0 } } } } }

@@ -1,0 +1,32 @@
+scenario: mtg-scenario/1
+name: "T53: Phantasmal Image copies a creature as an Illusion with the sacrifice trigger; targeted, it's sacrificed and the spell fizzles"
+cr: ["707.9a", "707.9b", "614.1c", "608.2b"]
+verifies: [Phantasmal Image]
+players:
+  - battlefield: [Island, Island]
+    hand: [Phantasmal Image]
+  - battlefield: [Grizzly Bears, Mountain]
+    hand: [Lightning Bolt]
+script:
+  - choose: Cast Phantasmal Image
+  - choose: Pay with Island, Island
+  - pass_all
+  - choose: Copy Grizzly Bears (P2)
+  # A Grizzly Bears that's also an Illusion (CR 707.9b), 2/2.
+  - check:
+      pt: { Grizzly Bears: [2, 2] }
+      zones: { P1.battlefield: [Island, Island, Grizzly Bears] }
+  - pass: 1
+  - choose: Cast Lightning Bolt
+    player: P2
+  - choose: Target Grizzly Bears (P1)
+  - choose: Pay with Mountain
+  # The copy's sacrifice trigger resolves first; the Bolt then has no legal target.
+  - pass_all
+  - pass_all
+expect:
+  zones:
+    P1.battlefield: [Island, Island]
+    P1.graveyard: [Phantasmal Image]
+    P2.battlefield: [Grizzly Bears, Mountain]
+    P2.graveyard: [Lightning Bolt]

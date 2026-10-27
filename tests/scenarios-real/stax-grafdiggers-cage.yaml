@@ -1,0 +1,23 @@
+scenario: mtg-scenario/1
+name: "T25: Grafdigger's Cage: no casting from graveyards (Underworld Breach), and creature cards can't enter from graveyards (Animate Dead)"
+cr: ["101.2", "702.138a", "303.4a"]
+verifies: ["Grafdigger's Cage"]
+players:
+  - battlefield: ["Grafdigger's Cage", Underworld Breach, Island, Island, Swamp, Swamp]
+    hand: [Animate Dead]
+    graveyard: [Brain Freeze, Opt, Ponder, Preordain, Grizzly Bears]
+  - {}
+script:
+  - check:
+      decision: { player: P1, kind: priority, options_exclude: [Cast Brain Freeze] }
+  - choose: Cast Animate Dead
+  - choose: Target Grizzly Bears
+  - choose: Pay with Swamp, Swamp
+  - pass_all
+  - pass_all
+expect:
+  # Animate Dead stays, still enchanting the card in the graveyard
+  # ("enchant creature card in a graveyard" keeps it legal).
+  zones:
+    P1.graveyard: [Brain Freeze, Opt, Ponder, Preordain, Grizzly Bears]
+    P1.battlefield: ["Grafdigger's Cage", Underworld Breach, Island, Island, Swamp, Swamp, Animate Dead]

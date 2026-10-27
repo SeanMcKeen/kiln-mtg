@@ -1,0 +1,23 @@
+scenario: mtg-scenario/1
+name: "T14: Bolas's Citadel + Sensei's Divining Top: draw, Top goes on top, recast it for 1 life"
+cr: ["118.9", "119.4", "601.2h"]
+verifies: ["Bolas's Citadel", "Sensei's Divining Top"]
+players:
+  - battlefield: ["Bolas's Citadel", "Sensei's Divining Top"]
+    library: [Opt, Ponder, Island]
+  - {}
+script:
+  - choose: "Activate Sensei's Divining Top ability 2"
+  - pass_all
+  - choose: "Cast Sensei's Divining Top"
+  - pass_all
+  - choose: "Activate Sensei's Divining Top ability 2"
+  - pass_all
+  - choose: "Cast Sensei's Divining Top"
+  - pass_all
+expect:
+  life: { P1: 18 }
+  zones:
+    P1.hand: [Opt, Ponder]
+    P1.battlefield: ["Bolas's Citadel", "Sensei's Divining Top"]
+  library_top: { P1: [Island] }

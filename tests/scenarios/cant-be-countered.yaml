@@ -1,0 +1,26 @@
+scenario: mtg-scenario/1
+name: A spell that can't be countered can be targeted but isn't countered
+cr: ["101.2", "701.6a"]
+players:
+  - battlefield: [Test Swamp, Test Forest]
+    hand: [Test Decay]
+  - battlefield: [Test Island, Test Island, Test Ogre]
+    hand: [Test Counterspell]
+script:
+  - choose: Cast Test Decay
+  - choose: Target Test Ogre (P2)
+  - choose: Pay with Test Swamp, Test Forest
+  - pass: 1
+  - choose: Cast Test Counterspell
+    player: P2
+  - choose: Target Test Decay
+  - choose: Pay with Test Island, Test Island
+  - pass_all
+  - check:
+      zones:
+        stack: [Test Decay]
+  - pass_all
+expect:
+  zones:
+    P2.graveyard: [Test Counterspell, Test Ogre]
+    P1.graveyard: [Test Decay]

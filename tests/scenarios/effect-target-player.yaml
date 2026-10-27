@@ -1,0 +1,18 @@
+scenario: mtg-scenario/1
+name: Target player draws two cards and loses 2 life
+cr: ["115.1", "121.1", "119.3"]
+players:
+  - battlefield: [Test Swamp, Test Swamp]
+    hand: [Test Sign]
+  - {}
+script:
+  - choose: Cast Test Sign
+  - check:
+      decision: { player: P1, kind: choose_target, options: [Target P1, Target P2] }
+  - choose: Target P1
+  - choose: Pay with Test Swamp, Test Swamp
+  - pass_all
+expect:
+  life: { P1: 18 }
+  zones:
+    P1.hand: [Test Wastes, Test Wastes]

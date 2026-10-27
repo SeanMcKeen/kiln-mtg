@@ -1,0 +1,36 @@
+scenario: mtg-scenario/1
+name: "Zealous Conscripts: gain control of a creature until end of turn; it's untapped and hasty, so it can attack; control returns in cleanup"
+cr: ["613.1b", "302.6", "514.2"]
+verifies: [Zealous Conscripts]
+players:
+  - battlefield: [Mountain, Mountain, Mountain, Mountain, Mountain]
+    hand: [Zealous Conscripts]
+  - battlefield: [{ card: Grizzly Bears, tapped: true }]
+script:
+  - choose: Cast Zealous Conscripts
+  - choose: Pay with Mountain, Mountain, Mountain, Mountain, Mountain
+  - pass_all
+  - choose: Target Grizzly Bears (P2)
+  - pass_all
+  - check:
+      zones: { P1.battlefield: [Mountain, Mountain, Mountain, Mountain, Mountain, Zealous Conscripts, Grizzly Bears], P2.battlefield: [] }
+      tapped: { Grizzly Bears: false }
+  - pass_all
+  - pass_all
+  - choose: Grizzly Bears attacks P2
+  - choose: "Zealous Conscripts doesn't attack"
+  - pass_all
+  - pass_all
+  - check:
+      life: { P2: 18 }
+      step: combat_damage
+  # End of combat, second main, end step; cleanup ends the effect (CR 514.2).
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+expect:
+  step: upkeep
+  zones:
+    P1.battlefield: [Mountain, Mountain, Mountain, Mountain, Mountain, Zealous Conscripts]
+    P2.battlefield: [Grizzly Bears]

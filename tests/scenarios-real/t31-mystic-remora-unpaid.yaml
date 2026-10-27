@@ -1,0 +1,16 @@
+scenario: mtg-scenario/1
+name: "Mystic Remora: not paying cumulative upkeep sacrifices it"
+cr: ["702.24a", "701.21a"]
+verifies: [Mystic Remora]
+players:
+  - battlefield: [Mystic Remora, Island]
+  - {}
+turn: { number: 2, active: P1, step: upkeep }
+script:
+  - pass_all
+  - choose: Don't pay
+expect:
+  zones:
+    P1.battlefield: [Island]
+    P1.graveyard: [Mystic Remora]
+  tapped: { Island: false }

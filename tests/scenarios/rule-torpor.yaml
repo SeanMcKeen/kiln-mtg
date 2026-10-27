@@ -1,0 +1,16 @@
+scenario: mtg-scenario/1
+name: '"Creatures entering don''t cause abilities to trigger" stops a creature''s own ETB'
+cr: ["603.6a", "613.11"]
+players:
+  - battlefield: [Test Orb, Test Plains, Test Plains, Test Plains]
+    hand: [Test Herald]
+  - {}
+script:
+  - choose: Cast Test Herald
+  - choose: Pay with Test Plains, Test Plains, Test Plains
+  - pass_all
+  - check:
+      decision: { player: P1, kind: priority }
+expect:
+  life: { P2: 20 }
+  zones: { P1.battlefield: [Test Orb, Test Plains, Test Plains, Test Plains, Test Herald] }

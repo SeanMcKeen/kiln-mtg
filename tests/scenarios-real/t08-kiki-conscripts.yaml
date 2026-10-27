@@ -1,0 +1,26 @@
+scenario: mtg-scenario/1
+name: "T08: Kiki-Jiki copies Zealous Conscripts; each token untaps Kiki-Jiki, so it can activate again (arbitrarily many hasty tokens)"
+cr: ["707.9a", "613.1b", "603.6a"]
+verifies: ["Kiki-Jiki, Mirror Breaker", Zealous Conscripts]
+players:
+  - battlefield: ["Kiki-Jiki, Mirror Breaker", Zealous Conscripts]
+  - {}
+script:
+  # Iteration 1.
+  - choose: "Activate Kiki-Jiki, Mirror Breaker ability 2"
+  - choose: Target Zealous Conscripts (P1)
+  - pass_all
+  - choose: "Target Kiki-Jiki, Mirror Breaker (P1)"
+  - pass_all
+  - check:
+      tapped: { "Kiki-Jiki, Mirror Breaker": false }
+  # Iteration 2.
+  - choose: "Activate Kiki-Jiki, Mirror Breaker ability 2"
+  - choose: Target Zealous Conscripts (P1)
+  - pass_all
+  - choose: "Target Kiki-Jiki, Mirror Breaker (P1)"
+  - pass_all
+expect:
+  tapped: { "Kiki-Jiki, Mirror Breaker": false }
+  zones:
+    P1.battlefield: ["Kiki-Jiki, Mirror Breaker", Zealous Conscripts, Zealous Conscripts, Zealous Conscripts]

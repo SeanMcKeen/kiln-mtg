@@ -1,0 +1,6 @@
+card: Exquisite Blood
+faces:
+  - abilities:
+      - triggered:
+          trigger: { loses_life: { by: opponent } }
+          effect: { gain_life: { who: you, amount: triggering_amount } }

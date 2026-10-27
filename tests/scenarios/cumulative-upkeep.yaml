@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: Cumulative upkeep adds an age counter, then costs its upkeep cost once per age counter
+cr: ["702.24a", "118.12", "122.1"]
+players:
+  - battlefield:
+      - { card: Test Hoarder, counters: { age: 1 } }
+      - Test Island
+      - Test Island
+  - {}
+turn: { number: 4, active: P1, step: upkeep }
+script:
+  - pass_all
+  - check:
+      counters: { Test Hoarder: { age: 2 } }
+  - choose: Pay
+  - choose: Pay with Test Island, Test Island
+expect:
+  tapped: { Test Island: true }
+  zones: { P1.battlefield: [Test Hoarder, Test Island, Test Island] }

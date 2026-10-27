@@ -1,0 +1,23 @@
+scenario: mtg-scenario/1
+name: "Mana Vault: paying {4} in upkeep untaps it, so the draw-step trigger's intervening if fails"
+cr: ["603.4", "118.12"]
+verifies: [Mana Vault]
+players:
+  - battlefield:
+      - { card: Mana Vault, tapped: true }
+      - Island
+      - Island
+      - Island
+      - Island
+  - {}
+turn: { number: 3, active: P1, step: upkeep }
+script:
+  - pass_all
+  - choose: "Yes"
+  - choose: Pay with Island, Island, Island, Island
+  - pass_all
+  - check: { step: draw }
+  - pass_all
+expect:
+  life: { P1: 20 }
+  tapped: { Mana Vault: false }

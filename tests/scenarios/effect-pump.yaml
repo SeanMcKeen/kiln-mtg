@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: "+3/+3 until end of turn lets a creature survive 3 damage"
+cr: ["613.4c", "611.2a", "704.5g"]
+players:
+  - battlefield: [Test Forest, Test Mountain, Test Bear]
+    hand: [Test Growth, Test Bolt]
+  - {}
+script:
+  - choose: Cast Test Growth
+  - choose: Target Test Bear (P1)
+  - choose: Pay with Test Forest
+  - pass_all
+  - choose: Cast Test Bolt
+  - choose: Target Test Bear (P1)
+  - choose: Pay with Test Mountain
+  - pass_all
+expect:
+  zones:
+    P1.battlefield: [Test Forest, Test Mountain, Test Bear]

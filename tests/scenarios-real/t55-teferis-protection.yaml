@@ -1,0 +1,44 @@
+scenario: mtg-scenario/1
+name: "T55: Teferi's Protection: P1's permanents phase out, P1 can't be targeted and takes no damage until their next turn; then everything phases back in"
+cr: ["702.26b", "702.26d", "702.16j", "502.1", "611.2a"]
+verifies: ["Teferi's Protection"]
+players:
+  - battlefield: [Plains, Plains, Plains, Grizzly Bears]
+    hand: ["Teferi's Protection"]
+  - battlefield: [Grizzly Bears, Mountain]
+    hand: [Lightning Bolt]
+turn: { number: 2, active: P2, step: precombat_main }
+script:
+  - pass: 1
+  - choose: "Cast Teferi's Protection"
+  - choose: Pay with Plains, Plains, Plains
+  - pass_all
+  - check:
+      zones: { P1.battlefield: [], exile: ["Teferi's Protection"] }
+  # P2 can't target P1 or P1's (phased-out) permanents.
+  - choose: Cast Lightning Bolt
+    player: P2
+  - check:
+      decision: { player: P2, kind: choose_target, options: [Target P2, Target Grizzly Bears (P2)] }
+  - choose: Target P2
+  - choose: Pay with Mountain
+  - pass_all
+  - pass_all
+  - pass_all
+  - choose: Grizzly Bears attacks P1
+  - pass_all
+  - pass_all
+  - check:
+      step: combat_damage
+      life: { P1: 20, P2: 17 }
+  # Through P2's turn to P1's: the permanents phase in before untapping.
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - check:
+      decision: { player: P1, kind: priority }
+expect:
+  step: upkeep
+  zones: { P1.battlefield: [Plains, Plains, Plains, Grizzly Bears] }
+  tapped: { Plains: false }

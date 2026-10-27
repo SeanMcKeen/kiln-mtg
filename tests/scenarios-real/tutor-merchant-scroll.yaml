@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: "Merchant Scroll finds a card"
+cr: ["701.23b", "701.20a"]
+verifies: [Merchant Scroll]
+players:
+  - battlefield: [Island, Island]
+    hand: [Merchant Scroll]
+    library: [Swamp, Lightning Bolt, Sol Ring, Grizzly Bears, Divination, Counterspell]
+  - {}
+script:
+  - choose: Cast Merchant Scroll
+  - choose: Pay with Island, Island
+  - pass_all
+  - check:
+      decision: { player: P1, kind: choose_card, options: [Stop, Find Counterspell] }
+  - choose: Find Counterspell
+expect:
+  zones:
+    P1.hand: [Counterspell]

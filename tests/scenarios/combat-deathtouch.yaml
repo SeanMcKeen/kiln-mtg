@@ -1,0 +1,16 @@
+scenario: mtg-scenario/1
+name: Deathtouch destroys a large blocker
+cr: ["702.2b", "704.5h", "704.5g"]
+players:
+  - battlefield: [Test Assassin]
+  - battlefield: [Test Wurm]
+turn: { number: 3, active: P1, step: declare_attackers }
+script:
+  - choose: Test Assassin attacks P2
+  - pass_all
+  - { player: P2, choose: Test Wurm blocks Test Assassin (P1) }
+  - pass_all
+expect:
+  zones:
+    P1.graveyard: [Test Assassin]
+    P2.graveyard: [Test Wurm]

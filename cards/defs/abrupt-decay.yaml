@@ -1,0 +1,7 @@
+card: Abrupt Decay
+faces:
+  - abilities:
+      - static: { effect: { rule: cant_be_countered } }
+      - spell:
+          targets: [{ what: { object: { not_types: [land], max_mana_value: 3 } } }]
+          effect: { destroy: { one: { target: 0 } } }

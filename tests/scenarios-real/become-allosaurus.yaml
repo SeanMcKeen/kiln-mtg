@@ -1,0 +1,15 @@
+scenario: mtg-scenario/1
+name: "Allosaurus Shepherd: until end of turn, each Elf you control has base power and toughness 5/5"
+cr: ["613.4b", "611.2c"]
+verifies: [Allosaurus Shepherd]
+players:
+  - battlefield: [Allosaurus Shepherd, Llanowar Elves, Forest, Forest, Forest, Forest, Forest, Forest]
+  - {}
+script:
+  - choose: Activate Allosaurus Shepherd ability 3
+  - choose: "Pay with Forest, Forest, Forest, Forest, Forest, Forest"
+  - pass_all
+  - check:
+      pt: { Allosaurus Shepherd: [5, 5], Llanowar Elves: [5, 5] }
+expect:
+  pt: { Allosaurus Shepherd: [5, 5], Llanowar Elves: [5, 5] }

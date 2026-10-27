@@ -1,0 +1,28 @@
+scenario: mtg-scenario/1
+name: "Platinum Angel: its controller at 0 or less life doesn't lose until the Angel leaves"
+cr: ["704.5a", "101.2"]
+verifies: [Platinum Angel, Lightning Bolt]
+players:
+  - battlefield: [Mountain, Mountain, Mountain]
+    hand: [Lightning Bolt, Lightning Bolt, Lightning Bolt]
+  - life: 2
+    battlefield: [Platinum Angel]
+script:
+  - choose: Cast Lightning Bolt
+  - choose: Target P2
+  - choose: Pay with Mountain
+  - pass_all
+  - check:
+      result: in_progress
+      life: { P2: -1 }
+  # Two Bolts on the 4/4 Angel; once it's gone, the next check makes P2 lose.
+  - choose: Cast Lightning Bolt
+  - choose: Target Platinum Angel (P2)
+  - choose: Pay with Mountain
+  - choose: Cast Lightning Bolt
+  - choose: Target Platinum Angel (P2)
+  - choose: Pay with Mountain
+  - pass_all
+  - pass_all
+expect:
+  result: win P1

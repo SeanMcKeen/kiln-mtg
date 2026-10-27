@@ -1,0 +1,18 @@
+scenario: mtg-scenario/1
+name: "Thran Dynamo makes three colorless mana; Divination draws two"
+cr: ["605.3a", "106.4", "121.1"]
+verifies: [Thran Dynamo, Divination]
+players:
+  - battlefield: [Thran Dynamo, Island]
+    hand: [Divination]
+  - {}
+script:
+  - choose: Cast Divination
+  - choose: Pay with Thran Dynamo, Island
+  # One {C} floats after paying {2}{U}.
+  - check:
+      pool: { P1: "{C}" }
+  - pass_all
+expect:
+  zones:
+    P1.hand: [Test Wastes, Test Wastes]

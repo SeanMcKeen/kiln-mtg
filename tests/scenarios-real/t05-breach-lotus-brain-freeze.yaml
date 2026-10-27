@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: "T05: Underworld Breach lets Brain Freeze be cast from the graveyard for its mana cost plus exiling three other cards; storm counts every spell"
+cr: ["702.138a", "702.40a", "601.2"]
+verifies: [Underworld Breach]
+players:
+  - battlefield: [Underworld Breach, Island, Island, "Lion's Eye Diamond"]
+    graveyard: [Brain Freeze, Opt, Ponder, Preordain]
+  - {}
+script:
+  - choose: Cast Brain Freeze
+  - choose: Target P2
+  - choose: Pay with Island, Island
+  # The storm trigger (no earlier spells: no copies), then Brain Freeze.
+  - pass_all
+  - pass_all
+expect:
+  zones:
+    P1.graveyard: [Brain Freeze]
+    exile: [Opt, Ponder, Preordain]
+    P2.graveyard: [Test Wastes, Test Wastes, Test Wastes]

@@ -1,0 +1,9 @@
+card: Swan Song
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { spell: { types: [enchantment, instant, sorcery] } } }]
+          effect:
+            seq:
+              - counter: { one: { target: 0 } }
+              - create_token: { token: { creature: { power: 2, toughness: 2, colors: U, subtypes: [Bird], keywords: [flying] } }, count: 1, controller: { controller_of: { target: 0 } } }

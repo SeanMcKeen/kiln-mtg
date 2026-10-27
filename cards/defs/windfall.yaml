@@ -1,0 +1,10 @@
+card: Windfall
+faces:
+  - abilities:
+      - spell:
+          effect:
+            seq:
+              - for_each_player: { players: any, effect: { discard: { who: each, what: hand } } }
+              - for_each_player:
+                  players: any
+                  effect: { draw: { who: each, amount: most_discarded_this_way } }

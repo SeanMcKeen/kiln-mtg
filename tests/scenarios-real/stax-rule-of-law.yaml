@@ -1,0 +1,17 @@
+scenario: mtg-scenario/1
+name: "T23: Rule of Law: each player can't cast more than one spell each turn"
+cr: ["101.2", "601.2i"]
+verifies: [Rule of Law]
+players:
+  - battlefield: [Rule of Law, Island, Island]
+    hand: [Opt, Brainstorm]
+  - {}
+script:
+  - choose: Cast Opt
+  - choose: Pay with Island
+  - pass_all
+  - choose: Put on bottom Test Wastes
+  - check:
+      decision: { player: P1, kind: priority, options_exclude: [Cast Brainstorm] }
+expect:
+  zones: { P1.graveyard: [Opt] }

@@ -1,0 +1,10 @@
+card: "Cyclonic Rift"
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { object: { not_types: [land], controller: opponent } } }]
+          effect: { move: { what: { one: { target: 0 } }, to: hand } }
+          alternative_costs:
+            # Overload (CR 702.96): no targets; "target" becomes "each".
+            - cost: [{ mana: "{6}{U}" }]
+              effect: { move: { what: { all: { not_types: [land], controller: opponent } }, to: hand } }

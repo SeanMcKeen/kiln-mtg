@@ -1,0 +1,18 @@
+scenario: mtg-scenario/1
+name: "Peer into the Abyss: target player draws half their library and loses half their life, rounded up"
+cr: ["107.1a", "121.1"]
+verifies: [Peer into the Abyss]
+players:
+  - battlefield: [Swamp, Swamp, Swamp, Swamp, Swamp, Swamp, Swamp]
+    hand: [Peer into the Abyss]
+    library: [Opt, Ponder, Preordain, Island, Swamp]
+    life: 19
+  - {}
+script:
+  - choose: Cast Peer into the Abyss
+  - choose: Target P1
+  - choose: Pay with Swamp, Swamp, Swamp, Swamp, Swamp, Swamp, Swamp
+  - pass_all
+expect:
+  life: { P1: 9 }
+  zones: { P1.hand: [Opt, Ponder, Preordain] }

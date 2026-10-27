@@ -1,0 +1,15 @@
+scenario: mtg-scenario/1
+name: "Cabal Ritual with seven cards in the graveyard adds {B}{B}{B}{B}{B}"
+cr: ["106.4", "608.2h"]
+verifies: [Cabal Ritual]
+players:
+  - battlefield: [Swamp, Island]
+    hand: [Cabal Ritual]
+    graveyard: [Test Wastes, Test Wastes, Test Wastes, Test Wastes, Test Wastes, Test Wastes, Test Wastes]
+  - {}
+script:
+  - choose: Cast Cabal Ritual
+  - choose: Pay with Swamp, Island
+  - pass_all
+expect:
+  pool: { P1: "{B}{B}{B}{B}{B}" }

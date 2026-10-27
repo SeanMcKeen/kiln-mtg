@@ -1,0 +1,7 @@
+card: "City of Brass"
+faces:
+  - abilities:
+      - triggered:
+          trigger: { becomes_tapped: { this: true } }
+          effect: { deal_damage: { to: { player: you }, amount: 1 } }
+      - activated: { cost: [tap], effect: { add_mana: { mana: { any_color: 1 } } } }

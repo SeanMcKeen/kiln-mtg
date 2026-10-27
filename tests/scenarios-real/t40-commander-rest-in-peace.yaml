@@ -1,0 +1,32 @@
+scenario: mtg-scenario/1
+name: "T40: a commander that would die with Rest in Peace out is exiled instead; then the owner may put it into the command zone"
+cr: ["614.1a", "903.9a", "704.3"]
+verifies: [Rest in Peace, Swords to Plowshares]
+players:
+  - battlefield: [Plains, Plains]
+    hand: [Rest in Peace]
+    graveyard: [Opt]
+  - battlefield: [Plains]
+    hand: [Swords to Plowshares]
+    graveyard: [Ponder]
+    commanders: [{ card: "Thrasios, Triton Hero", zone: battlefield }]
+script:
+  - choose: Cast Rest in Peace
+  - choose: Pay with Plains, Plains
+  - pass_all
+  # Its enters trigger exiles every graveyard.
+  - pass_all
+  - check:
+      zones: { exile: [Opt, Ponder] }
+  # Swords isn't a "die" event, but its own trip to the graveyard is replaced.
+  - pass: 1
+  - { player: P2, choose: Cast Swords to Plowshares }
+  - { player: P2, choose: "Target Thrasios, Triton Hero (P2)" }
+  - { player: P2, choose: Pay with Plains }
+  - pass_all
+  - { player: P2, choose: "Put Thrasios, Triton Hero into the command zone" }
+expect:
+  zones:
+    command: ["Thrasios, Triton Hero"]
+    exile: [Opt, Ponder, Swords to Plowshares]
+    P2.graveyard: []

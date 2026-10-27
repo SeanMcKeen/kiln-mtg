@@ -1,0 +1,8 @@
+card: Steelshaper's Gift
+faces:
+  - abilities:
+      - spell:
+          effect:
+            seq:
+              - search: { who: you, filter: { subtypes: [Equipment] }, count: 1, to: hand, reveal: true }
+              - shuffle: you

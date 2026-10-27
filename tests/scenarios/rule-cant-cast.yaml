@@ -1,0 +1,16 @@
+scenario: mtg-scenario/1
+name: '"During your turn, opponents can''t cast spells or activate abilities of artifacts, creatures or enchantments"'
+cr: ["613.11", "605.1a", "611.3a"]
+players:
+  - battlefield: [Test Abolisher]
+  - battlefield: [Test Mountain, Test Rock]
+    hand: [Test Bolt]
+turn: { number: 2, active: P1, step: upkeep }
+script:
+  - pass: 1
+  - check:
+      decision: { player: P2, kind: priority, options: [Pass, "Tap Test Mountain for {R}"] }
+  # On P2's own turn the condition doesn't hold.
+  - pass_all
+expect:
+  result: in_progress

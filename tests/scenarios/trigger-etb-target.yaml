@@ -1,0 +1,18 @@
+scenario: mtg-scenario/1
+name: An enters-the-battlefield trigger chooses its target as it goes on the stack
+cr: ["603.6a", "603.3d", "601.2c"]
+players:
+  - battlefield: [Test Plains, Test Plains, Test Plains]
+    hand: [Test Herald]
+  - {}
+  - {}
+script:
+  - choose: Cast Test Herald
+  - choose: Pay with Test Plains, Test Plains, Test Plains
+  - pass_all
+  - check:
+      decision: { player: P1, kind: choose_target, options: [Target P2, Target P3] }
+  - choose: Target P3
+  - pass_all
+expect:
+  life: { P3: 18, P2: 20 }

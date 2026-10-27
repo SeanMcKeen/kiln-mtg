@@ -1,0 +1,25 @@
+scenario: mtg-scenario/1
+name: "Naturalize, Disenchant and Smash to Smithereens destroy artifacts"
+cr: ["701.8a", "608.2h"]
+verifies: [Naturalize, Disenchant, Smash to Smithereens]
+players:
+  - battlefield: [Forest, Forest, Plains, Plains, Mountain, Mountain]
+    hand: [Naturalize, Disenchant, Smash to Smithereens]
+  - battlefield: [Sol Ring, Mind Stone, Thran Dynamo]
+script:
+  - choose: Cast Naturalize
+  - choose: Target Sol Ring (P2)
+  - choose: Pay with Forest, Forest
+  - pass_all
+  - choose: Cast Disenchant
+  - choose: Target Mind Stone (P2)
+  - choose: Pay with Plains, Plains
+  - pass_all
+  - choose: Cast Smash to Smithereens
+  - choose: Target Thran Dynamo (P2)
+  - choose: Pay with Mountain, Mountain
+  - pass_all
+expect:
+  zones:
+    P2.graveyard: [Sol Ring, Mind Stone, Thran Dynamo]
+  life: { P2: 17 }

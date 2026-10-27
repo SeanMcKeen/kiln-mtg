@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: "Mystical Tutor finds a card"
+cr: ["701.23b", "701.24b", "701.20a"]
+verifies: [Mystical Tutor]
+players:
+  - battlefield: [Island]
+    hand: [Mystical Tutor]
+    library: [Swamp, Lightning Bolt, Sol Ring, Grizzly Bears, Divination]
+  - {}
+script:
+  - choose: Cast Mystical Tutor
+  - choose: Pay with Island
+  - pass_all
+  - check:
+      decision: { player: P1, kind: choose_card, options: [Stop, Find Lightning Bolt, Find Divination] }
+  - choose: Find Divination
+expect:
+  library_top:
+    P1: [Divination]

@@ -1,0 +1,4 @@
+card: "Cursed Totem"
+faces:
+  - abilities:
+      - static: { effect: { cant_activate: { who: any, sources: { types: [creature] } } } }

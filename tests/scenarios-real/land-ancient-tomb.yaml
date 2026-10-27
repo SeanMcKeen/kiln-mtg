@@ -1,0 +1,12 @@
+scenario: mtg-scenario/1
+name: "Ancient Tomb makes {C}{C} and deals 2 damage to its controller"
+cr: ["605.3b", "120.3"]
+verifies: [Ancient Tomb]
+players:
+  - battlefield: [Ancient Tomb]
+  - {}
+script:
+  - choose: "Tap Ancient Tomb for {C}{C}"
+expect:
+  pool: { P1: "{C}{C}" }
+  life: { P1: 18 }

@@ -1,0 +1,22 @@
+scenario: mtg-scenario/1
+name: "Allosaurus Shepherd: green spells you control can't be countered"
+cr: ["101.2", "701.6a"]
+verifies: [Allosaurus Shepherd]
+players:
+  - battlefield: [Allosaurus Shepherd, Forest]
+    hand: [Llanowar Elves]
+  - battlefield: [Island, Island]
+    hand: [Counterspell]
+script:
+  - choose: Cast Llanowar Elves
+  - choose: Pay with Forest
+  - pass: 1
+  - { player: P2, choose: Cast Counterspell }
+  - { player: P2, choose: Target Llanowar Elves }
+  - { player: P2, choose: "Pay with Island, Island" }
+  - pass_all
+  - pass_all
+expect:
+  zones:
+    P1.battlefield: [Allosaurus Shepherd, Forest, Llanowar Elves]
+    P2.graveyard: [Counterspell]

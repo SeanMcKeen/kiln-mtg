@@ -2,10 +2,10 @@
 type: subsystem
 status: draft
 cr: ["903", "408", "704.6c"]
-impl_status: not-started
+impl_status: in-progress
 milestone: M6
 tags: [subsystem, commander, cedh]
-updated: 2026-10-20
+updated: 2026-10-23
 ---
 
 # Commander
@@ -38,7 +38,16 @@ This subsystem implements the Commander variant rules. It's the **primary format
 - "Your commander" references (CR 903.3d–e): Fierce Guardianship's "if you control a commander", Command Beacon, and similar.
 
 ## Decisions raised
-`CommanderZoneChange`, for both the 903.9a SBA and the 903.9b replacement.
+`CommanderZone { commander, to }`, for both the 903.9a SBA and the 903.9b replacement (option 0 leaves it, option 1 moves it to the command zone).
+
+## Implementation (M6 6.1)
+- `commander.rs`: a commander table (owner, definition, current object, casts, damage per player) that follows the card through zone changes; tokens, copies and copy effects never join it (903.3). The command zone is a real zone list.
+- 903.8: cast options for commanders in the command zone; the tax is added to whatever cost is paid and fixed when casting begins.
+- 903.9a: offered once per entry into a graveyard or exile, at the next state-based action check.
+- 903.9b: asked before the move (draws, bounces, searches, picks, reveal-until); the move consumes the answer. Invariant 9 fails if any move skipped the question.
+- 903.10a / 704.6c: combat damage from a commander is tallied, even when life can't change.
+- 903.3d / 903.4f: `control_commander` conditions and `commander_identity` mana (none without a commander).
+- Card definitions carry their color identity (from the card data; made-up cards use their colors and cost).
 
 ## Banned list awareness
 As of the 2026-10-20 Scryfall data, **Mana Crypt, Dockside Extortionist, Jeweled Lotus and Hullbreacher** are banned in Commander. They're useful negative test cases for deck validation. Banlists change, so the legality data comes from the card DB, never hard-coded.

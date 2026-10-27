@@ -1,0 +1,5 @@
+card: Personal Tutor
+faces:
+  - abilities:
+      - spell:
+          effect: { search: { who: you, filter: { types: [sorcery] }, count: 1, to: top_of_library, reveal: true } }

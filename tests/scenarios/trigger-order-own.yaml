@@ -1,0 +1,26 @@
+scenario: mtg-scenario/1
+name: A player orders their own simultaneous triggers; the last one put on the stack resolves first
+cr: ["603.3b"]
+players:
+  - battlefield: [Test Mountain]
+    hand: [Test Bolt]
+  - battlefield: [Test Watcher, Test Leech]
+script:
+  - choose: Cast Test Bolt
+  - choose: Target P2
+  - choose: Pay with Test Mountain
+  - check:
+      decision:
+        player: P2
+        kind: order_triggers
+        options: [Put Test Watcher ability 1 on the stack, Put Test Leech ability 1 on the stack]
+  - choose: Put Test Watcher ability 1 on the stack
+  # The Leech trigger went on top, so it resolves first: P1 loses 1 life.
+  - pass_all
+  - check:
+      life: { P1: 19 }
+      decision: { player: P1, kind: priority }
+  - pass_all
+  - choose: "No"
+expect:
+  life: { P1: 19 }

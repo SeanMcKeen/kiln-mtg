@@ -1,0 +1,7 @@
+card: "Mindslaver"
+faces:
+  - abilities:
+      - activated:
+          cost: [{ mana: "{4}" }, tap, { sacrifice: { one: this } }]
+          targets: [{ what: { player: any } }]
+          effect: { control_next_turn: { target: 0 } }

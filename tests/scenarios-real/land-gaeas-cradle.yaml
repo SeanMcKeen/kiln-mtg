@@ -1,0 +1,11 @@
+scenario: mtg-scenario/1
+name: "Gaea's Cradle adds {G} for each creature you control"
+cr: ["106.1", "605.1a"]
+verifies: ["Gaea's Cradle"]
+players:
+  - battlefield: ["Gaea's Cradle", Llanowar Elves, Birds of Paradise]
+  - battlefield: [Test Ogre]
+script:
+  - choose: "Tap Gaea's Cradle for {G}{G}"
+expect:
+  pool: { P1: "{G}{G}" }

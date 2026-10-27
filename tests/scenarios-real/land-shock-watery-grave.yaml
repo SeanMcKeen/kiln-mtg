@@ -1,0 +1,15 @@
+scenario: mtg-scenario/1
+name: "Watery Grave: as it enters, pay 2 life; it enters untapped"
+cr: ["614.12", "614.1a", "305.1"]
+verifies: ["Watery Grave"]
+players:
+  - hand: ["Watery Grave"]
+  - {}
+script:
+  - choose: Play Watery Grave
+  - check: { decision: { player: P1, kind: optional, options: ["No", "Yes"] } }
+  - choose: "Yes"
+expect:
+  life: { P1: 18 }
+  tapped: { "Watery Grave": false }
+  zones: { P1.battlefield: ["Watery Grave"] }

@@ -1,0 +1,18 @@
+scenario: mtg-scenario/1
+name: Each player sacrifices a creature they choose, in APNAP order
+cr: ["701.21a", "101.4"]
+players:
+  - battlefield: [Test Swamp, Test Swamp, Test Swamp, Test Bear, Test Ogre]
+    hand: [Test Purge]
+  - battlefield: [Test Wall]
+script:
+  - choose: Cast Test Purge
+  - choose: Pay with Test Swamp, Test Swamp, Test Swamp
+  - pass_all
+  - check:
+      decision: { player: P1, kind: choose_card, options: [Sacrifice Test Bear (P1), Sacrifice Test Ogre (P1)] }
+  - choose: Sacrifice Test Bear (P1)
+expect:
+  zones:
+    P1.graveyard: [Test Bear, Test Purge]
+    P2.graveyard: [Test Wall]

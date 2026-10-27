@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: "\"Whenever an opponent draws a card except the first one they draw in each of their draw steps\""
+cr: ["603.2", "504.1", "121.1"]
+players:
+  - battlefield: [Test Archer Lord]
+  - battlefield: [Test Island, Test Wastes]
+    hand: [Test Insight]
+turn: { number: 3, active: P2, step: draw }
+script:
+  # P2's draw-step draw happened as the step began; it doesn't trigger.
+  - check:
+      life: { P1: 20 }
+  - choose: Cast Test Insight
+  - choose: Pay with Test Island, Test Wastes
+  - pass_all
+  - choose: Put Test Archer Lord ability 1 on the stack
+  - pass_all
+  - pass_all
+expect:
+  life: { P1: 22 }

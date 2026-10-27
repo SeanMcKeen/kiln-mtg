@@ -1,0 +1,21 @@
+scenario: mtg-scenario/1
+name: "T04: Tainted Pact exiles until a card is taken or a name repeats; with a singleton library it can exile everything"
+cr: ["608.2c", "406.1"]
+verifies: [Tainted Pact]
+players:
+  - battlefield: [Swamp, Swamp]
+    hand: [Tainted Pact]
+    library: [Opt, Ponder, "Thassa's Oracle", Island]
+  - {}
+script:
+  - choose: Cast Tainted Pact
+  - choose: "Pay with Swamp, Swamp"
+  - pass_all
+  - choose: "No"
+  - choose: "No"
+  - choose: "Yes"
+expect:
+  zones:
+    exile: [Opt, Ponder]
+    P1.hand: ["Thassa's Oracle"]
+  library_top: { P1: [Island] }

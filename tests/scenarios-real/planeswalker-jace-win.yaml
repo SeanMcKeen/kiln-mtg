@@ -1,0 +1,13 @@
+scenario: mtg-scenario/1
+name: "Jace: drawing from an empty library wins instead"
+cr: ["614.11", "121.6a", "104.2b"]
+verifies: ["Jace, Wielder of Mysteries"]
+players:
+  - battlefield: [{ card: "Jace, Wielder of Mysteries", counters: { loyalty: 4 } }]
+    library: []
+  - {}
+turn: { number: 3, active: P1, step: upkeep }
+script:
+  - pass_all
+expect:
+  result: win P1

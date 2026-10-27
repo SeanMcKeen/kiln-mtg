@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: "T11: Food Chain exiles Eternal Scourge for 4 creature-only mana; Scourge is cast from exile with it, and again"
+cr: ["106.6", "113.6f", "732.1"]
+verifies: [Eternal Scourge]
+players:
+  - battlefield: [Food Chain, Eternal Scourge]
+  - {}
+script:
+  - choose: Activate Food Chain for mana
+  - choose: "Add {G}{G}{G}{G}"
+  - choose: Cast Eternal Scourge
+  - choose: "Pay with 3 from pool"
+  - pass_all
+  # One restricted {G} is left over: the loop nets one creature-only mana each time.
+  - choose: Activate Food Chain for mana
+  - choose: "Add {G}{G}{G}{G}"
+expect:
+  pool: { P1: "{G}{G}{G}{G}{G}" }
+  zones: { exile: [Eternal Scourge] }

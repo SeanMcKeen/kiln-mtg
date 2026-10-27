@@ -1,0 +1,8 @@
+card: Consider
+faces:
+  - abilities:
+      - spell:
+          effect:
+            seq:
+              - look_at_top: { who: you, count: 1, take: { filter: {}, up_to: 1, to: graveyard }, rest: top_any_order }
+              - draw: { who: you, amount: 1 }

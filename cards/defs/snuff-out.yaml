@@ -1,0 +1,10 @@
+card: "Snuff Out"
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { object: { types: [creature], not_color: B } } }]
+          # "It can't be regenerated": the engine has no regeneration yet, so nothing to stop.
+          effect: { destroy: { one: { target: 0 } } }
+          alternative_costs:
+            - cost: [{ pay_life: 4 }]
+              condition: { at_least: [{ count: { subtypes: [Swamp], controller: you } }, 1] }

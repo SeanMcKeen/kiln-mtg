@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: "Steelshaper's Gift finds a card"
+cr: ["701.23b", "701.20a"]
+verifies: [Steelshaper's Gift]
+players:
+  - battlefield: [Plains]
+    hand: [Steelshaper's Gift]
+    library: [Swamp, Lightning Bolt, Sol Ring, Grizzly Bears, Divination, Test Blade]
+  - {}
+script:
+  - choose: Cast Steelshaper's Gift
+  - choose: Pay with Plains
+  - pass_all
+  - check:
+      decision: { player: P1, kind: choose_card, options: [Stop, Find Test Blade] }
+  - choose: Find Test Blade
+expect:
+  zones:
+    P1.hand: [Test Blade]

@@ -1,0 +1,21 @@
+scenario: mtg-scenario/1
+name: "Annul counters an artifact spell"
+cr: ["701.6a"]
+verifies: [Annul]
+players:
+  - battlefield: [Island]
+    hand: [Sol Ring]
+  - battlefield: [Island]
+    hand: [Annul]
+script:
+  - choose: Cast Sol Ring
+  - choose: Pay with Island
+  - pass: 1
+  - choose: Cast Annul
+    player: P2
+  - choose: Target Sol Ring
+  - choose: Pay with Island
+  - pass_all
+expect:
+  zones:
+    P1.graveyard: [Sol Ring]

@@ -1,0 +1,22 @@
+scenario: mtg-scenario/1
+name: A search for a stated quality may find nothing; found lands enter under the searcher's control
+cr: ["701.23b", "110.2"]
+players:
+  - battlefield: [Test Forest]
+    hand: [Test Land Seeker]
+    library: [Test Bear, Test Forest, Test Island]
+  - {}
+script:
+  - choose: Cast Test Land Seeker
+  - choose: Pay with Test Forest
+  - pass_all
+  - check:
+      decision:
+        player: P1
+        kind: choose_card
+        options: [Stop, Find Test Forest, Find Test Island]
+  - choose: Find Test Island
+expect:
+  zones:
+    P1.battlefield: [Test Forest, Test Island]
+    P1.library: [Test Bear, Test Forest]

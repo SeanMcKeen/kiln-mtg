@@ -1,0 +1,13 @@
+scenario: mtg-scenario/1
+name: "\"At the beginning of your upkeep, if ...\" triggers only if the condition holds"
+cr: ["603.4", "603.2b", "503.1a"]
+players:
+  - battlefield: [Test Tactician, Test Bear, Test Ogre]
+  - battlefield: [Test Tactician, Test Bear]
+turn: { number: 3, active: P1, step: upkeep }
+script:
+  - pass_all
+expect:
+  zones:
+    P1.hand: [Test Wastes]
+    P2.hand: []

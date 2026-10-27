@@ -1,0 +1,18 @@
+scenario: mtg-scenario/1
+name: "Faerie Mastermind: whenever an opponent draws their second card each turn, you draw"
+cr: ["603.2", "121.1"]
+verifies: [Faerie Mastermind, Night's Whisper]
+players:
+  - battlefield: [Faerie Mastermind]
+    library: [Opt, Island]
+  - battlefield: [Swamp, Swamp]
+    hand: ["Night's Whisper"]
+turn: { number: 3, active: P2, step: precombat_main }
+script:
+  - { player: P2, choose: "Cast Night's Whisper" }
+  - { player: P2, choose: "Pay with Swamp, Swamp" }
+  - pass_all
+  - pass_all
+expect:
+  life: { P2: 18 }
+  zones: { P1.hand: [Opt] }

@@ -1,0 +1,9 @@
+card: Grim Tutor
+faces:
+  - abilities:
+      - spell:
+          effect:
+            seq:
+              - search: { who: you, filter: {}, count: 1, to: hand, reveal: false }
+              - shuffle: you
+              - lose_life: { who: you, amount: 3 }

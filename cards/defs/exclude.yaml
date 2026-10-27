@@ -1,0 +1,9 @@
+card: Exclude
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { spell: { types: [creature] } } }]
+          effect:
+            seq:
+              - counter: { one: { target: 0 } }
+              - draw: { who: you, amount: 1 }

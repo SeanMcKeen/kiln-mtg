@@ -1,0 +1,16 @@
+card: "Timetwister"
+faces:
+  - abilities:
+      - spell:
+          effect:
+            seq:
+              # Each player shuffles their hand and graveyard into their library ...
+              - for_each_player:
+                  players: any
+                  effect:
+                    seq:
+                      - move: { what: { zone: { owner: each, zone: hand } }, to: top_of_library }
+                      - move: { what: { zone: { owner: each, zone: graveyard } }, to: top_of_library }
+                      - shuffle: each
+              # ... then draws seven cards.
+              - for_each_player: { players: any, effect: { draw: { who: each, amount: 7 } } }

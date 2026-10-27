@@ -1,0 +1,31 @@
+scenario: mtg-scenario/1
+name: "Orcish Bowmasters: enters and pings, amassing a 0/0 Army token; an opponent's extra draw triggers it again"
+cr: ["603.6a", "701.47a", "111.10"]
+verifies: [Orcish Bowmasters]
+players:
+  - battlefield: [Swamp, Swamp]
+    hand: [Orcish Bowmasters]
+  - battlefield: [Island]
+    hand: [Opt]
+script:
+  - choose: Cast Orcish Bowmasters
+  - choose: Pay with Swamp, Swamp
+  - pass_all
+  - choose: Target P2
+  - pass_all
+  - check:
+      life: { P2: 19 }
+      counters: { Orc Army Token: { +1/+1: 1 } }
+  - pass: 1
+  - choose: Cast Opt
+    player: P2
+  - choose: Pay with Island
+  - pass_all
+  - choose: Stop
+    player: P2
+  # Opt's draw isn't P2's first in their draw step: the trigger goes on the stack at once.
+  - choose: Target P2
+  - pass_all
+expect:
+  life: { P2: 18 }
+  counters: { Orc Army Token: { +1/+1: 2 } }

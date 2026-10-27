@@ -1,0 +1,22 @@
+scenario: mtg-scenario/1
+name: "Timetwister: each player shuffles hand and graveyard into their library, then draws seven"
+cr: ["701.24a", "121.2", "608.2n"]
+verifies: [Timetwister]
+players:
+  - battlefield: [Island, Island, Island]
+    hand: [Timetwister, Opt]
+    graveyard: [Ponder]
+    library: [Swamp, Swamp, Swamp, Swamp, Swamp]
+  - hand: [Lightning Bolt]
+    library: [Mountain, Mountain, Mountain, Mountain, Mountain, Mountain]
+script:
+  - choose: Cast Timetwister
+  - choose: Pay with Island, Island, Island
+  - pass_all
+expect:
+  result: in_progress
+  zones:
+    # Seven cards each, every one drawn back.
+    P1.hand: [Opt, Ponder, Swamp, Swamp, Swamp, Swamp, Swamp]
+    P1.graveyard: [Timetwister]
+    P2.hand: [Lightning Bolt, Mountain, Mountain, Mountain, Mountain, Mountain, Mountain]

@@ -1,0 +1,30 @@
+scenario: mtg-scenario/1
+name: "Najeela: untap attackers, they gain lifelink, and an additional combat phase follows this one"
+cr: ["500.8", "506.1", "702.15b"]
+verifies: ["Najeela, the Blade-Blossom"]
+players:
+  - battlefield: ["Najeela, the Blade-Blossom", Plains, Island, Swamp, Mountain, Forest]
+  - {}
+turn: { number: 3, active: P1, step: declare_attackers }
+script:
+  - choose: "Najeela, the Blade-Blossom attacks P2"
+  - pass_all
+  - choose: "Yes"
+  - choose: "Activate Najeela, the Blade-Blossom ability 2"
+  - choose: "Pay with Plains, Island, Swamp, Mountain, Forest"
+  - pass_all
+  - check:
+      tapped: { "Najeela, the Blade-Blossom": false, Warrior Token: false }
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  # The additional combat phase begins.
+  - check:
+      step: beginning_of_combat
+  - pass_all
+  - check:
+      step: declare_attackers
+      decision: { player: P1, kind: declare_attacker }
+expect:
+  life: { P1: 24, P2: 16 }

@@ -1,0 +1,16 @@
+scenario: mtg-scenario/1
+name: "City of Brass: whenever it becomes tapped, it deals 1 damage to you (a trigger, not part of the mana ability)"
+cr: ["603.2", "110.5", "605.1a"]
+verifies: [City of Brass]
+players:
+  - battlefield: [City of Brass]
+  - {}
+script:
+  - choose: Tap City of Brass for mana
+  - choose: "Add {R}"
+  - check:
+      pool: { P1: "{R}" }
+      life: { P1: 20 }
+  - pass_all
+expect:
+  life: { P1: 19 }

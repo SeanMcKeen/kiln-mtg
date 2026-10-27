@@ -1,0 +1,11 @@
+card: "Flusterstorm"
+faces:
+  - abilities:
+      - keyword: storm
+      - spell:
+          targets: [{ what: { spell: { types: [instant, sorcery] } } }]
+          effect:
+            unless:
+              payer: { controller_of: { target: 0 } }
+              cost: [{ mana: "{1}" }]
+              effect: { counter: { one: { target: 0 } } }

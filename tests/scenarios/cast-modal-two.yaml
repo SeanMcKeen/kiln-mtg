@@ -1,0 +1,24 @@
+scenario: mtg-scenario/1
+name: "Choose two: distinct modes, each mode's targets, effects in printed order"
+cr: ["700.2a", "700.2d", "601.2c"]
+players:
+  - battlefield: [Test Swamp, Test Swamp, Test Swamp]
+    hand: [Test Command]
+  - battlefield: [Test Ogre]
+script:
+  - choose: Cast Test Command
+  - check:
+      decision: { player: P1, kind: choose_mode, options: [Mode 1, Mode 2, Mode 3] }
+  - choose: Mode 3
+  - check:
+      decision: { player: P1, kind: choose_mode, options: [Mode 1, Mode 2] }
+  - choose: Mode 1
+  - check:
+      decision: { player: P1, kind: choose_target, options: [Target Test Ogre (P2)] }
+  - choose: Target Test Ogre (P2)
+  - choose: Pay with Test Swamp, Test Swamp, Test Swamp
+  - pass_all
+expect:
+  zones:
+    P2.graveyard: [Test Ogre]
+  life: { P1: 23 }

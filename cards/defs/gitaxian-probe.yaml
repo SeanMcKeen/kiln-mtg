@@ -1,0 +1,9 @@
+card: "Gitaxian Probe"
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { player: any } }]
+          effect:
+            seq:
+              - look_at_hand: { target: 0 }
+              - draw: { who: you, amount: 1 }

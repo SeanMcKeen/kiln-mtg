@@ -1,0 +1,4 @@
+card: Avacyn's Pilgrim
+faces:
+  - abilities:
+      - activated: { cost: [tap], effect: { add_mana: { mana: { fixed: "{W}" } } } }

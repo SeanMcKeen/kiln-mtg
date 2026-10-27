@@ -1,0 +1,21 @@
+scenario: mtg-scenario/1
+name: "Thrasios: scry 1, then reveal the top card; a land is put onto the battlefield tapped"
+cr: ["701.22a", "701.20a", "110.5b"]
+verifies: ["Thrasios, Triton Hero"]
+players:
+  - battlefield: [Island, Island, Forest, Forest]
+    commanders: [{ card: "Thrasios, Triton Hero", zone: battlefield }]
+    library: [Swamp, Opt, Mountain]
+  - {}
+script:
+  - choose: Activate Thrasios, Triton Hero ability 1
+  - choose: Pay with Island, Island, Forest, Forest
+  - pass_all
+  # Keep the land on top: it's revealed and put onto the battlefield tapped.
+  - choose: Stop
+expect:
+  tapped: { Swamp: true }
+  zones:
+    P1.hand: []
+    P1.battlefield: [Island, Island, Forest, Forest, "Thrasios, Triton Hero", Swamp]
+  library_top: { P1: [Opt, Mountain] }

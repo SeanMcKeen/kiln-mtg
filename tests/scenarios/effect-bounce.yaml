@@ -1,0 +1,16 @@
+scenario: mtg-scenario/1
+name: Return target creature to its owner's hand
+cr: ["400.7", "608.2c"]
+players:
+  - battlefield: [Test Island, Test Wastes]
+    hand: [Test Bounce]
+  - battlefield: [Test Ogre]
+script:
+  - choose: Cast Test Bounce
+  - choose: Target Test Ogre (P2)
+  - choose: Pay with Test Island, Test Wastes
+  - pass_all
+expect:
+  zones:
+    P2.hand: [Test Ogre]
+    P2.battlefield: []

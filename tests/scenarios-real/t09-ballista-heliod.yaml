@@ -1,0 +1,50 @@
+scenario: mtg-scenario/1
+name: "T09: Walking Ballista with lifelink from Heliod: each ping gains a life, which puts the counter back (a loop shortcut to the opponent's death)"
+cr: ["614.1c", "613.4c", "613.1f", "702.15b", "732.2a"]
+verifies: [Walking Ballista, "Heliod, Sun-Crowned"]
+players:
+  - battlefield: ["Heliod, Sun-Crowned", Plains, Plains, Plains, Plains, Plains, Plains]
+    hand: [Walking Ballista]
+  - life: 40
+script:
+  - check:
+      pt: { "Heliod, Sun-Crowned": null }
+  - choose: Cast Walking Ballista
+  - choose: Choose 2
+  - choose: Pay with Plains, Plains, Plains, Plains
+  - pass_all
+  - check:
+      counters: { Walking Ballista: { +1/+1: 2 } }
+      pt: { Walking Ballista: [2, 2] }
+  - choose: "Activate Heliod, Sun-Crowned ability 4"
+  - choose: Target Walking Ballista (P1)
+  - choose: Pay with Plains, Plains
+  - pass_all
+  - choose: Activate Walking Ballista ability 3
+  - choose: Target P2
+  - pass_all
+  - choose: Target Walking Ballista (P1)
+  - pass_all
+  - choose: Activate Walking Ballista ability 3
+  - choose: Target P2
+  - pass_all
+  - choose: Target Walking Ballista (P1)
+  - pass_all
+  - choose: Activate Walking Ballista ability 3
+  - choose: Target P2
+  - pass_all
+  - choose: Target Walking Ballista (P1)
+  - pass_all
+  # The same state, with P2 three life lower and P1 three higher: a loop.
+  - check:
+      life: { P2: 37, P1: 23 }
+      decision:
+        player: P1
+        kind: propose_shortcut
+        options: ["Don't take a shortcut", Repeat the loop 10 times, Repeat the loop 37 times]
+  - choose: Repeat the loop 37 times
+  - choose: Accept 37 iterations
+    player: P2
+expect:
+  result: win P1
+  life: { P1: 60, P2: 0 }

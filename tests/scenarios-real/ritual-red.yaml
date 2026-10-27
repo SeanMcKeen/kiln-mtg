@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: "Seething Song and Pyretic Ritual add red mana"
+cr: ["106.4"]
+verifies: [Seething Song, Pyretic Ritual]
+players:
+  - battlefield: [Mountain, Mountain, Mountain, Mountain, Mountain]
+    hand: [Seething Song, Pyretic Ritual]
+  - {}
+script:
+  - choose: Cast Pyretic Ritual
+  - choose: Pay with Mountain, Mountain
+  - pass_all
+  - check:
+      pool: { P1: "{R}{R}{R}" }
+  - choose: Cast Seething Song
+  - choose: Pay with 3 from pool
+  - pass_all
+expect:
+  pool: { P1: "{R}{R}{R}{R}{R}" }

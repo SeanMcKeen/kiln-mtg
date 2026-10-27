@@ -1,0 +1,15 @@
+scenario: mtg-scenario/1
+name: "Sacred Foundry: as it enters, pay 2 life or not; unpaid, it enters tapped"
+cr: ["614.12", "614.1a", "305.1"]
+verifies: ["Sacred Foundry"]
+players:
+  - hand: ["Sacred Foundry"]
+  - {}
+script:
+  - choose: Play Sacred Foundry
+  - check: { decision: { player: P1, kind: optional, options: ["No", "Yes"] } }
+  - choose: "No"
+expect:
+  life: { P1: 20 }
+  tapped: { "Sacred Foundry": true }
+  zones: { P1.battlefield: ["Sacred Foundry"] }

@@ -1,0 +1,16 @@
+scenario: mtg-scenario/1
+name: "Urborg: each land is a Swamp in addition, so it can tap for {B} as well"
+cr: ["305.6", "613.1d"]
+verifies: ["Urborg, Tomb of Yawgmoth"]
+players:
+  - battlefield: ["Urborg, Tomb of Yawgmoth", Island]
+  - {}
+script:
+  - check:
+      decision:
+        player: P1
+        kind: priority
+        options_include: ["Tap Urborg, Tomb of Yawgmoth for {B}", "Tap Island for {U}", "Tap Island for {B}"]
+  - choose: "Tap Island for {B}"
+expect:
+  pool: { P1: "{B}" }

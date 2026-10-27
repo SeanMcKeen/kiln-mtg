@@ -1,0 +1,15 @@
+scenario: mtg-scenario/1
+name: "Mox Diamond: with no land card to discard, it goes to its owner's graveyard instead"
+cr: ["614.1a", "614.6"]
+verifies: [Mox Diamond]
+players:
+  - hand: [Mox Diamond, Lightning Bolt]
+  - {}
+script:
+  - choose: Cast Mox Diamond
+  - pass_all
+expect:
+  zones:
+    P1.battlefield: []
+    P1.graveyard: [Mox Diamond]
+    P1.hand: [Lightning Bolt]

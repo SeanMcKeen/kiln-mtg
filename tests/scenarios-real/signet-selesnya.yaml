@@ -1,0 +1,13 @@
+scenario: mtg-scenario/1
+name: "Selesnya Signet: pay {1} and tap for {G}{W}"
+cr: ["605.3a", "602.2b"]
+verifies: [Selesnya Signet]
+players:
+  - battlefield: [Selesnya Signet, Island]
+  - {}
+script:
+  - choose: "Activate Selesnya Signet for {W}{G}"
+  - choose: Pay with Island
+expect:
+  pool: { P1: "{W}{G}" }
+  tapped: { Selesnya Signet: true, Island: true }

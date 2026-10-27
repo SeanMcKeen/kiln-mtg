@@ -1,0 +1,26 @@
+scenario: mtg-scenario/1
+name: "Aetherflux Reservoir: gain 1 life per spell cast this turn; pay 50 life for 50 damage"
+cr: ["119.4", "603.2", "120.3"]
+verifies: [Aetherflux Reservoir]
+players:
+  - battlefield: [Aetherflux Reservoir, Island, Island]
+    hand: [Sol Ring, Sol Ring]
+    life: 48
+  - {}
+script:
+  - choose: Cast Sol Ring
+  - choose: Pay with Island
+  - pass_all
+  - pass_all
+  - choose: Cast Sol Ring
+  - choose: Pay with Island
+  - pass_all
+  - pass_all
+  - check:
+      life: { P1: 51 }
+  - choose: Activate Aetherflux Reservoir ability 2
+  - choose: Target P2
+  - pass_all
+expect:
+  result: win P1
+  life: { P1: 1 }

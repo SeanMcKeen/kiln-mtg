@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: "Enlightened Tutor finds a card"
+cr: ["701.23b", "701.24b"]
+verifies: [Enlightened Tutor]
+players:
+  - battlefield: [Plains]
+    hand: [Enlightened Tutor]
+    library: [Swamp, Lightning Bolt, Sol Ring, Grizzly Bears, Divination, Test Enchantment]
+  - {}
+script:
+  - choose: Cast Enlightened Tutor
+  - choose: Pay with Plains
+  - pass_all
+  - check:
+      decision: { player: P1, kind: choose_card, options: [Stop, Find Sol Ring, Find Test Enchantment] }
+  - choose: Find Sol Ring
+expect:
+  library_top:
+    P1: [Sol Ring]

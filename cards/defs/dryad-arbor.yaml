@@ -1,0 +1,5 @@
+card: Dryad Arbor
+faces:
+  # Only reminder text: its "{T}: Add {G}" is the Forest type's intrinsic
+  # ability (CR 305.6), added when the definition is built.
+  - abilities: []

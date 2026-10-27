@@ -1,0 +1,15 @@
+card: Kinnan, Bonder Prodigy
+faces:
+  - abilities:
+      # A triggered mana ability (CR 605.1b): it resolves immediately.
+      - triggered:
+          trigger: { taps_for_mana: { by: you, what: { not_types: [land] } } }
+          effect: { add_mana: { mana: type_produced_by_trigger } }
+      - activated:
+          cost: [{ mana: "{5}{G}{U}" }]
+          effect:
+            look_at_top:
+              who: you
+              count: 5
+              take: { filter: { types: [creature], not_subtypes: [Human] }, up_to: 1, to: battlefield }
+              rest: bottom_random

@@ -1,0 +1,21 @@
+scenario: mtg-scenario/1
+name: "Snuff Out: pay 4 life instead while you control a Swamp; destroy target nonblack creature"
+cr: ["118.9", "701.8a", "105.2"]
+verifies: [Snuff Out]
+players:
+  - battlefield: [Swamp]
+    hand: [Snuff Out]
+  - battlefield: [Grizzly Bears, Test Assassin]
+script:
+  - choose: Cast Snuff Out
+  - check:
+      decision:
+        player: P1
+        kind: choose_target
+        options_exclude: [Target Test Assassin (P2)]
+  - choose: Target Grizzly Bears (P2)
+  - pass_all
+expect:
+  life: { P1: 16 }
+  zones:
+    P2.graveyard: [Grizzly Bears]

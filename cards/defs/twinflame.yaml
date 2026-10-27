@@ -1,0 +1,17 @@
+card: "Twinflame"
+faces:
+  - abilities:
+      - spell:
+          # Strive.
+          per_extra_target: [{ mana: "{2}{R}" }]
+          # "any number of target creatures you control".
+          targets: [{ what: { object: { types: [creature], controller: you } }, up_to: 99 }]
+          effect:
+            seq:
+              - create_token_copy:
+                  of: { one: { target: 0 } }
+                  except: { abilities: [{ keyword: haste }] }
+                  remember: twinflame
+              - delayed:
+                  at: { beginning_of: { step: end, whose: any } }
+                  effect: { exile: { what: { one: { remembered: twinflame } } } }

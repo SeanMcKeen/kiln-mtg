@@ -1,0 +1,12 @@
+card: Tymna the Weaver
+faces:
+  - abilities:
+      - keyword: lifelink
+      - triggered:
+          trigger: { beginning_of: { step: postcombat_main, whose: you } }
+          effect:
+            if_does:
+              who: you
+              action: { pay: { who: you, cost: [{ pay_life: opponents_dealt_combat_damage_this_turn }] } }
+              then: { draw: { who: you, amount: opponents_dealt_combat_damage_this_turn } }
+      - keyword: partner

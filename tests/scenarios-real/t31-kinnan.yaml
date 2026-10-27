@@ -1,0 +1,15 @@
+scenario: mtg-scenario/1
+name: "Kinnan: tapping a nonland permanent for mana adds one more of a type it produced; lands don't trigger it"
+cr: ["605.1b", "605.4a", "106.12"]
+verifies: ["Kinnan, Bonder Prodigy"]
+players:
+  - battlefield: ["Kinnan, Bonder Prodigy", Llanowar Elves, Forest]
+  - {}
+script:
+  - choose: "Tap Llanowar Elves for {G}"
+  - check:
+      pool: { P1: "{G}{G}" }
+      decision: { player: P1, kind: priority }
+  - choose: "Tap Forest for {G}"
+expect:
+  pool: { P1: "{G}{G}{G}" }

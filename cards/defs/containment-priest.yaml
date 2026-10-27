@@ -1,0 +1,8 @@
+card: "Containment Priest"
+faces:
+  - abilities:
+      - keyword: flash
+      # "If a nontoken creature would enter and it wasn't cast, exile it instead."
+      - replacement:
+          event: { would_enter: { types: [creature], token: false } }
+          instead: { exile: { what: { one: triggering } } }

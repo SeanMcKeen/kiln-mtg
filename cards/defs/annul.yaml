@@ -1,0 +1,6 @@
+card: Annul
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { spell: { types: [artifact, enchantment] } } }]
+          effect: { counter: { one: { target: 0 } } }

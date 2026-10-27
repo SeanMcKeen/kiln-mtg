@@ -1,0 +1,27 @@
+scenario: mtg-scenario/1
+name: "Sundial of the Infinite: ending the turn exiles the stack, skips to cleanup, and nobody gets priority"
+cr: ["724.1b", "724.1d", "724.1f"]
+verifies: [Sundial of the Infinite]
+players:
+  - battlefield: [Sundial of the Infinite, Island]
+    library: [Island, Island]
+  - battlefield: [Mountain]
+    hand: [Lightning Bolt]
+turn: { number: 3, active: P1, step: upkeep }
+script:
+  - pass: 1
+  - { player: P2, choose: Cast Lightning Bolt }
+  - { player: P2, choose: Target P1 }
+  - { player: P2, choose: Pay with Mountain }
+  - pass: 1
+  - choose: Activate Sundial of the Infinite ability 1
+  - choose: Pay with Island
+  - pass_all
+  # The next turn: P2's upkeep. P1 never drew.
+  - check:
+      decision: { player: P2, kind: priority }
+expect:
+  life: { P1: 20 }
+  zones:
+    exile: [Lightning Bolt]
+    P1.hand: []

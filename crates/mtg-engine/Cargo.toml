@@ -1,0 +1,31 @@
+[package]
+name = "mtg-engine"
+description = "Game state, rules procedures, decisions, events, player views and replay."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+mtg-cards.workspace = true
+mtg-core.workspace = true
+mtg-data.workspace = true
+rand_chacha.workspace = true
+rand_core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+smallvec.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+proptest.workspace = true
+serde_json.workspace = true
+
+[[bench]]
+name = "engine"
+harness = false
+
+[lints]
+workspace = true

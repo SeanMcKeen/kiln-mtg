@@ -1,0 +1,21 @@
+scenario: mtg-scenario/1
+name: "Crop Rotation: sacrifice a land, put a land from the library onto the battlefield"
+cr: ["118.8", "701.21a", "701.23b"]
+verifies: [Crop Rotation]
+players:
+  - battlefield: [Forest, Island]
+    hand: [Crop Rotation]
+    library: [Tropical Island, Divination]
+  - {}
+script:
+  - choose: Cast Crop Rotation
+  - choose: Pay with Forest
+  - check:
+      decision: { player: P1, kind: choose_card, options: [Sacrifice Forest (P1), Sacrifice Island (P1)] }
+  - choose: Sacrifice Forest (P1)
+  - pass_all
+  - choose: Find Tropical Island
+expect:
+  zones:
+    P1.battlefield: [Island, Tropical Island]
+    P1.graveyard: [Forest, Crop Rotation]

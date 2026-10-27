@@ -1,0 +1,18 @@
+scenario: mtg-scenario/1
+name: A mana ability with a mana cost is paid with other sources ({1}, {T} - add two mana)
+cr: ["605.3a", "602.2b"]
+players:
+  - battlefield: [Test Signet, Test Wastes]
+    hand: [Test Renewal]
+  - {}
+script:
+  - check:
+      decision: { player: P1, kind: priority, options_include: ["Activate Test Signet for {W}{U}"] }
+  - choose: "Activate Test Signet for {W}{U}"
+  - choose: Pay with Test Wastes
+  - choose: Cast Test Renewal
+  - choose: Pay with 1 from pool
+  - pass_all
+expect:
+  life: { P1: 24 }
+  tapped: { Test Signet: true, Test Wastes: true }

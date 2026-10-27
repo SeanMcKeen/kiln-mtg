@@ -1,0 +1,11 @@
+card: "Bolas's Citadel"
+faces:
+  - abilities:
+      # Look at the top card any time; play it; spells cost life equal to
+      # their mana value instead of their mana cost (CR 118.9).
+      - static: { effect: { rule: play_from_top_paying_life } }
+      - activated:
+          cost:
+            - tap
+            - sacrifice: { chosen_from: { who: you, zone: battlefield, filter: { not_types: [land] }, count: 10 } }
+          effect: { for_each_player: { players: opponent, effect: { lose_life: { who: each, amount: 10 } } } }

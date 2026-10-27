@@ -1,0 +1,28 @@
+scenario: mtg-scenario/1
+name: A linked ability casts a copy of the imprinted card without paying its mana cost; the copy chooses its own targets
+cr: ["607.2a", "707.12", "608.2g", "118.9", "704.5e"]
+players:
+  - battlefield: [Test Rock, Test Island, Test Island]
+    hand: [Test Scepter, Test Bolt]
+  - {}
+script:
+  - choose: Cast Test Scepter
+  - choose: Pay with Test Island, Test Island
+  - pass_all
+  - pass_all
+  - choose: "Yes"
+  - check:
+      zones: { exile: [Test Bolt], P1.hand: [] }
+  - choose: Activate Test Scepter ability 2
+  - choose: Pay with Test Rock
+  - pass_all
+  - choose: "Yes"
+  - choose: "Yes"
+  - choose: Target P2
+  - pass_all
+expect:
+  life: { P2: 17 }
+  zones:
+    exile: [Test Bolt]
+    P1.graveyard: []
+    stack: []

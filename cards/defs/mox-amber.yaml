@@ -1,0 +1,8 @@
+card: "Mox Amber"
+faces:
+  - abilities:
+      - activated:
+          cost: [tap]
+          effect:
+            add_mana:
+              mana: { colors_among: { types: [creature, planeswalker], supertypes: [legendary], controller: you } }

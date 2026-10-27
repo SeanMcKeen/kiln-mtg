@@ -1,0 +1,4 @@
+card: "Drannith Magistrate"
+faces:
+  - abilities:
+      - static: { effect: { rule: opponents_cast_only_from_hand } }

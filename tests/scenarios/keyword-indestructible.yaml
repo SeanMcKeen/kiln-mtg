@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: Indestructible permanents aren't destroyed by effects or lethal damage
+cr: ["702.12b", "704.5g"]
+players:
+  - battlefield: [Test Swamp, Test Swamp, Test Swamp, Test Mountain]
+    hand: [Test Murder, Test Bolt]
+  - battlefield: [Test Guardian]
+script:
+  - choose: Cast Test Murder
+  - choose: Target Test Guardian (P2)
+  - choose: Pay with Test Swamp, Test Swamp, Test Swamp
+  - pass_all
+  - choose: Cast Test Bolt
+  - choose: Target Test Guardian (P2)
+  - choose: Pay with Test Mountain
+  - pass_all
+expect:
+  zones:
+    P2.battlefield: [Test Guardian]
+    P1.graveyard: [Test Murder, Test Bolt]

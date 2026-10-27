@@ -1,0 +1,17 @@
+scenario: mtg-scenario/1
+name: "Opt: scry 1, draw a card"
+cr: ["701.22a", "121.1"]
+verifies: [Opt]
+players:
+  - battlefield: [Island]
+    hand: [Opt]
+    library: [Swamp, Murder]
+  - {}
+script:
+  - choose: Cast Opt
+  - choose: Pay with Island
+  - pass_all
+  - choose: Put on bottom Swamp
+expect:
+  zones:
+    P1.hand: [Murder]

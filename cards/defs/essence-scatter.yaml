@@ -1,0 +1,6 @@
+card: Essence Scatter
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { spell: { types: [creature] } } }]
+          effect: { counter: { one: { target: 0 } } }

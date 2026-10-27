@@ -1,0 +1,17 @@
+scenario: mtg-scenario/1
+name: "Dismember's Phyrexian symbols paid with life; -5/-5 until end of turn"
+cr: ["107.4f", "601.2b", "613.4c", "704.5f"]
+verifies: [Dismember]
+players:
+  - battlefield: [Island]
+    hand: [Dismember]
+  - battlefield: [Test Rhino]
+script:
+  - choose: Cast Dismember
+  - choose: Target Test Rhino (P2)
+  - choose: Pay with Island
+  - pass_all
+expect:
+  life: { P1: 16 }
+  zones:
+    P2.graveyard: [Test Rhino]

@@ -1,0 +1,12 @@
+card: "Veil of Summer"
+faces:
+  - abilities:
+      - spell:
+          effect:
+            seq:
+              - if:
+                  condition: { at_least: [{ spells_cast_this_turn: { by: opponent, color: UB } }, 1] }
+                  then: { draw: { who: you, amount: 1 } }
+              - player_rule: { who: you, rule: spells_cant_be_countered, until_end_of_turn: true }
+              - player_rule: { who: you, rule: { hexproof_from: UB }, until_end_of_turn: true }
+              - gain_keyword: { what: { all: { controller: you } }, keyword: { hexproof_from: UB } }

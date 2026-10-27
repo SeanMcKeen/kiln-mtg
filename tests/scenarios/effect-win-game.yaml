@@ -1,0 +1,14 @@
+scenario: mtg-scenario/1
+name: An effect states that a player wins the game
+cr: ["104.2b"]
+players:
+  - battlefield: [Test Wastes, Test Wastes, Test Wastes, Test Wastes, Test Wastes, Test Bear, Test Ogre, Test Wall]
+    hand: [Test Ascension]
+  - {}
+  - {}
+script:
+  - choose: Cast Test Ascension
+  - choose: Pay with Test Wastes, Test Wastes, Test Wastes, Test Wastes, Test Wastes
+  - pass_all
+expect:
+  result: win P1

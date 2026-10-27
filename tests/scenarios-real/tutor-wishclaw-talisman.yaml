@@ -1,0 +1,28 @@
+scenario: mtg-scenario/1
+name: "Wishclaw Talisman: three wish counters; search for a card, then an opponent of your choice gains control of it"
+cr: ["614.1c", "701.23a", "613.1b"]
+verifies: [Wishclaw Talisman]
+players:
+  - battlefield: [Swamp, Swamp, Swamp]
+    hand: [Wishclaw Talisman]
+    library: [Opt, Ponder]
+  - {}
+  - {}
+script:
+  - choose: Cast Wishclaw Talisman
+  - choose: Pay with Swamp, Swamp
+  - pass_all
+  - check:
+      counters: { Wishclaw Talisman: { wish: 3 } }
+  - choose: Activate Wishclaw Talisman ability 2
+  - choose: Pay with Swamp
+  - pass_all
+  - choose: Find Ponder
+  - check:
+      decision: { player: P1, kind: choose_player, options: [Choose P2, Choose P3] }
+  - choose: Choose P3
+expect:
+  counters: { Wishclaw Talisman: { wish: 2 } }
+  zones:
+    P1.hand: [Ponder]
+    P3.battlefield: [Wishclaw Talisman]

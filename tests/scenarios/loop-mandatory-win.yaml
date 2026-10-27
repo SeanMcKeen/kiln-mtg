@@ -1,0 +1,37 @@
+scenario: mtg-scenario/1
+name: A mandatory loop that drains a player runs to the iteration where they lose
+cr: ["732.4", "732.2c", "704.5a"]
+players:
+  - battlefield: [Test Bond, Test Blood, Test Plains]
+    hand: [Test Renewal]
+  - life: 1000
+script:
+  - choose: Cast Test Renewal
+  - choose: Pay with Test Plains
+  - pass_all
+  - choose: Target P2
+  - pass_all
+  - pass_all
+  - choose: Target P2
+  - pass_all
+  - pass_all
+  - choose: Target P2
+  - pass_all
+  - pass_all
+  - choose: Target P2
+  - pass_all
+  - pass_all
+  - choose: Target P2
+  # Only one-option choices and passes since the last repeat: mandatory
+  # (CR 732.4). It ends when P2's life reaches 0, 246 iterations on.
+  - check:
+      life: { P2: 984 }
+      decision:
+        player: P1
+        kind: respond_shortcut
+        options: ["Accept 246 iterations", "Act before the next iteration", "Stop after 10 iterations", "Stop after 100 iterations"]
+  - choose: Accept 246 iterations
+  - choose: Accept 246 iterations
+    player: P2
+expect:
+  result: win P1

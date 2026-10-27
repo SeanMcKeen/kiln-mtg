@@ -1,0 +1,15 @@
+scenario: mtg-scenario/1
+name: "Tormod's Crypt: tap and sacrifice it to exile target player's graveyard"
+cr: ["602.2", "406.1"]
+verifies: ["Tormod's Crypt"]
+players:
+  - battlefield: ["Tormod's Crypt"]
+  - graveyard: [Opt, Ponder, Grizzly Bears]
+script:
+  - choose: "Activate Tormod's Crypt ability 1"
+  - choose: Target P2
+  - pass_all
+expect:
+  zones:
+    exile: [Opt, Ponder, Grizzly Bears]
+    P1.graveyard: ["Tormod's Crypt"]

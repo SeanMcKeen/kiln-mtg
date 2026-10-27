@@ -1,0 +1,59 @@
+scenario: mtg-scenario/1
+name: A repeated state is detected as a loop; its controller proposes a shortcut and the opponent accepts
+cr: ["732.2a", "732.2b", "732.2c"]
+players:
+  - battlefield: [Test Rock, Test Rock, Test Island, Test Island]
+    hand: [Test Scepter, Test Reversal]
+  - {}
+script:
+  - choose: Cast Test Scepter
+  - choose: Pay with Test Island, Test Island
+  - pass_all
+  - pass_all
+  - choose: "Yes"
+  # Two iterations by hand: tap both rocks, activate, copy and cast the Reversal.
+  - choose: "Tap Test Rock for {C}{C}"
+  - choose: "Tap Test Rock for {C}{C}"
+  - choose: Activate Test Scepter ability 2
+  - choose: Pay with 2 from pool
+  - pass_all
+  - choose: "Yes"
+  - choose: "Yes"
+  - pass_all
+  - choose: "Tap Test Rock for {C}{C}"
+  - choose: "Tap Test Rock for {C}{C}"
+  - choose: Activate Test Scepter ability 2
+  - choose: Pay with 2 from pool
+  - pass_all
+  - choose: "Yes"
+  - choose: "Yes"
+  - pass_all
+  # Third iteration: P1 holds priority with the ability on the stack, as
+  # one iteration ago, with {C}{C} more: a loop (CR 732.2a).
+  - choose: "Tap Test Rock for {C}{C}"
+  - choose: "Tap Test Rock for {C}{C}"
+  - choose: Activate Test Scepter ability 2
+  - choose: Pay with 2 from pool
+  - check:
+      pool: { P1: "{C}{C}{C}{C}{C}{C}" }
+      decision:
+        player: P1
+        kind: propose_shortcut
+        options_include: ["Don't take a shortcut", "Repeat the loop 1000 times"]
+  - choose: Repeat the loop 1000 times
+  # CR 732.2b: P2 shortens it to 10 iterations.
+  - check:
+      decision: { player: P2, kind: respond_shortcut, options_include: ["Accept 1000 iterations", "Stop after 10 iterations"] }
+  - choose: Stop after 10 iterations
+    player: P2
+  - check:
+      pool: { P1: "{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}" }
+      decision: { player: P1, kind: priority }
+  - pass_all
+  - choose: "Yes"
+  - choose: "Yes"
+  - pass_all
+expect:
+  result: in_progress
+  pool: { P1: "{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}" }
+  tapped: { Test Scepter: false, Test Rock: false }

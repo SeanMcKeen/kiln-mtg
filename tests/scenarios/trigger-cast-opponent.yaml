@@ -1,0 +1,21 @@
+scenario: mtg-scenario/1
+name: An opponent casting a spell triggers; the trigger goes on the stack above the spell and resolves first
+cr: ["603.2", "603.3", "117.5"]
+players:
+  - battlefield: [Test Mountain]
+    hand: [Test Bolt]
+  - battlefield: [Test Watcher]
+script:
+  - choose: Cast Test Bolt
+  - choose: Target P2
+  - choose: Pay with Test Mountain
+  - pass_all
+  - check:
+      decision: { player: P2, kind: optional, options: ["No", "Yes"] }
+      life: { P2: 20 }
+  - choose: "Yes"
+  - pass_all
+expect:
+  life: { P2: 17 }
+  zones:
+    P2.hand: [Test Wastes]

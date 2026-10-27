@@ -1,0 +1,15 @@
+[package]
+name = "mtg-policy"
+description = "The Policy trait, player-view helpers and baseline policies (random, passive, scripted)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+mtg-core.workspace = true
+mtg-engine.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,16 @@
+scenario: mtg-scenario/1
+name: Flying attackers can be blocked only by flying or reach
+cr: ["702.9b", "702.17b", "509.1a"]
+players:
+  - battlefield: [Test Bird]
+  - battlefield: [Test Bear, Test Archer]
+turn: { number: 3, active: P1, step: declare_attackers }
+script:
+  - choose: Test Bird attacks P2
+  - pass_all
+expect:
+  # The Bear gets no decision; only the Archer (reach) may block.
+  decision:
+    player: P2
+    kind: declare_blocker
+    options: ["Test Archer doesn't block", "Test Archer blocks Test Bird (P1)"]

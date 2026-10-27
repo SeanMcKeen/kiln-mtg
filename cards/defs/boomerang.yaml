@@ -1,0 +1,6 @@
+card: Boomerang
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { object: {} } }]
+          effect: { move: { what: { one: { target: 0 } }, to: hand } }

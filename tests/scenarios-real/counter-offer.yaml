@@ -1,0 +1,22 @@
+scenario: mtg-scenario/1
+name: "An Offer You Can't Refuse: its controller gets two Treasures"
+cr: ["701.6a", "111.10a"]
+verifies: [An Offer You Can't Refuse]
+players:
+  - battlefield: [Island, Island, Island]
+    hand: [Divination]
+  - battlefield: [Island]
+    hand: [An Offer You Can't Refuse]
+script:
+  - choose: Cast Divination
+  - choose: Pay with Island, Island, Island
+  - pass: 1
+  - choose: Cast An Offer You Can't Refuse
+    player: P2
+  - choose: Target Divination
+  - choose: Pay with Island
+  - pass_all
+expect:
+  zones:
+    P1.battlefield: [Island, Island, Island, Treasure, Treasure]
+    P1.graveyard: [Divination]

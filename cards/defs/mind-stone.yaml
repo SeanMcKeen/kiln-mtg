@@ -1,0 +1,7 @@
+card: Mind Stone
+faces:
+  - abilities:
+      - activated: { cost: [tap], effect: { add_mana: { mana: { fixed: "{C}" } } } }
+      - activated:
+          cost: [{ mana: "{1}" }, tap, { sacrifice: { one: this } }]
+          effect: { draw: { who: you, amount: 1 } }

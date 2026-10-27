@@ -1,0 +1,18 @@
+scenario: mtg-scenario/1
+name: A mana ability whose cost includes paying life
+cr: ["605.3a", "119.4"]
+players:
+  - battlefield: [Test Confluence]
+    hand: [Test Renewal]
+  - {}
+script:
+  - choose: Activate Test Confluence for mana
+  - choose: "Add {W}"
+  - check:
+      life: { P1: 19 }
+  - choose: Cast Test Renewal
+  - choose: Pay with 1 from pool
+  - pass_all
+expect:
+  life: { P1: 23 }
+  tapped: { Test Confluence: true }

@@ -1,0 +1,5 @@
+card: Pyretic Ritual
+faces:
+  - abilities:
+      - spell:
+          effect: { add_mana: { mana: { fixed: "{R}{R}{R}" } } }

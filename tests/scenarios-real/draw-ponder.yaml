@@ -1,0 +1,21 @@
+scenario: mtg-scenario/1
+name: "Ponder: reorder the top three, may shuffle, draw"
+cr: ["701.20e", "608.2d"]
+verifies: [Ponder]
+players:
+  - battlefield: [Island]
+    hand: [Ponder]
+    library: [Opt, Divination, Murder, Swamp]
+  - {}
+script:
+  - choose: Cast Ponder
+  - choose: Pay with Island
+  - pass_all
+  - choose: Put on top Opt
+  - choose: Put on top Divination
+  - choose: "No"
+expect:
+  zones:
+    P1.hand: [Murder]
+  library_top:
+    P1: [Divination, Opt, Swamp]

@@ -1,0 +1,15 @@
+scenario: mtg-scenario/1
+name: The last player remaining wins
+cr: ["104.2a", "704.5a"]
+players:
+  - hand: [Test Bolt]
+    battlefield: [Test Mountain]
+  - life: 3
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Test Bolt
+  - choose: Target P2
+  - choose: Pay with Test Mountain
+  - pass_all
+expect:
+  result: win P1

@@ -1,0 +1,12 @@
+card: "Overgrown Tomb"
+faces:
+  - abilities:
+      # "As this enters, you may pay 2 life. If you don't, it enters tapped" (CR 614.12).
+      - replacement:
+          event: { would_enter: { this: true } }
+          instead:
+            if_does:
+              who: you
+              action: { pay: { who: you, cost: [{ pay_life: 2 }] } }
+              then: { move: { what: { one: this }, to: battlefield } }
+              otherwise: { move: { what: { one: this }, to: battlefield_tapped } }

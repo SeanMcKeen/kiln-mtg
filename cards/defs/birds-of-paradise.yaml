@@ -1,0 +1,7 @@
+card: Birds of Paradise
+faces:
+  - abilities:
+      - keyword: flying
+      - activated:
+          cost: [tap]
+          effect: { add_mana: { mana: { any_color: 1 } } }

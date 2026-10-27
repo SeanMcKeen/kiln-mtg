@@ -1,0 +1,22 @@
+scenario: mtg-scenario/1
+name: The legend rule lets the controller choose which legendary permanent to keep
+cr: ["704.5j", "608.3a"]
+players:
+  - hand: [Test Champion]
+    battlefield: [Test Champion, Test Plains, Test Plains, Test Plains]
+  - battlefield: []
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Test Champion
+  - choose: Pay with Test Plains, Test Plains, Test Plains
+  - pass_all
+  - check:
+      decision:
+        player: P1
+        kind: legend_rule
+        options: ["Keep Test Champion [1]", "Keep Test Champion [2]"]
+  - choose: Keep Test Champion [2]
+expect:
+  zones:
+    P1.graveyard: [Test Champion]
+    P1.battlefield: [Test Champion, Test Plains, Test Plains, Test Plains]

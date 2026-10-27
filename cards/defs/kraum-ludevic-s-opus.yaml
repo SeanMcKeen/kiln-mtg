@@ -1,0 +1,9 @@
+card: "Kraum, Ludevic's Opus"
+faces:
+  - abilities:
+      - keyword: flying
+      - keyword: haste
+      - triggered:
+          trigger: { cast: { by: opponent, spell: {}, second_each_turn: true } }
+          effect: { draw: { who: you, amount: 1 } }
+      - keyword: partner

@@ -1,0 +1,27 @@
+scenario: mtg-scenario/1
+name: "Declining puts the commander on top of the library; drawing it asks again (the replacement can apply more than once)"
+cr: ["903.9b", "121.1"]
+players:
+  - battlefield: [Test Island]
+    hand: [Test Tuck]
+  - commanders: [{ card: Test Commander, zone: battlefield }]
+turn: { number: 3, active: P1, step: end }
+script:
+  - choose: Cast Test Tuck
+  - choose: Target Test Commander (P2)
+  - choose: Pay with Test Island
+  - pass_all
+  - { player: P2, choose: Put Test Commander into library }
+  - check:
+      library_top: { P2: [Test Commander] }
+  # P1's end step, then P2's upkeep; P2 draws in their draw step.
+  - pass: 4
+  - check:
+      decision:
+        player: P2
+        kind: commander_zone
+        options: [Put Test Commander into hand, Put Test Commander into the command zone]
+  - { player: P2, choose: Put Test Commander into the command zone }
+expect:
+  zones:
+    command: [Test Commander]

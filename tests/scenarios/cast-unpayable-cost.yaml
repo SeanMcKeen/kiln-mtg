@@ -1,0 +1,9 @@
+scenario: mtg-scenario/1
+name: A spell whose additional cost can't be paid isn't offered
+cr: ["601.2e", "118.8"]
+players:
+  - battlefield: [Test Swamp, Test Wastes]
+    hand: [Test Offering]
+  - {}
+expect:
+  decision: { player: P1, kind: priority, options_exclude: [Cast Test Offering] }

@@ -1,0 +1,21 @@
+scenario: mtg-scenario/1
+name: Cleanup discards down to maximum hand size, one card at a time
+cr: ["514.1", "402.2"]
+players:
+  - hand: [Test Wastes, Test Wastes, Test Wastes, Test Wastes, Test Wastes, Test Wastes, Test Wastes, Test Bolt, Test Bear]
+  - {}
+turn: { number: 3, active: P1, step: end }
+script:
+  - pass_all
+  - check:
+      step: cleanup
+      decision: { player: P1, kind: discard }
+  - choose: Discard Test Bolt
+  - choose: Discard Test Bear
+expect:
+  zones:
+    P1.hand: [Test Wastes, Test Wastes, Test Wastes, Test Wastes, Test Wastes, Test Wastes, Test Wastes]
+    P1.graveyard: [Test Bolt, Test Bear]
+  # The next turn has begun: P2 is active and has priority in their upkeep.
+  step: upkeep
+  decision: { player: P2, kind: priority }

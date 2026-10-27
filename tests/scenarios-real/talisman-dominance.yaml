@@ -1,0 +1,17 @@
+scenario: mtg-scenario/1
+name: "Talisman of Dominance: {C} for free, or {U} or {B} for 1 damage"
+cr: ["605.3a", "605.3b", "120.3"]
+verifies: [Talisman of Dominance]
+players:
+  - battlefield: [Talisman of Dominance]
+  - {}
+script:
+  - check:
+      decision: { player: P1, kind: priority, options_include: ["Tap Talisman of Dominance for {C}", Tap Talisman of Dominance for mana] }
+  - choose: Tap Talisman of Dominance for mana
+  - check:
+      decision: { player: P1, kind: choose_mana, options: ["Add {U}", "Add {B}"] }
+  - choose: "Add {B}"
+expect:
+  pool: { P1: "{B}" }
+  life: { P1: 19 }

@@ -1,0 +1,15 @@
+card: "Malcolm, Alluring Scoundrel"
+faces:
+  - abilities:
+      - keyword: flash
+      - keyword: flying
+      - triggered:
+          trigger: { deals_combat_damage_to_player: { this: true } }
+          effect:
+            seq:
+              - put_counters: { what: { one: this }, counter: chorus, amount: 1 }
+              - draw: { who: you, amount: 1 }
+              - discard: { who: you, what: { chosen: { count: 1 } } }
+              - if:
+                  condition: { at_least: [{ counters_on: { what: this, counter: chorus } }, 4] }
+                  then: { may: { cast: { what: { one: { remembered: discarded } }, without_paying: true } } }

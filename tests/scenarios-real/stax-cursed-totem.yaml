@@ -1,0 +1,12 @@
+scenario: mtg-scenario/1
+name: "Cursed Totem: activated abilities of creatures can't be activated"
+cr: ["101.2", "605.1a"]
+verifies: [Cursed Totem]
+players:
+  - battlefield: [Cursed Totem, Llanowar Elves, Forest]
+  - {}
+script:
+  - check:
+      decision: { player: P1, kind: priority, options: [Pass, "Tap Forest for {G}"] }
+expect:
+  zones: { P1.battlefield: [Cursed Totem, Llanowar Elves, Forest] }

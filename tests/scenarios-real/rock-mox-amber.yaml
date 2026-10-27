@@ -1,0 +1,15 @@
+scenario: mtg-scenario/1
+name: "Mox Amber: one mana of any color among legendary creatures and planeswalkers you control"
+cr: ["106.1", "605.1a"]
+verifies: [Mox Amber]
+players:
+  - battlefield: [Mox Amber, "Kinnan, Bonder Prodigy"]
+  - battlefield: ["Thrasios, Triton Hero"]
+script:
+  - choose: Tap Mox Amber for mana
+  - check:
+      decision: { player: P1, kind: choose_mana, options: ["Add {U}", "Add {G}"] }
+  - choose: "Add {G}"
+expect:
+  # Kinnan adds one more mana of a type the nonland permanent produced.
+  pool: { P1: "{G}{G}" }

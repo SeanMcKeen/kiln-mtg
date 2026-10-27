@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: A payment plan fixes the color an any-color source makes
+cr: ["605.3a", "601.2g", "302.6"]
+players:
+  - battlefield: [Test Prism Bird]
+    hand: [Test Bolt]
+  - {}
+script:
+  - choose: Cast Test Bolt
+  - choose: Target P2
+  - check:
+      decision: { player: P1, kind: pay_mana, options: [Pay with Test Prism Bird, Pay manually] }
+  - choose: Pay manually
+  - check:
+      decision: { player: P1, kind: mana_step, options: ["Tap Test Prism Bird for {R}"] }
+  - choose: "Tap Test Prism Bird for {R}"
+  - choose: "Spend {R}"
+  - pass_all
+expect:
+  life: { P2: 17 }

@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: "Grim and Basalt Monolith tap for {C}{C}{C}, don't untap normally, and untap for a cost"
+cr: ["605.1a", "502.3", "602.2"]
+verifies: [Grim Monolith, Basalt Monolith]
+players:
+  - battlefield: [Grim Monolith, Basalt Monolith]
+  - {}
+script:
+  - choose: "Tap Grim Monolith for {C}{C}{C}"
+  - choose: "Tap Basalt Monolith for {C}{C}{C}"
+  # Basalt's {3}: untap is paid from the pool.
+  - choose: Activate Basalt Monolith ability 3
+  - choose: Pay manually
+  - choose: "Spend {C}"
+  - choose: "Spend {C}"
+  - choose: "Spend {C}"
+  - pass_all
+expect:
+  pool: { P1: "{C}{C}{C}" }
+  tapped: { Grim Monolith: true, Basalt Monolith: false }

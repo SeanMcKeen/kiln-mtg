@@ -1,0 +1,17 @@
+scenario: mtg-scenario/1
+name: "Deadly Rollick is free while its caster controls a commander"
+cr: ["903.3d", "118.9"]
+verifies: [Deadly Rollick]
+players:
+  - hand: [Deadly Rollick]
+    commanders: [{ card: "Thrasios, Triton Hero", zone: battlefield }]
+  - battlefield: [Test Ogre]
+script:
+  # No lands: the free alternative cost is the only way to cast it.
+  - choose: Cast Deadly Rollick
+  - choose: Target Test Ogre (P2)
+  - pass_all
+expect:
+  zones:
+    exile: [Test Ogre]
+    P1.graveyard: [Deadly Rollick]

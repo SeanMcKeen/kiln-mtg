@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: Double strike deals damage in both steps; lifelink gains life
+cr: ["702.4b", "510.4", "702.15b", "510.1b"]
+players:
+  - battlefield: [Test Duelist, Test Vampire]
+  - battlefield: []
+turn: { number: 3, active: P1, step: declare_attackers }
+script:
+  - choose: Test Duelist attacks P2
+  - choose: Test Vampire attacks P2
+  - pass_all          # no blockers available
+  - pass_all          # end of declare blockers → first-strike step
+  - check:
+      step: first_strike_damage
+      life: { P1: 20, P2: 18 }
+  - pass_all          # → regular step: Duelist again (double strike) and the Vampire
+expect:
+  step: combat_damage
+  life: { P1: 22, P2: 14 }

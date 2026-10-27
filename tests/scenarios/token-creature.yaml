@@ -1,0 +1,16 @@
+scenario: mtg-scenario/1
+name: The controller of a destroyed permanent creates a creature token (last known information)
+cr: ["111.2", "111.4", "608.2h"]
+players:
+  - battlefield: [Test Forest]
+    hand: [Test Beast Gift]
+  - battlefield: [Test Rock]
+script:
+  - choose: Cast Test Beast Gift
+  - choose: Target Test Rock (P2)
+  - choose: Pay with Test Forest
+  - pass_all
+expect:
+  zones:
+    P2.battlefield: [Beast Token]
+    P2.graveyard: [Test Rock]

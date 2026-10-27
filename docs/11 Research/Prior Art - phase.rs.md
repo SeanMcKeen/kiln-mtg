@@ -17,9 +17,9 @@ updated: 2026-10-20
   - `engine-wasm`: wasm-bindgen and tsify
   - `server-core` and `phase-server`: Axum WebSocket server
   - `feed-scraper`: MTGGoldfish metagame
-- **State:** pure reducers, `apply(state, action) -> ActionResult`. Immutable state uses **rpds** persistent data structures. Serde and tsify produce TypeScript discriminated unions.
+- **State:** pure reducers, `apply(state, action) -> ActionResult`. Immutable state uses persistent data structures: **`im`** (`im::Vector`), not rpds as first reported (verified in source, M1). Serde and tsify produce TypeScript discriminated unions.
 - **Cards:** "34,300+ cards parsed from MTGJSON". "Thousands of cards are still unimplemented." Coverage badges come from a `cargo coverage` card-support report.
-- **Parser** (via DeepWiki summaries, still to be verified in source):
+- **Parser** (DeepWiki summary; the nom dependency and per-card coverage output were verified in M1, see [[phase.rs Evaluation]]):
   - built on `nom` combinators, avoiding regex
   - pipeline: clean → classify line type → route → specialized sub-parsers → lower to `AbilityDefinition`
   - sub-parsers cover keywords (`oracle_keyword.rs`), costs and casting (`oracle_cost.rs`, `oracle_casting.rs`), and targets and filters (`TargetFilter`)

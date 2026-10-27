@@ -1,0 +1,16 @@
+card: "Wishclaw Talisman"
+faces:
+  - abilities:
+      - replacement:
+          event: { would_enter: { this: true } }
+          instead: { enters_with_counters: { counter: wish, amount: 3 } }
+      - activated:
+          cost: [{ mana: "{1}" }, tap, { remove_counters: { counter: wish, amount: 1 } }]
+          condition: your_turn
+          effect:
+            seq:
+              - search: { who: you, filter: {}, count: 1, to: hand, reveal: false }
+              - shuffle: you
+              # "An opponent gains control of this artifact."
+              - choose: { what: opponent, store: new_controller }
+              - gain_control: { what: { one: this }, to: { chosen: new_controller } }

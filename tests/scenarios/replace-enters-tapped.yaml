@@ -1,0 +1,18 @@
+scenario: mtg-scenario/1
+name: '"Enters tapped" modifies how a permanent enters: its own, and another permanent''s for opponents'' creatures'
+cr: ["614.1c", "614.1d", "614.12"]
+players:
+  - battlefield: [Test Forest, Test Forest]
+    hand: [Test Tapland, Test Bear]
+  - battlefield: [Test Frost Orb]
+script:
+  - choose: Play Test Tapland
+  - check:
+      tapped: { Test Tapland: true }
+  - choose: Cast Test Bear
+  - choose: Pay with Test Forest, Test Forest
+  - pass_all
+expect:
+  tapped: { Test Bear: true, Test Tapland: true }
+  zones:
+    P1.battlefield: [Test Forest, Test Forest, Test Tapland, Test Bear]

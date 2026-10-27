@@ -1,0 +1,25 @@
+card: Isochron Scepter
+faces:
+  - abilities:
+      # Imprint: linked to the activated ability below (CR 607.2a).
+      - triggered:
+          trigger: { enters: { this: true } }
+          effect:
+            may:
+              exile:
+                what:
+                  chosen_from:
+                    who: you
+                    zone: hand
+                    filter: { types: [instant], max_mana_value: 2 }
+                    count: 1
+                remember: imprinted
+      - activated:
+          cost: [{ mana: "{2}" }, tap]
+          effect:
+            # "You may copy the exiled card. If you do, you may cast the copy
+            # without paying its mana cost" (CR 707.12, 608.2g).
+            may:
+              seq:
+                - copy_card: { what: { one: { remembered: imprinted } }, remember: copy }
+                - may: { cast: { what: { one: { remembered: copy } }, without_paying: true } }

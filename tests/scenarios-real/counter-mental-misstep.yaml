@@ -1,0 +1,22 @@
+scenario: mtg-scenario/1
+name: "Mental Misstep counters a spell with mana value 1, paid with life"
+cr: ["202.3", "107.4f", "701.6a"]
+verifies: [Mental Misstep]
+players:
+  - battlefield: [Mountain]
+    hand: [Lightning Bolt]
+  - battlefield: [Plains]
+    hand: [Mental Misstep]
+script:
+  - choose: Cast Lightning Bolt
+  - choose: Target P2
+  - choose: Pay with Mountain
+  - pass: 1
+  - choose: Cast Mental Misstep
+    player: P2
+  - choose: Target Lightning Bolt
+  - pass_all
+expect:
+  life: { P2: 18 }
+  zones:
+    P1.graveyard: [Lightning Bolt]

@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: "Fabricate finds a card"
+cr: ["701.23b", "701.20a"]
+verifies: [Fabricate]
+players:
+  - battlefield: [Island, Island, Island]
+    hand: [Fabricate]
+    library: [Swamp, Lightning Bolt, Sol Ring, Grizzly Bears, Divination]
+  - {}
+script:
+  - choose: Cast Fabricate
+  - choose: Pay with Island, Island, Island
+  - pass_all
+  - check:
+      decision: { player: P1, kind: choose_card, options: [Stop, Find Sol Ring] }
+  - choose: Find Sol Ring
+expect:
+  zones:
+    P1.hand: [Sol Ring]

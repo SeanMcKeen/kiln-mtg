@@ -1,0 +1,13 @@
+card: "Rest in Peace"
+faces:
+  - abilities:
+      - triggered:
+          trigger: { enters: { this: true } }
+          effect:
+            for_each_player:
+              players: any
+              effect: { exile: { what: { zone: { owner: each, zone: graveyard } } } }
+      # "If a card or token would be put into a graveyard from anywhere, exile it instead."
+      - replacement:
+          event: { would_go_to_graveyard: {} }
+          instead: { exile: { what: { one: triggering } } }

@@ -1,0 +1,31 @@
+scenario: mtg-scenario/1
+name: "T12: Worldgorger Dragon + Animate Dead with no other creature card in a graveyard is a mandatory loop: a draw"
+cr: ["104.4b", "732.4", "303.4f", "607.2a"]
+verifies: [Worldgorger Dragon]
+players:
+  - battlefield: [Swamp, Swamp]
+    hand: [Animate Dead]
+    graveyard: [Worldgorger Dragon]
+  - {}
+script:
+  - choose: Cast Animate Dead
+  - choose: Target Worldgorger Dragon
+  - choose: Pay with Swamp, Swamp
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  # Only mandatory actions repeat (Animate Dead's only legal host is the Dragon).
+  - check:
+      decision: { player: P1, kind: respond_shortcut }
+  - choose: Let the loop continue
+  - { player: P2, choose: Let the loop continue }
+expect:
+  result: draw

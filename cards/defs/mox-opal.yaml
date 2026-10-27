@@ -1,0 +1,8 @@
+card: "Mox Opal"
+faces:
+  - abilities:
+      # Metalcraft: "Activate only if you control three or more artifacts."
+      - activated:
+          cost: [tap]
+          condition: { at_least: [{ count: { types: [artifact], controller: you } }, 3] }
+          effect: { add_mana: { mana: { any_color: 1 } } }

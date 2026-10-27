@@ -1,0 +1,17 @@
+scenario: mtg-scenario/1
+name: "Swords to Plowshares exiles a creature; its controller gains life equal to its power"
+cr: ["608.2h", "400.7"]
+verifies: [Swords to Plowshares]
+players:
+  - battlefield: [Plains]
+    hand: [Swords to Plowshares]
+  - battlefield: [Test Ogre]
+script:
+  - choose: Cast Swords to Plowshares
+  - choose: Target Test Ogre (P2)
+  - choose: Pay with Plains
+  - pass_all
+expect:
+  zones:
+    exile: [Test Ogre]
+  life: { P2: 23 }

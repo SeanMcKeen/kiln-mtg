@@ -1,0 +1,8 @@
+card: "Eternal Scourge"
+faces:
+  - abilities:
+      # Works in exile (CR 113.6f).
+      - static: { effect: { rule: may_cast_from_exile } }
+      - triggered:
+          trigger: { becomes_target: { by: opponent, what: { this: true } } }
+          effect: { exile: { what: { one: this } } }

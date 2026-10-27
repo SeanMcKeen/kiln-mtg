@@ -1,0 +1,17 @@
+scenario: mtg-scenario/1
+name: Search for a card, then discard a card at random
+cr: ["701.9a", "701.23a"]
+players:
+  - battlefield: [Test Mountain]
+    hand: [Test Gamble]
+    library: [Test Bolt, Test Bear]
+  - {}
+script:
+  - choose: Cast Test Gamble
+  - choose: Pay with Test Mountain
+  - pass_all
+  - choose: Find Test Bear
+expect:
+  zones:
+    P1.hand: []
+    P1.graveyard: [Test Gamble, Test Bear]

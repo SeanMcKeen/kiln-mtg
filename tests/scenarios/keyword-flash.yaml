@@ -1,0 +1,21 @@
+scenario: mtg-scenario/1
+name: A card with flash can be cast any time its controller could cast an instant
+cr: ["702.8a", "117.1a"]
+players:
+  - {}
+  - battlefield: [Test Forest, Test Forest]
+    hand: [Test Flash Bear, Test Bear]
+script:
+  - pass: 1
+  - check:
+      decision:
+        player: P2
+        kind: priority
+        options_include: [Cast Test Flash Bear]
+        options_exclude: [Cast Test Bear]
+  - choose: Cast Test Flash Bear
+  - choose: Pay with Test Forest, Test Forest
+  - pass_all
+expect:
+  zones:
+    P2.battlefield: [Test Forest, Test Forest, Test Flash Bear]

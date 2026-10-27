@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: "Preordain: scry 2, then draw"
+cr: ["701.22a", "121.1"]
+verifies: [Preordain]
+players:
+  - battlefield: [Island]
+    hand: [Preordain]
+    library: [Opt, Divination, Murder]
+  - {}
+script:
+  - choose: Cast Preordain
+  - choose: Pay with Island
+  - pass_all
+  - choose: Put on bottom Opt
+  - choose: Put on bottom Divination
+expect:
+  zones:
+    P1.hand: [Murder]
+  library_top:
+    P1: [Opt, Divination]

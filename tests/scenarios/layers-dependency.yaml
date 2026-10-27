@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: A type-changing effect that removes another's ability applies first, whatever the timestamps (dependency)
+cr: ["613.8a", "613.8b", "305.7", "305.6"]
+players:
+  # The land-type granter is older than the land-type setter: timestamp
+  # order alone would apply it first, but it depends on the setter.
+  - battlefield: [Test Crypt, Test Moon, Test Island, Test Confluence]
+  - {}
+script:
+  - check:
+      decision:
+        player: P1
+        kind: priority
+        options_include:
+          - "Tap Test Crypt for {R}"
+          - "Tap Test Island for {U}"
+          - "Tap Test Confluence for {R}"
+        options_exclude: ["Tap Test Island for {B}", "Tap Test Confluence for mana"]
+expect:
+  result: in_progress

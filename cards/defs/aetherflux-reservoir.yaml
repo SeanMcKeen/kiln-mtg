@@ -1,0 +1,11 @@
+card: "Aetherflux Reservoir"
+faces:
+  - abilities:
+      # Counted as it resolves, including the spell that triggered it.
+      - triggered:
+          trigger: { cast: { by: you, spell: {} } }
+          effect: { gain_life: { who: you, amount: { spells_cast_this_turn: { by: you } } } }
+      - activated:
+          cost: [{ pay_life: 50 }]
+          targets: [{ what: any }]
+          effect: { deal_damage: { to: { target: 0 }, amount: 50 } }

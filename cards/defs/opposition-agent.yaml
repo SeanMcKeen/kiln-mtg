@@ -1,0 +1,11 @@
+card: Opposition Agent
+faces:
+  - abilities:
+      - keyword: flash
+      - static:
+          effect: { rule: control_opponents_while_searching }
+      - replacement:
+          event: { would_find_while_searching: opponent }
+          instead: { exile: { what: { one: triggering }, remember: found } }
+      - static:
+          effect: { rule: { may_play_exiled_with_this: { any_color_mana: true } } }

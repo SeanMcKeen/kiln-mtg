@@ -1,0 +1,4 @@
+card: Torpor Orb
+faces:
+  - abilities:
+      - static: { effect: { rule: creatures_entering_dont_trigger } }

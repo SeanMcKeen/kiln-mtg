@@ -1,0 +1,6 @@
+card: Unsummon
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { object: { types: [creature] } } }]
+          effect: { move: { what: { one: { target: 0 } }, to: hand } }

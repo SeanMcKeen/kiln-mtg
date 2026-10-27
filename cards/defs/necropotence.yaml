@@ -1,0 +1,19 @@
+card: Necropotence
+faces:
+  - abilities:
+      - static:
+          effect: { skip_step: { who: you, step: draw } }
+      - triggered:
+          trigger: { discards: { by: you } }
+          effect: { exile: { what: { one: triggering } } }
+      - activated:
+          cost: [{ pay_life: 1 }]
+          effect:
+            seq:
+              - exile:
+                  what: { top_of_library: { owner: you, count: 1 } }
+                  face_down: true
+                  remember: exiled
+              - delayed:
+                  at: { beginning_of: { step: end, whose: you } }
+                  effect: { move: { what: { one: { remembered: exiled } }, to: hand } }

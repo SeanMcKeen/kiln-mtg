@@ -9,9 +9,28 @@ Crate and packages: `kiln-mtg` (crates.io, PyPI, npm). CLI binary: `kiln`.
 
 ## Status
 
-**Design phase (Milestone M0).** There is no code yet. All scope, research, architecture and decisions live in the Obsidian vault under [`docs/`](docs/00%20Home.md).
+**Milestone M2 (Core Game Loop) is in review.** The N-player engine plays complete games: lands, mana with payment plans, casting, the stack, combat (first and double strike, trample, deathtouch, lifelink, menace, flying, reach), state-based actions, mulligans, player views, deterministic replays, and a parallel fuzz runner. Cards are a small synthetic test set plus real vanilla creatures and basic lands. Real card behaviour arrives in M3. All scope, research, architecture and decisions live in the Obsidian vault under [`docs/`](docs/00%20Home.md). Start at **[docs/00 Home.md](docs/00%20Home.md)**.
 
-Start at **[docs/00 Home.md](docs/00%20Home.md)**.
+## Quick start
+
+```bash
+cargo build --release
+# Card data is downloaded, never bundled (Scryfall bulk data; cached ≥ 24 h)
+./target/release/mtg data fetch
+./target/release/mtg data build
+# Validate a Commander deck: legality and per-card engine coverage
+./target/release/mtg deck check tests/fixtures/decks/kinnan.txt
+./target/release/mtg deck check my-deck.txt --commander "Kinnan, Bonder Prodigy" --json
+```
+
+Every card currently reports `unsupported` coverage, because card behaviour arrives in M3. The engine refuses to pretend otherwise.
+
+```bash
+# Play 10,000 random 4-player games with every invariant checked
+./target/release/mtg dev fuzz --games 10000 --invariants --views --replay-every 100
+# The same with real vanilla creatures and basic lands from the card DB
+./target/release/mtg dev fuzz --games 10000 --real
+```
 
 ## What this is
 

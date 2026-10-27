@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: "Careful Study: draw two, then discard two"
+cr: ["121.1", "701.9a"]
+verifies: [Careful Study]
+players:
+  - battlefield: [Island]
+    hand: [Careful Study, Murder]
+    library: [Opt, Divination]
+  - {}
+script:
+  - choose: Cast Careful Study
+  - choose: Pay with Island
+  - pass_all
+  - choose: Discard Murder
+  - choose: Discard Divination
+expect:
+  zones:
+    P1.hand: [Opt]
+    P1.graveyard: [Murder, Divination, Careful Study]

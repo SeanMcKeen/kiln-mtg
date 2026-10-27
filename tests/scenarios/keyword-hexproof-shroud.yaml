@@ -1,0 +1,16 @@
+scenario: mtg-scenario/1
+name: Hexproof stops opponents' targeting; shroud stops all targeting
+cr: ["702.11b", "702.18a"]
+players:
+  - battlefield: [Test Mountain, Test Hexproof Bear, Test Shroud Bear]
+    hand: [Test Bolt]
+  - battlefield: [Test Hexproof Bear, Test Ogre]
+script:
+  - choose: Cast Test Bolt
+  - check:
+      decision:
+        player: P1
+        kind: choose_target
+        options: [Target P1, Target P2, Target Test Hexproof Bear (P1), Target Test Ogre (P2)]
+expect:
+  decision: { player: P1, kind: choose_target }

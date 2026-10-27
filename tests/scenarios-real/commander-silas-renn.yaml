@@ -1,0 +1,26 @@
+scenario: mtg-scenario/1
+name: "Silas Renn: combat damage to a player lets you cast target artifact card from your graveyard this turn"
+cr: ["601.2", "603.2"]
+verifies: ["Silas Renn, Seeker Adept"]
+players:
+  - battlefield: ["Silas Renn, Seeker Adept", Island]
+    graveyard: [Sol Ring]
+  - {}
+turn: { number: 3, active: P1, step: declare_attackers }
+script:
+  - choose: Silas Renn, Seeker Adept attacks P2
+  - pass_all
+  - pass_all
+  - choose: Target Sol Ring
+  - pass_all
+  - pass_all
+  - pass_all
+  - check:
+      step: postcombat_main
+      decision: { player: P1, kind: priority, options_include: [Cast Sol Ring] }
+  - choose: Cast Sol Ring
+  - choose: Pay with Island
+  - pass_all
+expect:
+  life: { P2: 18 }
+  zones: { P1.battlefield: ["Silas Renn, Seeker Adept", Island, Sol Ring] }

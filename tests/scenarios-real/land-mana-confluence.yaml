@@ -1,0 +1,13 @@
+scenario: mtg-scenario/1
+name: "Mana Confluence: tap and pay 1 life for any color"
+cr: ["605.3a", "119.4"]
+verifies: [Mana Confluence]
+players:
+  - battlefield: [Mana Confluence]
+  - {}
+script:
+  - choose: Activate Mana Confluence for mana
+  - choose: "Add {B}"
+expect:
+  pool: { P1: "{B}" }
+  life: { P1: 19 }

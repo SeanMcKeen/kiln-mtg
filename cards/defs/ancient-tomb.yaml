@@ -1,0 +1,9 @@
+card: Ancient Tomb
+faces:
+  - abilities:
+      - activated:
+          cost: [tap]
+          effect:
+            seq:
+              - add_mana: { mana: { fixed: "{C}{C}" } }
+              - deal_damage: { to: { player: you }, amount: 2 }

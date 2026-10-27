@@ -1,0 +1,7 @@
+card: Sanguine Bond
+faces:
+  - abilities:
+      - triggered:
+          trigger: { gains_life: { by: you } }
+          targets: [{ what: { player: opponent } }]
+          effect: { lose_life: { who: { target: 0 }, amount: triggering_amount } }

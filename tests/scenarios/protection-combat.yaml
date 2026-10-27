@@ -1,0 +1,18 @@
+scenario: mtg-scenario/1
+name: Damage from a red source to a creature with protection from red is prevented
+cr: ["702.16e", "510.2"]
+players:
+  - battlefield: [Test Ogre]
+  - battlefield: [Test Paladin]
+turn: { number: 3, active: P1, step: declare_attackers }
+script:
+  - choose: Test Ogre attacks P2
+  - pass_all
+  - { player: P2, choose: Test Paladin blocks Test Ogre (P1) }
+  - pass_all
+expect:
+  step: combat_damage
+  zones:
+    P2.battlefield: [Test Paladin]
+    P1.graveyard: [Test Ogre]
+  life: { P1: 20, P2: 20 }

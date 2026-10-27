@@ -1,0 +1,11 @@
+card: "Teferi's Protection"
+faces:
+  - abilities:
+      - spell:
+          effect:
+            seq:
+              - player_rule: { who: you, rule: life_cant_change }
+              - player_rule: { who: you, rule: protection_from_everything }
+              # CR 702.26: they phase in at your next untap step (CR 502.1).
+              - phase_out: { what: { all: { controller: you } } }
+              - exile: { what: { one: this } }

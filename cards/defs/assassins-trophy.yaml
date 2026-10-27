@@ -1,0 +1,16 @@
+card: Assassin's Trophy
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { object: { controller: opponent } } }]
+          effect:
+            seq:
+              - destroy: { one: { target: 0 } }
+              # "may search ..., then shuffle": no search, no shuffle.
+              - if_does:
+                  who: { controller_of: { target: 0 } }
+                  action:
+                    seq:
+                      - search: { who: { controller_of: { target: 0 } }, filter: { types: [land], supertypes: [basic] }, count: 1, to: battlefield, reveal: false }
+                      - shuffle: { controller_of: { target: 0 } }
+                  then: { seq: [] }

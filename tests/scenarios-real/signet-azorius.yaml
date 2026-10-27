@@ -1,0 +1,13 @@
+scenario: mtg-scenario/1
+name: "Azorius Signet: pay {1} and tap for {W}{U}"
+cr: ["605.3a", "602.2b"]
+verifies: [Azorius Signet]
+players:
+  - battlefield: [Azorius Signet, Island]
+  - {}
+script:
+  - choose: "Activate Azorius Signet for {W}{U}"
+  - choose: Pay with Island
+expect:
+  pool: { P1: "{W}{U}" }
+  tapped: { Azorius Signet: true, Island: true }

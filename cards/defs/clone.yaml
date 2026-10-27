@@ -1,0 +1,6 @@
+card: Clone
+faces:
+  - abilities:
+      - replacement:
+          event: { would_enter: { this: true } }
+          instead: { enter_as_copy: { of: { types: [creature] }, except: {} } }

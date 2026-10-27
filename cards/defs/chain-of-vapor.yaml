@@ -1,0 +1,21 @@
+card: "Chain of Vapor"
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { object: { not_types: [land] } } }]
+          effect:
+            seq:
+              - move: { what: { one: { target: 0 } }, to: hand }
+              # "Then that permanent's controller may sacrifice a land of their choice.
+              # If the player does, they may copy this spell and may choose a new target."
+              - if_does:
+                  who: { controller_of: { target: 0 } }
+                  action:
+                    sacrifice:
+                      who: { controller_of: { target: 0 } }
+                      what: { chosen_from: { who: { controller_of: { target: 0 } }, zone: battlefield, filter: { types: [land] }, count: 1 } }
+                  then:
+                    if_does:
+                      who: { controller_of: { target: 0 } }
+                      action: { copy_spell: { what: { one: this }, new_targets: true, controller: { controller_of: { target: 0 } } } }
+                      then: { seq: [] }

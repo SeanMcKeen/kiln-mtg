@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: "Diabolic Intent: sacrifice a creature as an additional cost, then find any card"
+cr: ["118.8", "601.2h", "701.23a"]
+verifies: [Diabolic Intent]
+players:
+  - battlefield: [Swamp, Swamp, Grizzly Bears]
+    hand: [Diabolic Intent]
+    library: [Swamp, Lightning Bolt, Sol Ring, Grizzly Bears, Divination]
+  - {}
+script:
+  - choose: Cast Diabolic Intent
+  - choose: Pay with Swamp, Swamp
+  - check:
+      zones:
+        P1.graveyard: [Grizzly Bears]
+  - pass_all
+  - choose: Find Sol Ring
+expect:
+  zones:
+    P1.hand: [Sol Ring]

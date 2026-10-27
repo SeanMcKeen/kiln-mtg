@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: "Misty Rainforest fetches a Forest or Island card, including a dual land with those types"
+cr: ["602.2", "701.23b", "305.7"]
+verifies: [Misty Rainforest]
+players:
+  - battlefield: [Misty Rainforest]
+    library: [Plains, Island, Swamp, Mountain, Forest, Tropical Island]
+  - {}
+script:
+  - choose: Activate Misty Rainforest ability 1
+  - check:
+      life: { P1: 19 }
+  - pass_all
+  - check:
+      decision: { player: P1, kind: choose_card, options: [Stop, Find Island, Find Forest, Find Tropical Island] }
+  - choose: Find Tropical Island
+expect:
+  zones:
+    P1.battlefield: [Tropical Island]
+    P1.graveyard: [Misty Rainforest]

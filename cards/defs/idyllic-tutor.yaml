@@ -1,0 +1,8 @@
+card: Idyllic Tutor
+faces:
+  - abilities:
+      - spell:
+          effect:
+            seq:
+              - search: { who: you, filter: { types: [enchantment] }, count: 1, to: hand, reveal: true }
+              - shuffle: you

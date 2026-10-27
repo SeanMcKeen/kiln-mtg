@@ -1,0 +1,9 @@
+scenario: mtg-scenario/1
+name: If all remaining players lose simultaneously, the game is a draw
+cr: ["104.4a", "704.3", "704.5a"]
+players:
+  - life: 0
+  - life: 0
+turn: { number: 3, active: P1, step: precombat_main }
+expect:
+  result: draw

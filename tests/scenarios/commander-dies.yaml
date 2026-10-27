@@ -1,0 +1,22 @@
+scenario: mtg-scenario/1
+name: "A commander put into a graveyard may go to the command zone (a state-based action)"
+cr: ["903.9a", "704.6d"]
+players:
+  - battlefield: [Test Plains, Test Plains, Test Plains, Test Plains]
+    hand: [Test Reckoning]
+    commanders: [{ card: Test Commander, zone: battlefield }]
+  - {}
+script:
+  - choose: Cast Test Reckoning
+  - choose: Pay with Test Plains, Test Plains, Test Plains, Test Plains
+  - pass_all
+  - check:
+      decision:
+        player: P1
+        kind: commander_zone
+        options: [Leave Test Commander in graveyard, Put Test Commander into the command zone]
+  - choose: Put Test Commander into the command zone
+expect:
+  zones:
+    command: [Test Commander]
+    P1.graveyard: [Test Reckoning]

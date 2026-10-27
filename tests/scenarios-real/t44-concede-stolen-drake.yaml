@@ -1,0 +1,28 @@
+scenario: mtg-scenario/1
+name: "T44: a player concedes with a spell on the stack after a Gilded Drake exchange; their cards leave, control returns"
+cr: ["800.4a", "104.3a", "613.1b"]
+verifies: [Gilded Drake]
+players:
+  - battlefield: [Island, Island, Mountain]
+    hand: [Gilded Drake, Lightning Bolt]
+  - battlefield: [Test Ogre]
+  - {}
+script:
+  - choose: Cast Gilded Drake
+  - choose: Pay with Island, Island
+  - pass_all
+  - choose: Target Test Ogre (P2)
+  - pass_all
+  - choose: Cast Lightning Bolt
+  - choose: Target P3
+  - choose: Pay with Mountain
+  # P1 controls P2's Ogre; P2 controls P1's Drake. P1 concedes: P1's cards
+  # (the Drake, the Bolt on the stack) leave the game, and the effect giving
+  # P1 control of the Ogre ends.
+  - concede: P1
+expect:
+  result: in_progress
+  life: { P3: 20 }
+  zones:
+    stack: []
+    P2.battlefield: [Test Ogre]

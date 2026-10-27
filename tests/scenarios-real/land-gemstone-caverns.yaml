@@ -1,0 +1,26 @@
+scenario: mtg-scenario/1
+name: "Gemstone Caverns: not the starting player, begin the game with it on the battlefield with a luck counter, exiling a card; it taps for any color"
+cr: ["103.6", "103.6a", "122.1"]
+verifies: [Gemstone Caverns]
+players:
+  - hand: [Gemstone Caverns]
+  - hand: [Gemstone Caverns, Lightning Bolt]
+turn: { active: P1, step: pregame }
+script:
+  # The starting player (P1) can't take this action.
+  - check:
+      decision:
+        player: P2
+        kind: choose_card
+        options: [Stop, Begin the game with Gemstone Caverns]
+  - { player: P2, choose: Begin the game with Gemstone Caverns }
+  - check:
+      counters: { Gemstone Caverns: { luck: 1 } }
+      zones: { exile: [Lightning Bolt], P2.battlefield: [Gemstone Caverns], P1.hand: [Gemstone Caverns] }
+      step: upkeep
+  # In P1's upkeep, P2 gets priority and taps it: a luck counter means any color.
+  - pass: 1
+  - { player: P2, choose: Tap Gemstone Caverns for mana }
+  - { player: P2, choose: "Add {G}" }
+expect:
+  pool: { P2: "{G}" }

@@ -1,0 +1,23 @@
+scenario: mtg-scenario/1
+name: "Partners: Rograkh (no mana cost symbols, {0}; a red color indicator) is cast from the command zone, and the pair's identity is combined"
+cr: ["903.8", "702.124c", "903.4", "204.2"]
+verifies: ["Rograkh, Son of Rohgahh"]
+players:
+  - battlefield: [Command Tower]
+    commanders: ["Rograkh, Son of Rohgahh", "Thrasios, Triton Hero"]
+  - {}
+script:
+  - choose: Cast Rograkh, Son of Rohgahh
+  - pass_all
+  - choose: Tap Command Tower for mana
+  - check:
+      decision:
+        player: P1
+        kind: choose_mana
+        options: ["Add {U}", "Add {R}", "Add {G}"]
+  - choose: "Add {R}"
+expect:
+  zones:
+    command: ["Thrasios, Triton Hero"]
+    P1.battlefield: [Command Tower, "Rograkh, Son of Rohgahh"]
+  pool: { P1: "{R}" }

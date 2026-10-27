@@ -1,0 +1,6 @@
+card: Dispel
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { spell: { types: [instant] } } }]
+          effect: { counter: { one: { target: 0 } } }

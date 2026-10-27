@@ -1,0 +1,9 @@
+card: Marsh Flats
+faces:
+  - abilities:
+      - activated:
+          cost: [tap, { pay_life: 1 }, { sacrifice: { one: this } }]
+          effect:
+            seq:
+              - search: { who: you, filter: { subtypes: [Plains, Swamp] }, count: 1, to: battlefield, reveal: false }
+              - shuffle: you

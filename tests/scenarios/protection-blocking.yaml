@@ -1,0 +1,16 @@
+scenario: mtg-scenario/1
+name: An attacker with protection from red can't be blocked by red creatures
+cr: ["702.16f", "509.1b"]
+players:
+  - battlefield: [Test Paladin]
+  - battlefield: [Test Ogre, Test Bear]
+turn: { number: 3, active: P1, step: declare_attackers }
+script:
+  - choose: Test Paladin attacks P2
+  - pass_all
+  - check:
+      decision:
+        player: P2
+        kind: declare_blocker
+        options_include: ["Test Bear blocks Test Paladin (P1)"]
+        options_exclude: ["Test Ogre blocks Test Paladin (P1)"]

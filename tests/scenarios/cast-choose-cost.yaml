@@ -1,0 +1,26 @@
+scenario: mtg-scenario/1
+name: The caster chooses between the mana cost and an alternative cost
+cr: ["118.9a", "601.2b"]
+players:
+  - battlefield: [Test Mountain]
+    hand: [Test Bolt]
+  - battlefield: [Test Island, Test Island, Test Island, Test Island, Test Island]
+    hand: [Test Will, Test Insight]
+script:
+  - choose: Cast Test Bolt
+  - choose: Target P2
+  - choose: Pay with Test Mountain
+  - pass: 1
+  - choose: Cast Test Will
+    player: P2
+  - check:
+      decision: { player: P2, kind: choose_cost, options: [Pay the mana cost, Pay alternative cost 1] }
+  - choose: Pay the mana cost
+  - choose: Target Test Bolt
+  - choose: Pay with Test Island, Test Island, Test Island, Test Island, Test Island
+  - pass_all
+expect:
+  life: { P2: 20 }
+  zones:
+    P2.hand: [Test Insight]
+    P1.graveyard: [Test Bolt]

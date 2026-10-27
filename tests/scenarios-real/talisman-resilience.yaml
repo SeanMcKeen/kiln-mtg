@@ -1,0 +1,17 @@
+scenario: mtg-scenario/1
+name: "Talisman of Resilience: {C} for free, or {B} or {G} for 1 damage"
+cr: ["605.3a", "605.3b", "120.3"]
+verifies: [Talisman of Resilience]
+players:
+  - battlefield: [Talisman of Resilience]
+  - {}
+script:
+  - check:
+      decision: { player: P1, kind: priority, options_include: ["Tap Talisman of Resilience for {C}", Tap Talisman of Resilience for mana] }
+  - choose: Tap Talisman of Resilience for mana
+  - check:
+      decision: { player: P1, kind: choose_mana, options: ["Add {B}", "Add {G}"] }
+  - choose: "Add {G}"
+expect:
+  pool: { P1: "{G}" }
+  life: { P1: 19 }

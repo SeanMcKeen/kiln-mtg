@@ -1,0 +1,22 @@
+scenario: mtg-scenario/1
+name: An activated ability resolves even if its source leaves the battlefield
+cr: ["113.7a", "608.2h", "302.6"]
+players:
+  - battlefield: [Test Pinger]
+  - battlefield: [Test Swamp, Test Swamp, Test Swamp]
+    hand: [Test Murder]
+script:
+  - choose: Activate Test Pinger ability 1
+  - choose: Target P2
+  - pass: 1
+  - choose: Cast Test Murder
+    player: P2
+  - choose: Target Test Pinger (P1)
+  - choose: Pay with Test Swamp, Test Swamp, Test Swamp
+  - pass_all
+  - check:
+      zones:
+        P1.graveyard: [Test Pinger]
+  - pass_all
+expect:
+  life: { P2: 19 }

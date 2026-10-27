@@ -1,0 +1,22 @@
+scenario: mtg-scenario/1
+name: "Dark Ritual adds {B}{B}{B}, which pays for Murder"
+cr: ["106.4", "601.2h", "701.8a"]
+verifies: [Dark Ritual, Murder, Grizzly Bears]
+players:
+  - battlefield: [Swamp]
+    hand: [Dark Ritual, Murder]
+  - battlefield: [Grizzly Bears]
+script:
+  - choose: Cast Dark Ritual
+  - choose: Pay with Swamp
+  - pass_all
+  - check:
+      pool: { P1: "{B}{B}{B}" }
+  - choose: Cast Murder
+  - choose: Target Grizzly Bears (P2)
+  - choose: Pay with 3 from pool
+  - pass_all
+expect:
+  zones:
+    P2.graveyard: [Grizzly Bears]
+  pool: { P1: "" }

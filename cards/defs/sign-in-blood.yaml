@@ -1,0 +1,9 @@
+card: Sign in Blood
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { player: any } }]
+          effect:
+            seq:
+              - draw: { who: { target: 0 }, amount: 2 }
+              - lose_life: { who: { target: 0 }, amount: 2 }

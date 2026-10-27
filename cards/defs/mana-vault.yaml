@@ -1,0 +1,19 @@
+card: Mana Vault
+faces:
+  - abilities:
+      - static:
+          effect: { doesnt_untap: { this: true } }
+      - triggered:
+          trigger: { beginning_of: { step: upkeep, whose: you } }
+          effect:
+            if_does:
+              who: you
+              action: { pay: { who: you, cost: [{ mana: "{4}" }] } }
+              then: { untap: { one: this } }
+      - triggered:
+          trigger: { beginning_of: { step: draw, whose: you } }
+          condition: this_tapped
+          effect: { deal_damage: { to: { player: you }, amount: 1 } }
+      - activated:
+          cost: [tap]
+          effect: { add_mana: { mana: { fixed: "{C}{C}{C}" } } }

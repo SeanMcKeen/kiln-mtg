@@ -1,0 +1,1027 @@
+# Made-up cards (not real Magic cards) that exercise the M3 effect
+# interpreter. Each one covers one interpreter path; CR-cited scenarios in
+# tests/scenarios/ use them. Loaded by `CardPool::m3_test_set`, appended after
+# the frozen M2 test set.
+
+- name: Test Tutor
+  cost: "{1}{B}"
+  types: Sorcery
+  abilities:
+    - spell:
+        effect:
+          seq:
+            - search: { who: you, filter: {}, count: 1, to: hand, reveal: false }
+            - shuffle: you
+
+- name: Test Land Seeker
+  cost: "{G}"
+  types: Sorcery
+  abilities:
+    - spell:
+        effect:
+          seq:
+            - search: { who: you, filter: { types: [land], supertypes: [basic] }, count: 1, to: battlefield, reveal: true }
+            - shuffle: you
+
+- name: Test Seal
+  cost: "{B}"
+  types: Sorcery
+  abilities:
+    - spell:
+        effect: { search: { who: you, filter: {}, count: 1, to: top_of_library, reveal: false } }
+
+- name: Test Scry
+  cost: "{U}"
+  types: Instant
+  abilities:
+    - spell:
+        effect:
+          seq:
+            - scry: { who: you, amount: 2 }
+            - draw: { who: you, amount: 1 }
+
+- name: Test Ponder
+  cost: "{U}"
+  types: Sorcery
+  abilities:
+    - spell:
+        effect:
+          seq:
+            - look_at_top: { who: you, count: 3, rest: top_any_order }
+            - may: { shuffle: you }
+            - draw: { who: you, amount: 1 }
+
+- name: Test Brainstorm
+  cost: "{U}"
+  types: Instant
+  abilities:
+    - spell:
+        effect:
+          seq:
+            - draw: { who: you, amount: 3 }
+            - move_cards: { who: you, from: hand, count: 2, to: top_of_library }
+
+- name: Test Windfall
+  cost: "{2}{U}"
+  types: Sorcery
+  abilities:
+    - spell:
+        effect:
+          seq:
+            - for_each_player: { players: any, effect: { discard: { who: each, what: hand } } }
+            - for_each_player: { players: any, effect: { draw: { who: each, amount: most_discarded_this_way } } }
+
+- name: Test Exile
+  cost: "{W}"
+  types: Instant
+  abilities:
+    - spell:
+        targets: [{ what: { object: { types: [creature] } } }]
+        effect:
+          seq:
+            - exile: { what: { one: { target: 0 } } }
+            - gain_life: { who: { controller_of: { target: 0 } }, amount: { power_of: { target: 0 } } }
+
+- name: Test Ritual
+  cost: "{B}"
+  types: Instant
+  abilities:
+    - spell:
+        effect: { add_mana: { mana: { fixed: "{B}{B}{B}" } } }
+
+- name: Test Prism
+  cost: "{1}"
+  types: Instant
+  abilities:
+    - spell:
+        effect: { add_mana: { mana: { any_color: 1 } } }
+
+- name: Test Tax
+  cost: "{1}{U}"
+  types: Instant
+  abilities:
+    - spell:
+        targets: [{ what: { player: any } }]
+        effect:
+          unless:
+            payer: { target: 0 }
+            cost: [{ mana: "{2}" }]
+            effect: { lose_life: { who: { target: 0 }, amount: 3 } }
+
+- name: Test Consult
+  cost: "{B}"
+  types: Instant
+  abilities:
+    - spell:
+        effect:
+          seq:
+            - choose: { what: card_name, store: name }
+            - exile: { what: { top_of_library: { owner: you, count: 2 } } }
+            - reveal_until: { who: you, filter: { named: name }, found_to: hand, rest_to: exile }
+
+- name: Test Gamble
+  cost: "{R}"
+  types: Sorcery
+  abilities:
+    - spell:
+        effect:
+          seq:
+            - search: { who: you, filter: {}, count: 1, to: hand, reveal: false }
+            - discard: { who: you, what: { random: 1 } }
+            - shuffle: you
+
+- name: Test Growth
+  cost: "{G}"
+  types: Instant
+  abilities:
+    - spell:
+        targets: [{ what: { object: { types: [creature] } } }]
+        effect: { pump: { what: { one: { target: 0 } }, power: 3, toughness: 3 } }
+
+- name: Test Purge
+  cost: "{2}{B}"
+  types: Sorcery
+  abilities:
+    - spell:
+        effect:
+          for_each_player:
+            players: any
+            effect:
+              sacrifice:
+                who: each
+                what: { chosen_from: { who: each, zone: battlefield, filter: { types: [creature] }, count: 1 } }
+
+- name: Test Mind Rot
+  cost: "{2}{B}"
+  types: Sorcery
+  abilities:
+    - spell:
+        targets: [{ what: { player: any } }]
+        effect: { discard: { who: { target: 0 }, what: { chosen: { count: 2 } } } }
+
+- name: Test Ascension
+  cost: "{5}"
+  types: Sorcery
+  abilities:
+    - spell:
+        effect:
+          if:
+            condition: { at_least: [{ count: { types: [creature], controller: you } }, 3] }
+            then: { win_game: you }
+
+- name: Test Reckoning
+  cost: "{2}{W}{W}"
+  types: Sorcery
+  abilities:
+    - spell:
+        effect: { destroy: { all: { types: [creature] } } }
+
+- name: Test Bounce
+  cost: "{1}{U}"
+  types: Instant
+  abilities:
+    - spell:
+        targets: [{ what: { object: { types: [creature] } } }]
+        effect: { move: { what: { one: { target: 0 } }, to: hand } }
+
+- name: Test Bargain
+  cost: "{B}"
+  types: Sorcery
+  abilities:
+    - spell:
+        effect:
+          if_does:
+            who: you
+            action: { discard: { who: you, what: { chosen: { count: 1 } } } }
+            then: { draw: { who: you, amount: 2 } }
+
+- name: Test Seer
+  cost: "{2}{U}"
+  types: Sorcery
+  abilities:
+    - spell:
+        effect:
+          look_at_top:
+            who: you
+            count: 4
+            take: { filter: { types: [creature] }, up_to: 1, to: hand }
+            rest: bottom_random
+
+- name: Test Sign
+  cost: "{B}{B}"
+  types: Sorcery
+  abilities:
+    - spell:
+        targets: [{ what: { player: any } }]
+        effect:
+          seq:
+            - draw: { who: { target: 0 }, amount: 2 }
+            - lose_life: { who: { target: 0 }, amount: 2 }
+
+# ---- casting (M3 B3) and keywords (M3 B5) ------------------------------------
+
+- name: Test Charm
+  cost: "{R}"
+  types: Instant
+  abilities:
+    - spell:
+        targets: [{ what: any }]
+        effect:
+          modal:
+            min: 1
+            max: 1
+            modes:
+              - deal_damage: { to: { target: 0 }, amount: 2 }
+              - draw: { who: you, amount: 1 }
+
+- name: Test Command
+  cost: "{2}{B}"
+  types: Instant
+  abilities:
+    - spell:
+        targets: [{ what: { object: { types: [creature] } } }, { what: { player: any } }]
+        effect:
+          modal:
+            min: 2
+            max: 2
+            modes:
+              - destroy: { one: { target: 0 } }
+              - draw: { who: { target: 1 }, amount: 2 }
+              - gain_life: { who: you, amount: 3 }
+
+- name: Test Counterspell
+  cost: "{U}{U}"
+  types: Instant
+  abilities:
+    - spell:
+        targets: [{ what: { spell: {} } }]
+        effect: { counter: { one: { target: 0 } } }
+
+- name: Test Pierce
+  cost: "{U}"
+  types: Instant
+  abilities:
+    - spell:
+        targets: [{ what: { spell: { not_types: [creature] } } }]
+        effect:
+          unless:
+            payer: { controller_of: { target: 0 } }
+            cost: [{ mana: "{2}" }]
+            effect: { counter: { one: { target: 0 } } }
+
+- name: Test Will
+  cost: "{3}{U}{U}"
+  types: Instant
+  abilities:
+    - spell:
+        targets: [{ what: { spell: {} } }]
+        alternative_costs: [{ cost: [{ pay_life: 1 }, { exile_from_hand: { color: U } }] }]
+        effect: { counter: { one: { target: 0 } } }
+
+- name: Test Probe
+  cost: "{U/P}"
+  types: Sorcery
+  abilities:
+    - spell:
+        effect: { draw: { who: you, amount: 1 } }
+
+- name: Test Flare
+  cost: "{R/G}"
+  types: Instant
+  abilities:
+    - spell:
+        targets: [{ what: any }]
+        effect: { deal_damage: { to: { target: 0 }, amount: 2 } }
+
+- name: Test Fireball
+  cost: "{X}{R}"
+  types: Sorcery
+  abilities:
+    - spell:
+        targets: [{ what: any }]
+        effect: { deal_damage: { to: { target: 0 }, amount: x } }
+
+- name: Test Offering
+  cost: "{1}{B}"
+  types: Sorcery
+  abilities:
+    - spell:
+        additional_costs:
+          - sacrifice: { chosen_from: { who: you, zone: battlefield, filter: { types: [creature] }, count: 1 } }
+        effect: { draw: { who: you, amount: 3 } }
+
+- name: Test Volley
+  cost: "{1}{R}"
+  types: Instant
+  abilities:
+    - spell:
+        targets: [{ what: { object: { types: [creature] } }, up_to: 2 }]
+        effect: { deal_damage: { to: { target: 0 }, amount: 1 } }
+
+- name: Test Decay
+  cost: "{B}{G}"
+  types: Instant
+  abilities:
+    - static: { effect: { rule: cant_be_countered } }
+    - spell:
+        targets: [{ what: { object: { types: [creature] } } }]
+        effect: { destroy: { one: { target: 0 } } }
+
+- name: Test Hexproof Bear
+  cost: "{1}{G}"
+  types: Creature — Bear
+  pt: [2, 2]
+  abilities: [{ keyword: hexproof }]
+
+- name: Test Shroud Bear
+  cost: "{1}{G}"
+  types: Creature — Bear
+  pt: [2, 2]
+  abilities: [{ keyword: shroud }]
+
+- name: Test Flash Bear
+  cost: "{1}{G}"
+  types: Creature — Bear
+  pt: [2, 2]
+  abilities: [{ keyword: flash }]
+
+- name: Test Guardian
+  cost: "{3}"
+  types: Artifact Creature — Golem
+  pt: [1, 1]
+  abilities: [{ keyword: indestructible }]
+
+# ---- activated and mana abilities (M3 B4) ------------------------------------
+
+- name: Test Rock
+  cost: "{1}"
+  types: Artifact
+  abilities:
+    - activated: { cost: [tap], effect: { add_mana: { mana: { fixed: "{C}{C}" } } } }
+
+- name: Test Prism Bird
+  cost: "{G}"
+  types: Creature — Bird
+  pt: [0, 1]
+  abilities:
+    - keyword: flying
+    - activated: { cost: [tap], effect: { add_mana: { mana: { any_color: 1 } } } }
+
+- name: Test Petal
+  cost: "{0}"
+  types: Artifact
+  abilities:
+    - activated: { cost: [tap, { sacrifice: { one: this } }], effect: { add_mana: { mana: { any_color: 1 } } } }
+
+- name: Test Tomb
+  types: Land
+  abilities:
+    - activated:
+        cost: [tap]
+        effect:
+          seq:
+            - add_mana: { mana: { fixed: "{C}{C}" } }
+            - deal_damage: { to: { player: you }, amount: 2 }
+
+- name: Test Confluence
+  types: Land
+  abilities:
+    - activated: { cost: [tap, { pay_life: 1 }], effect: { add_mana: { mana: { any_color: 1 } } } }
+
+- name: Test Signet
+  cost: "{2}"
+  types: Artifact
+  abilities:
+    - activated: { cost: [{ mana: "{1}" }, tap], effect: { add_mana: { mana: { fixed: "{W}{U}" } } } }
+
+- name: Test Fetch
+  types: Land
+  abilities:
+    - activated:
+        cost: [tap, { pay_life: 1 }, { sacrifice: { one: this } }]
+        effect:
+          seq:
+            - search: { who: you, filter: { types: [land], subtypes: [Forest, Island] }, count: 1, to: battlefield, reveal: false }
+            - shuffle: you
+
+- name: Test Pinger
+  cost: "{1}{R}"
+  types: Creature — Goblin
+  pt: [1, 1]
+  abilities:
+    - activated: { cost: [tap], targets: [{ what: any }], effect: { deal_damage: { to: { target: 0 }, amount: 1 } } }
+
+- name: Test Totem
+  cost: "{1}"
+  types: Artifact
+  abilities:
+    - activated: { cost: [{ mana: "{2}" }], timing: sorcery, effect: { draw: { who: you, amount: 1 } } }
+    - activated: { cost: [{ mana: "{1}" }], once_per_turn: true, effect: { gain_life: { who: you, amount: 1 } } }
+
+# ---- counters and tokens (M3 B6) ---------------------------------------------
+
+- name: Test Treasure Maker
+  cost: "{1}{R}"
+  types: Sorcery
+  abilities:
+    - spell:
+        effect: { create_token: { token: { predefined: Treasure }, count: 2, controller: you } }
+
+- name: Test Clue Maker
+  cost: "{U}"
+  types: Instant
+  abilities:
+    - spell:
+        effect: { create_token: { token: { predefined: Clue }, count: 1, controller: you } }
+
+- name: Test Beast Gift
+  cost: "{G}"
+  types: Instant
+  abilities:
+    - spell:
+        targets: [{ what: { object: { types: [artifact] } } }]
+        effect:
+          seq:
+            - destroy: { one: { target: 0 } }
+            - create_token:
+                token: { creature: { power: 3, toughness: 3, colors: G, subtypes: [Beast] } }
+                count: 1
+                controller: { controller_of: { target: 0 } }
+
+- name: Test Growth Counter
+  cost: "{G}"
+  types: Sorcery
+  abilities:
+    - spell:
+        targets: [{ what: { object: { types: [creature] } } }]
+        effect: { put_counters: { what: { one: { target: 0 } }, counter: "+1/+1", amount: 2 } }
+
+- name: Test Wither
+  cost: "{B}"
+  types: Instant
+  abilities:
+    - spell:
+        targets: [{ what: { object: { types: [creature] } } }]
+        effect: { put_counters: { what: { one: { target: 0 } }, counter: "-1/-1", amount: 2 } }
+
+- name: Test Battery
+  cost: "{1}"
+  types: Artifact
+  abilities:
+    - activated: { cost: [tap], effect: { put_counters: { what: { one: this }, counter: charge, amount: 1 } } }
+    - activated: { cost: [{ remove_counters: { counter: charge, amount: 1 } }], effect: { gain_life: { who: you, amount: 2 } } }
+
+# ---- plain objects for searches (M3 B8) --------------------------------------
+
+- name: Test Enchantment
+  cost: "{1}{W}"
+  types: Enchantment
+
+- name: Test Blade
+  cost: "{1}"
+  types: Artifact — Equipment
+
+# ---- triggered abilities (M4 4.1) --------------------------------------------
+
+- name: Test Watcher
+  cost: "{1}{U}"
+  types: Enchantment
+  abilities:
+    - triggered:
+        trigger: { cast: { by: opponent, spell: {} } }
+        effect: { may: { draw: { who: you, amount: 1 } } }
+
+- name: Test Leech
+  cost: "{1}{B}"
+  types: Enchantment
+  abilities:
+    - triggered:
+        trigger: { cast: { by: opponent, spell: {} } }
+        effect: { lose_life: { who: triggering, amount: 1 } }
+
+- name: Test Herald
+  cost: "{2}{W}"
+  types: Creature — Human Soldier
+  pt: [2, 2]
+  abilities:
+    - triggered:
+        trigger: { enters: { this: true } }
+        targets: [{ what: { player: opponent } }]
+        effect: { lose_life: { who: { target: 0 }, amount: 2 } }
+
+- name: Test Breaker
+  cost: "{1}{G}"
+  types: Creature — Elf
+  pt: [1, 1]
+  abilities:
+    - triggered:
+        trigger: { enters: { this: true } }
+        targets: [{ what: { object: { types: [artifact] } } }]
+        effect: { destroy: { one: { target: 0 } } }
+
+- name: Test Martyr
+  cost: "{1}{B}"
+  types: Creature — Human
+  pt: [1, 1]
+  abilities:
+    - triggered:
+        trigger: { dies: { this: true } }
+        effect: { draw: { who: you, amount: 1 } }
+
+- name: Test Mourner
+  cost: "{1}{B}"
+  types: Creature — Zombie
+  pt: [1, 1]
+  abilities:
+    - triggered:
+        trigger: { dies: { types: [creature], other: true } }
+        effect: { gain_life: { who: you, amount: 1 } }
+
+- name: Test Tactician
+  cost: "{2}{U}"
+  types: Enchantment
+  abilities:
+    - triggered:
+        trigger: { beginning_of: { step: upkeep, whose: you } }
+        condition: { at_least: [{ count: { types: [creature], controller: you } }, 2] }
+        effect: { draw: { who: you, amount: 1 } }
+
+- name: Test Archer Lord
+  cost: "{1}{B}"
+  types: Creature — Orc
+  pt: [1, 1]
+  abilities:
+    - triggered:
+        trigger: { draws: { by: opponent, except_first_in_draw_step: true } }
+        effect: { gain_life: { who: you, amount: 1 } }
+
+# ---- delayed triggers, mana triggers, cumulative upkeep, amass (M4 4.2) -----
+
+- name: Test Pact
+  cost: "{0}"
+  types: Instant
+  abilities:
+    - spell:
+        effect:
+          seq:
+            - draw: { who: you, amount: 1 }
+            - delayed:
+                at: { beginning_of: { step: upkeep, whose: you } }
+                effect:
+                  unless:
+                    payer: you
+                    cost: [{ mana: "{1}" }]
+                    effect: { lose_game: you }
+
+- name: Test Drain
+  cost: "{U}"
+  types: Instant
+  abilities:
+    - spell:
+        targets: [{ what: { spell: {} } }]
+        effect:
+          seq:
+            - counter: { one: { target: 0 } }
+            - delayed:
+                at: { beginning_of: { step: main, whose: you } }
+                effect: { add_mana: { mana: { colorless: { mana_value_of: { target: 0 } } } } }
+
+- name: Test Bonder
+  cost: "{G}{U}"
+  types: Creature — Human Druid
+  pt: [2, 2]
+  abilities:
+    - triggered:
+        trigger: { taps_for_mana: { by: you, what: { not_types: [land] } } }
+        effect: { add_mana: { mana: type_produced_by_trigger } }
+
+- name: Test Hoarder
+  cost: "{U}"
+  types: Enchantment
+  abilities:
+    - keyword: { cumulative_upkeep: [{ mana: "{1}" }] }
+
+- name: Test Muster
+  cost: "{B}"
+  types: Sorcery
+  abilities:
+    - spell: { effect: { amass: { subtype: Zombie, amount: 2 } } }
+
+- name: Test Sentinel
+  cost: "{W}"
+  types: Artifact Creature — Soldier
+  pt: [2, 2]
+  abilities:
+    - triggered:
+        trigger: { cast: { by: opponent, spell: { not_types: [creature] }, first_each_turn: true } }
+        effect:
+          unless:
+            payer: triggering
+            cost: [{ mana_repeated: { mana: "{1}", times: { power_of: this } } }]
+            effect: { draw: { who: you, amount: 1 } }
+
+# ---- replacement effects and rule statics (M4 4.3) ---------------------------
+
+- name: Test Tapland
+  types: Land
+  abilities:
+    - replacement: { event: { would_enter: { this: true } }, instead: enters_tapped }
+    - activated: { cost: [tap], effect: { add_mana: { mana: { one_of: ["{W}", "{U}"] } } } }
+
+- name: Test Frost Orb
+  cost: "{2}"
+  types: Artifact
+  abilities:
+    - replacement:
+        event: { would_enter: { types: [creature], controller: opponent } }
+        instead: enters_tapped
+
+- name: Test Thief
+  cost: "{2}{U}{B}"
+  types: Creature — Human Rogue
+  pt: [3, 1]
+  abilities:
+    - replacement:
+        event: { would_draw: { by: opponent, except_first_in_draw_step: true } }
+        instead: { draw: { who: you, amount: 1 } }
+
+- name: Test Maniac
+  cost: "{2}{U}"
+  types: Creature — Human Wizard
+  pt: [2, 2]
+  abilities:
+    - replacement:
+        event: { would_draw: { by: you } }
+        condition: { not: { at_least: [{ cards_in_library: you }, 1] } }
+        instead: { win_game: you }
+
+- name: Test Abstainer
+  cost: "{B}"
+  types: Enchantment
+  abilities:
+    - static: { effect: { skip_step: { who: you, step: draw } } }
+
+- name: Test Vault
+  cost: "{1}"
+  types: Artifact
+  abilities:
+    - static: { effect: { doesnt_untap: { this: true } } }
+    - activated: { cost: [tap], effect: { add_mana: { mana: { fixed: "{C}{C}{C}" } } } }
+
+- name: Test Diamond
+  cost: "{0}"
+  types: Artifact
+  abilities:
+    - replacement:
+        event: { would_enter: { this: true } }
+        instead:
+          if_does:
+            who: you
+            action: { pay: { who: you, cost: [{ discard: { chosen: { count: 1, filter: { types: [land] } } } }] } }
+            then: { move: { what: { one: this }, to: battlefield } }
+            otherwise: { move: { what: { one: this }, to: graveyard } }
+
+- name: Test Hoard Seer
+  cost: "{B}"
+  types: Sorcery
+  abilities:
+    - spell:
+        effect:
+          exile: { what: { top_of_library: { owner: you, count: 1 } }, face_down: true }
+
+# ---- ward and protection (M4 4.4) --------------------------------------------
+
+- name: Test Warden
+  cost: "{1}{U}"
+  types: Creature — Spirit
+  pt: [1, 1]
+  abilities:
+    - keyword: { ward: [{ mana: "{2}" }] }
+
+- name: Test Pinger
+  cost: "{1}{R}"
+  types: Creature — Goblin
+  pt: [1, 1]
+  abilities:
+    - activated:
+        cost: [tap]
+        targets: [{ what: any }]
+        effect: { deal_damage: { to: { target: 0 }, amount: 1 } }
+
+- name: Test Paladin
+  cost: "{1}{W}"
+  types: Creature — Human Knight
+  pt: [2, 2]
+  abilities:
+    - keyword: { protection: { color: R } }
+
+# ---- copies, free casts, linked abilities (M4 4.6) ----------------------------
+
+- name: Test Scepter
+  cost: "{2}"
+  types: Artifact
+  abilities:
+    - triggered:
+        trigger: { enters: { this: true } }
+        effect:
+          may:
+            exile:
+              what: { chosen_from: { who: you, zone: hand, filter: { types: [instant], max_mana_value: 2 }, count: 1 } }
+              remember: imprinted
+    - activated:
+        cost: [{ mana: "{2}" }, tap]
+        effect:
+          may:
+            seq:
+              - copy_card: { what: { one: { remembered: imprinted } }, remember: copy }
+              - may: { cast: { what: { one: { remembered: copy } }, without_paying: true } }
+
+# ---- loops and shortcuts (M4 4.7) ----------------------------------------------
+
+- name: Test Reversal
+  cost: "{1}{U}"
+  types: Instant
+  abilities:
+    - spell: { effect: { untap: { all: { not_types: [land], controller: you } } } }
+
+- name: Test Mirror
+  cost: "{2}{W}"
+  types: Enchantment
+  abilities:
+    - triggered:
+        trigger: { gains_life: { by: you } }
+        effect: { for_each_player: { players: opponent, effect: { gain_life: { who: each, amount: 1 } } } }
+
+- name: Test Bond
+  cost: "{3}{B}{B}"
+  types: Enchantment
+  abilities:
+    - triggered:
+        trigger: { gains_life: { by: you } }
+        targets: [{ what: { player: opponent } }]
+        effect: { lose_life: { who: { target: 0 }, amount: triggering_amount } }
+
+- name: Test Blood
+  cost: "{4}{B}"
+  types: Enchantment
+  abilities:
+    - triggered:
+        trigger: { loses_life: { by: opponent } }
+        effect: { gain_life: { who: you, amount: triggering_amount } }
+
+# ---- layers and rule statics (M5 5.2) ----------------------------------------
+
+- name: Test Moon
+  cost: "{2}{R}"
+  types: Enchantment
+  abilities:
+    - static:
+        effect: { land_type: { affected: { types: [land], not_supertypes: [basic] }, land_type: Mountain, replace: true } }
+
+- name: Test Crypt
+  types: Legendary Land
+  abilities:
+    - static:
+        effect: { land_type: { affected: { types: [land] }, land_type: Swamp, replace: false } }
+
+- name: Test Humbler
+  cost: "{2}{W}{W}"
+  types: Enchantment
+  abilities:
+    - static:
+        effect:
+          multi:
+            - lose_all_abilities: { affected: { types: [creature] } }
+            - set_base_pt: { affected: { types: [creature] }, power: { fixed: 1 }, toughness: { fixed: 1 } }
+
+- name: Test Opal
+  cost: "{2}{W}{W}"
+  types: Enchantment
+  abilities:
+    - static:
+        effect:
+          multi:
+            - add_types: { affected: { types: [enchantment], not_subtypes: [Aura], other: true }, types: [creature] }
+            - set_base_pt:
+                affected: { types: [enchantment], not_subtypes: [Aura], other: true }
+                power: mana_value
+                toughness: mana_value
+
+- name: Test Anthem
+  cost: "{1}{W}{W}"
+  types: Enchantment
+  abilities:
+    - static: { effect: { pump: { affected: { types: [creature], controller: you }, power: 1, toughness: 1 } } }
+
+- name: Test Orb
+  cost: "{2}"
+  types: Artifact
+  abilities:
+    - static: { effect: { rule: creatures_entering_dont_trigger } }
+
+- name: Test Abolisher
+  cost: "{W}"
+  types: Creature — Human Cleric
+  pt: [1, 1]
+  abilities:
+    - static:
+        condition: your_turn
+        effect: { cant_cast: { who: opponent, spells: {} } }
+    - static:
+        condition: your_turn
+        effect: { cant_activate: { who: opponent, sources: { types: [artifact, creature, enchantment] } } }
+
+# ---- copy effects (M5 5.3) -----------------------------------------------------
+
+- name: Test Mimic
+  cost: "{1}{U}"
+  types: Creature — Shapeshifter
+  pt: [0, 0]
+  abilities:
+    - replacement:
+        event: { would_enter: { this: true } }
+        instead:
+          enter_as_copy:
+            of: { types: [creature] }
+            except:
+              subtypes: [Illusion]
+              abilities:
+                - triggered:
+                    trigger: { becomes_target: { by: any, what: { this: true } } }
+                    effect: { sacrifice: { who: you, what: { one: this } } }
+
+- name: Test Reflection
+  cost: "{2}{R}"
+  types: Sorcery
+  abilities:
+    - spell:
+        targets: [{ what: { object: { types: [creature] } } }]
+        effect:
+          create_token_copy:
+            of: { one: { target: 0 } }
+            except: { abilities: [{ keyword: haste }] }
+
+- name: Test Echo Mage
+  cost: "{1}{R}{R}"
+  types: Creature — Human Wizard
+  pt: [2, 2]
+  abilities:
+    - keyword: flash
+    - triggered:
+        trigger: { enters: { this: true } }
+        targets: [{ what: { spell: { types: [instant, sorcery] } } }]
+        effect: { copy_spell: { what: { one: { target: 0 } }, new_targets: true } }
+
+# ---- control (M5 5.4) ----------------------------------------------------------
+
+- name: Test Usurper
+  cost: "{4}{R}"
+  types: Creature — Human Warrior
+  pt: [3, 3]
+  abilities:
+    - keyword: haste
+    - triggered:
+        trigger: { enters: { this: true } }
+        targets: [{ what: { object: {} } }]
+        effect:
+          seq:
+            - gain_control: { what: { one: { target: 0 } }, until_end_of_turn: true }
+            - untap: { one: { target: 0 } }
+            - gain_keyword: { what: { one: { target: 0 } }, keyword: haste }
+
+- name: Test Overseer
+  cost: "{1}{U}{B}"
+  types: Creature — Human Rogue
+  pt: [3, 2]
+  abilities:
+    - keyword: flash
+    - static: { effect: { rule: control_opponents_while_searching } }
+    - replacement:
+        event: { would_find_while_searching: opponent }
+        instead: { exile: { what: { one: triggering }, remember: found } }
+    - static: { effect: { rule: { may_play_exiled_with_this: { any_color_mana: true } } } }
+
+# ---- attachments (M5 5.5) --------------------------------------------------------
+
+- name: Test Blessing
+  cost: "{W}"
+  types: Enchantment — Aura
+  abilities:
+    - keyword: { enchant: { object: { types: [creature] } } }
+    - static: { effect: { pump: { affected: { attached: true }, power: 1, toughness: 1 } } }
+
+- name: Test Sword
+  cost: "{1}"
+  types: Artifact — Equipment
+  abilities:
+    - static: { effect: { pump: { affected: { attached: true }, power: 2, toughness: 0 } } }
+    - keyword: { equip: [{ mana: "{1}" }] }
+
+# ---- phasing, player rules, enters-with-counters (M5 5.6) ----------------------
+
+- name: Test Shelter
+  cost: "{W}"
+  types: Instant
+  abilities:
+    - spell:
+        effect:
+          seq:
+            - player_rule: { who: you, rule: life_cant_change }
+            - player_rule: { who: you, rule: protection_from_everything }
+            - phase_out: { what: { all: { controller: you } } }
+            - exile: { what: { one: this } }
+
+- name: Test Ballista
+  cost: "{X}{X}"
+  types: Artifact Creature — Construct
+  pt: [0, 0]
+  abilities:
+    - replacement:
+        event: { would_enter: { this: true } }
+        instead: { enters_with_counters: { counter: +1/+1, amount: x } }
+    - activated:
+        cost: [{ remove_counters: { counter: +1/+1, amount: 1 } }]
+        targets: [{ what: any }]
+        effect: { deal_damage: { to: { target: 0 }, amount: 1 } }
+
+# ---- layer torture suite (M5 5.7) -----------------------------------------------
+
+- name: Test Rally
+  cost: "{R}"
+  types: Sorcery
+  abilities:
+    - spell:
+        effect: { gain_keyword: { what: { all: { types: [creature], controller: you } }, keyword: haste } }
+
+# ---- Commander (M6 6.1) ----------------------------------------------------------
+
+- name: Test Commander
+  cost: "{1}{G}"
+  types: Legendary Creature — Elf Druid
+  pt: [2, 2]
+
+- name: Test Titan
+  cost: "{G}"
+  types: Legendary Creature — Giant
+  pt: [21, 21]
+
+- name: Test Partner Red
+  cost: "{R}"
+  types: Legendary Creature — Goblin
+  pt: [11, 1]
+  abilities:
+    - keyword: partner
+    - keyword: haste
+
+- name: Test Partner Blue
+  cost: "{U}"
+  types: Legendary Creature — Merfolk
+  pt: [10, 1]
+  abilities:
+    - keyword: partner
+    - keyword: haste
+
+- name: Test Tower
+  types: Land
+  abilities:
+    - activated: { cost: [tap], effect: { add_mana: { mana: commander_identity } } }
+
+- name: Test Guardianship
+  cost: "{2}{U}"
+  types: Instant
+  abilities:
+    - spell:
+        targets: [{ what: { spell: { not_types: [creature] } } }]
+        alternative_costs: [{ cost: [], condition: control_commander }]
+        effect: { counter: { one: { target: 0 } } }
+
+- name: Test Tuck
+  cost: "{U}"
+  types: Instant
+  abilities:
+    - spell:
+        targets: [{ what: { object: { types: [creature] } } }]
+        effect: { move: { what: { one: { target: 0 } }, to: top_of_library } }
+
+# ---- casting (M6 6.4) ------------------------------------------------------------
+
+- name: Test Kicker Bolt
+  cost: "{R}"
+  types: Instant
+  abilities:
+    - keyword: { kicker: [{ mana: "{2}" }] }
+    - spell:
+        targets: [{ what: any }]
+        effect:
+          if:
+            condition: kicked
+            then: { deal_damage: { to: { target: 0 }, amount: 4 } }
+            otherwise: { deal_damage: { to: { target: 0 }, amount: 2 } }
+
+- name: Test Split Second
+  cost: "{W}"
+  types: Instant
+  abilities:
+    - keyword: split_second
+    - spell:
+        effect: { draw: { who: you, amount: 1 } }

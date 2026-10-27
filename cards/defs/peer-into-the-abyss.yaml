@@ -1,0 +1,9 @@
+card: "Peer into the Abyss"
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { player: any } }]
+          effect:
+            seq:
+              - draw: { who: { target: 0 }, amount: { half_rounded_up: { cards_in_library: { target: 0 } } } }
+              - lose_life: { who: { target: 0 }, amount: { half_rounded_up: { life_of: { target: 0 } } } }

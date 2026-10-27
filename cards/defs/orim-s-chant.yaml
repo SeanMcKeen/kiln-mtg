@@ -1,0 +1,15 @@
+card: "Orim's Chant"
+faces:
+  - abilities:
+      - keyword: { kicker: [{ mana: "{W}" }] }
+      - spell:
+          targets: [{ what: { player: any } }]
+          effect:
+            seq:
+              - player_rule: { who: { target: 0 }, rule: cant_cast_spells, until_end_of_turn: true }
+              - if:
+                  condition: kicked
+                  then:
+                    for_each_player:
+                      players: any
+                      effect: { player_rule: { who: each, rule: creatures_cant_attack, until_end_of_turn: true } }

@@ -1,0 +1,12 @@
+card: "Allosaurus Shepherd"
+faces:
+  - abilities:
+      - static: { effect: { rule: cant_be_countered } }
+      - static: { effect: { spells_cant_be_countered: { spells: { color: G, controller: you } } } }
+      - activated:
+          cost: [{ mana: "{4}{G}{G}" }]
+          effect:
+            become:
+              what: { all: { types: [creature], subtypes: [Elf], controller: you } }
+              base_pt: [5, 5]
+              add_subtypes: [Dinosaur]

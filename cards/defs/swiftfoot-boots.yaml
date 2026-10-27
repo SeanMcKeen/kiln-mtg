@@ -1,0 +1,6 @@
+card: Swiftfoot Boots
+faces:
+  - abilities:
+      - static: { effect: { grant: { affected: { attached: true }, keyword: hexproof } } }
+      - static: { effect: { grant: { affected: { attached: true }, keyword: haste } } }
+      - keyword: { equip: [{ mana: "{1}" }] }

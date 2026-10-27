@@ -1,0 +1,11 @@
+scenario: mtg-scenario/1
+name: "Two multi-layer statics: with the mana-value setter older, the 1/1 setter applies last in 7b"
+cr: ["613.6", "613.7", "613.4b"]
+players:
+  - battlefield: [Test Opal, Test Humbler, Test Bear]
+  - {}
+expect:
+  pt:
+    Test Humbler: [1, 1]
+    Test Bear: [1, 1]
+    Test Opal: null

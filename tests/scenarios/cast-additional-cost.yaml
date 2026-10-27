@@ -1,0 +1,22 @@
+scenario: mtg-scenario/1
+name: An additional cost (sacrifice a creature) is paid while casting
+cr: ["118.8", "601.2h", "701.21a"]
+players:
+  - battlefield: [Test Swamp, Test Wastes, Test Bear, Test Ogre]
+    hand: [Test Offering]
+  - {}
+script:
+  - choose: Cast Test Offering
+  - choose: Pay with Test Swamp, Test Wastes
+  - check:
+      decision: { player: P1, kind: choose_card, options: [Sacrifice Test Bear (P1), Sacrifice Test Ogre (P1)] }
+  - choose: Sacrifice Test Bear (P1)
+  - check:
+      zones:
+        P1.graveyard: [Test Bear]
+        stack: [Test Offering]
+  - pass_all
+expect:
+  zones:
+    P1.hand: [Test Wastes, Test Wastes, Test Wastes]
+    P1.graveyard: [Test Bear, Test Offering]

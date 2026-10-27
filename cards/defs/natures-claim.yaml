@@ -1,0 +1,9 @@
+card: Nature's Claim
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { object: { types: [artifact, enchantment] } } }]
+          effect:
+            seq:
+              - destroy: { one: { target: 0 } }
+              - gain_life: { who: { controller_of: { target: 0 } }, amount: 4 }

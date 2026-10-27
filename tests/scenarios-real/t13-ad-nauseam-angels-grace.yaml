@@ -1,0 +1,26 @@
+scenario: mtg-scenario/1
+name: "T13: Ad Nauseam repeats as a choice each time; Angel's Grace stops the loss at 0 life (and split second stops responses)"
+cr: ["104.3b", "702.61a", "101.2", "704.5a"]
+verifies: [Ad Nauseam, "Angel's Grace"]
+players:
+  - battlefield: [Swamp, Swamp, Swamp, Swamp, Swamp, Plains]
+    hand: [Ad Nauseam, "Angel's Grace"]
+    library: [Opt, Grim Tutor, Dark Ritual, Swamp]
+    life: 3
+  - {}
+script:
+  - choose: "Cast Angel's Grace"
+  - choose: Pay with Plains
+  - pass_all
+  - choose: Cast Ad Nauseam
+  - choose: Pay with Swamp, Swamp, Swamp, Swamp, Swamp
+  - pass_all
+  # Opt (1 life), then Grim Tutor (3): at -1 life, but Angel's Grace holds.
+  - choose: Repeat
+  - choose: Stop
+  - pass_all
+expect:
+  result: in_progress
+  life: { P1: -1 }
+  zones:
+    P1.hand: [Opt, Grim Tutor]

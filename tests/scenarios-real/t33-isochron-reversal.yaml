@@ -1,0 +1,33 @@
+scenario: mtg-scenario/1
+name: "Isochron Scepter imprints Dramatic Reversal; its ability casts a copy for free, which untaps the Scepter and the rocks"
+cr: ["607.2a", "707.12", "608.2g", "118.9", "704.5e"]
+verifies: [Isochron Scepter, Dramatic Reversal]
+players:
+  - battlefield: [Sol Ring, Island, Island]
+    hand: [Isochron Scepter, Dramatic Reversal]
+  - {}
+script:
+  - choose: Cast Isochron Scepter
+  - choose: Pay with Island, Island
+  - pass_all
+  - pass_all
+  - choose: "Yes"
+  - check:
+      zones: { exile: [Dramatic Reversal], P1.hand: [] }
+  - choose: Activate Isochron Scepter ability 2
+  - choose: Pay with Sol Ring
+  - pass_all
+  # You may copy the exiled card; then you may cast the copy.
+  - choose: "Yes"
+  - choose: "Yes"
+  - check:
+      tapped: { Sol Ring: true, Isochron Scepter: true }
+      zones: { exile: [Dramatic Reversal], stack: [Dramatic Reversal] }
+      decision: { player: P1, kind: priority }
+  - pass_all
+expect:
+  tapped: { Sol Ring: false, Isochron Scepter: false, Island: true }
+  zones:
+    exile: [Dramatic Reversal]
+    stack: []
+    P1.graveyard: []

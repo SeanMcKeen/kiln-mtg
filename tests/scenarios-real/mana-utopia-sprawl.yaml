@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: "Utopia Sprawl: choose a color as it enters; the enchanted Forest adds one more mana of that color"
+cr: ["614.12", "605.1b", "303.4a"]
+verifies: [Utopia Sprawl]
+players:
+  - battlefield: [Forest, Bayou]
+    hand: [Utopia Sprawl]
+  - {}
+script:
+  - choose: Cast Utopia Sprawl
+  - choose: Target Bayou (P1)
+  - choose: Pay with Forest
+  - pass_all
+  - check:
+      decision: { player: P1, kind: choose_color }
+  - choose: Choose Blue
+  - choose: "Tap Bayou for {B}"
+expect:
+  pool: { P1: "{U}{B}" }

@@ -1,0 +1,13 @@
+scenario: mtg-scenario/1
+name: "Spirit Guides: exile this card from your hand to add mana (an ability that works from the hand)"
+cr: ["113.6b", "113.6m", "605.1a"]
+verifies: [Simian Spirit Guide, Elvish Spirit Guide]
+players:
+  - hand: [Simian Spirit Guide, Elvish Spirit Guide]
+  - {}
+script:
+  - choose: "Activate Simian Spirit Guide for {R}"
+  - choose: "Activate Elvish Spirit Guide for {G}"
+expect:
+  pool: { P1: "{R}{G}" }
+  zones: { exile: [Simian Spirit Guide, Elvish Spirit Guide], P1.hand: [] }

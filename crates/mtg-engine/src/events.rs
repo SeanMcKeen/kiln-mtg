@@ -1,0 +1,318 @@
+//! Occurred events (`docs/03 Architecture/Event System.md`, M2 plan D11).
+//!
+//! An append-only log; each event names the rule behind it. Proposed events
+//! and replacement effects arrive in M4.
+
+use mtg_cards::ir::CounterKind;
+use mtg_core::{CrRef, ObjectId, PlayerId};
+use serde::{Deserialize, Serialize};
+
+use crate::card::{DefId, ManaType};
+use crate::state::{LossReason, Step, Target, ZoneId};
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Event {
+    GameStarted {
+        starting_player: PlayerId,
+    },
+    Mulligan {
+        player: PlayerId,
+        count: u32,
+    },
+    Kept {
+        player: PlayerId,
+        hand_size: u32,
+    },
+    TurnBegan {
+        number: u32,
+        active: PlayerId,
+    },
+    StepBegan {
+        step: Step,
+    },
+    /// A card was drawn (CR 121.1). `object` is the new hand object.
+    Drew {
+        player: PlayerId,
+        object: ObjectId,
+        /// The first card the active player drew in their draw step this turn.
+        first_in_draw_step: bool,
+    },
+    /// A zone change (CR 400.7: `new` is a new object).
+    ZoneChange {
+        def: DefId,
+        owner: PlayerId,
+        /// Its controller, power and toughness just before it left (CR 603.10 look-back).
+        controller: PlayerId,
+        power: i32,
+        toughness: i32,
+        from: ZoneId,
+        to: ZoneId,
+        old: ObjectId,
+        new: ObjectId,
+    },
+    LandPlayed {
+        player: PlayerId,
+        object: ObjectId,
+    },
+    SpellCast {
+        player: PlayerId,
+        object: ObjectId,
+        def: DefId,
+    },
+    /// A player looked at another player's hand (the cards aren't logged).
+    LookedAtHand {
+        viewer: PlayerId,
+        player: PlayerId,
+    },
+    ManaAdded {
+        player: PlayerId,
+        mana: ManaType,
+        source: ObjectId,
+    },
+    /// A triggered ability triggered (CR 603.2); it goes on the stack the next
+    /// time a player would receive priority.
+    Triggered {
+        source: ObjectId,
+        def: DefId,
+        ability: u8,
+        controller: PlayerId,
+    },
+    /// A permanent became the target of a spell or ability (`ability` is
+    /// `None` for a spell) controlled by `controller` (CR 115.1, 702.21a).
+    BecameTarget {
+        target: ObjectId,
+        source: ObjectId,
+        ability: Option<u8>,
+        controller: PlayerId,
+    },
+    /// Damage was prevented (CR 615, 702.16e).
+    DamagePrevented {
+        source: ObjectId,
+        target: crate::state::Target,
+        amount: u32,
+    },
+    /// A shortcut repeated a loop (CR 732.2c); `proposer` is `None` for a
+    /// mandatory loop.
+    ShortcutTaken {
+        proposer: Option<PlayerId>,
+        iterations: u64,
+    },
+    /// An endless loop of mandatory actions: the game is a draw (CR 104.4b).
+    LoopDraw,
+    /// An object became attached to another, or to a player (CR 701.3).
+    Attached {
+        object: ObjectId,
+        to: crate::state::Target,
+    },
+    /// A copy of a card was created (CR 707.12).
+    CopyCreated {
+        object: ObjectId,
+        of: ObjectId,
+    },
+    /// A replacement effect replaced an event (CR 614.6).
+    Replaced {
+        source: ObjectId,
+        def: DefId,
+        ability: u8,
+    },
+    /// A triggered ability was removed because it had no legal targets (CR 603.3d).
+    TriggerRemoved {
+        source: ObjectId,
+        def: DefId,
+        ability: u8,
+    },
+    /// A creature was put onto the battlefield attacking; it was never
+    /// declared as an attacker (CR 508.4, 508.3a).
+    EnteredAttacking {
+        object: ObjectId,
+        defending: PlayerId,
+    },
+    /// A player voted (CR 701.38a).
+    Voted {
+        player: PlayerId,
+        choice: String,
+    },
+    /// A copy of an activated ability was put on the stack (CR 707.10).
+    AbilityCopied {
+        source: ObjectId,
+        ability: u8,
+        controller: PlayerId,
+    },
+    /// An activated ability became activated (CR 602.2b, applying 601.2i).
+    AbilityActivated {
+        player: PlayerId,
+        source: ObjectId,
+        def: DefId,
+        ability: u8,
+    },
+    Resolved {
+        object: ObjectId,
+        def: DefId,
+    },
+    /// All targets illegal on resolution (CR 608.2b).
+    DidNotResolve {
+        object: ObjectId,
+        def: DefId,
+    },
+    Damage {
+        source: ObjectId,
+        target: Target,
+        amount: u32,
+        combat: bool,
+    },
+    LifeGained {
+        player: PlayerId,
+        amount: u32,
+    },
+    LifeLost {
+        player: PlayerId,
+        amount: u32,
+    },
+    Tapped {
+        object: ObjectId,
+    },
+    Untapped {
+        object: ObjectId,
+    },
+    AttackerDeclared {
+        object: ObjectId,
+        defending: PlayerId,
+    },
+    BlockerDeclared {
+        blocker: ObjectId,
+        attacker: ObjectId,
+    },
+    Destroyed {
+        object: ObjectId,
+    },
+    /// Cards shown to all players (CR 701.20a). Ids are the objects as revealed.
+    Revealed {
+        player: PlayerId,
+        objects: Vec<ObjectId>,
+    },
+    /// A library was shuffled (CR 701.24a).
+    Shuffled {
+        player: PlayerId,
+    },
+    /// A player searched their library (CR 701.23a). What they found is private unless revealed.
+    Searched {
+        player: PlayerId,
+        found: u32,
+    },
+    /// A player scried (CR 701.22a).
+    Scried {
+        player: PlayerId,
+        count: u32,
+    },
+    /// `object` is the graveyard object (CR 701.9a).
+    Discarded {
+        player: PlayerId,
+        object: ObjectId,
+    },
+    /// `object` is the permanent that was sacrificed (CR 701.21a).
+    Sacrificed {
+        object: ObjectId,
+    },
+    /// `object` is the spell that was countered (CR 701.6a).
+    Countered {
+        object: ObjectId,
+    },
+    /// A public choice made while an effect resolved (CR 608.2d), such as a card name.
+    Chose {
+        player: PlayerId,
+        choice: String,
+    },
+    /// Counters were put on an object (CR 122.6).
+    CountersPut {
+        object: ObjectId,
+        counter: CounterKind,
+        amount: u32,
+    },
+    CountersRemoved {
+        object: ObjectId,
+        counter: CounterKind,
+        amount: u32,
+    },
+    /// A permanent was tapped for mana (CR 106.12); `produced` is the mana it made.
+    TappedForMana {
+        player: PlayerId,
+        source: ObjectId,
+        produced: crate::card::ManaBag,
+    },
+    /// A token was created (CR 111.2).
+    TokenCreated {
+        player: PlayerId,
+        object: ObjectId,
+        def: DefId,
+    },
+    /// An effect says this player wins the game (CR 104.2b).
+    WonByEffect {
+        player: PlayerId,
+    },
+    PlayerLost {
+        player: PlayerId,
+        reason: LossReason,
+    },
+    /// The player left the game (CR 800.4a).
+    PlayerLeft {
+        player: PlayerId,
+    },
+    GameOver,
+}
+
+impl Event {
+    /// The rule that produces this event.
+    pub fn cr(&self) -> CrRef {
+        let s = match self {
+            Event::GameStarted { .. } => "103.1",
+            Event::Mulligan { .. } | Event::Kept { .. } => "103.5",
+            Event::TurnBegan { .. } => "500.1",
+            Event::StepBegan { .. } => "500.1",
+            Event::Drew { .. } => "121.1",
+            Event::ZoneChange { .. } => "400.7",
+            Event::LandPlayed { .. } => "305.1",
+            Event::SpellCast { .. } => "601.2i",
+            Event::LookedAtHand { .. } => "402.3",
+            Event::ManaAdded { .. } => "605.1a",
+            Event::AbilityActivated { .. } => "602.2b",
+            Event::AbilityCopied { .. } => "707.10",
+            Event::EnteredAttacking { .. } => "508.4",
+            Event::Voted { .. } => "701.38a",
+            Event::Resolved { .. } => "608.2",
+            Event::DidNotResolve { .. } => "608.2b",
+            Event::Damage { combat: true, .. } => "510.2",
+            Event::Damage { .. } => "120.1",
+            Event::LifeGained { .. } | Event::LifeLost { .. } => "119.3",
+            Event::Tapped { .. } | Event::Untapped { .. } => "110.5",
+            Event::AttackerDeclared { .. } => "508.1",
+            Event::BlockerDeclared { .. } => "509.1",
+            Event::Destroyed { .. } => "701.8a",
+            Event::Revealed { .. } => "701.20a",
+            Event::Shuffled { .. } => "701.24a",
+            Event::Searched { .. } => "701.23a",
+            Event::Scried { .. } => "701.22a",
+            Event::Discarded { .. } => "701.9a",
+            Event::Sacrificed { .. } => "701.21a",
+            Event::Countered { .. } => "701.6a",
+            Event::Chose { .. } => "608.2d",
+            Event::WonByEffect { .. } => "104.2b",
+            Event::CountersPut { .. } | Event::CountersRemoved { .. } => "122.1",
+            Event::TokenCreated { .. } => "111.2",
+            Event::TappedForMana { .. } => "106.12",
+            Event::Triggered { .. } => "603.2",
+            Event::TriggerRemoved { .. } => "603.3d",
+            Event::Replaced { .. } => "614.6",
+            Event::CopyCreated { .. } => "707.12",
+            Event::Attached { .. } => "701.3a",
+            Event::ShortcutTaken { .. } => "732.2c",
+            Event::LoopDraw => "104.4b",
+            Event::BecameTarget { .. } => "115.1",
+            Event::DamagePrevented { .. } => "702.16e",
+            Event::PlayerLost { .. } => "104.3",
+            Event::PlayerLeft { .. } => "800.4a",
+            Event::GameOver => "104.1",
+        };
+        s.parse()
+            .unwrap_or_else(|_| CrRef::new(100, None, None).unwrap_or_else(|| unreachable!()))
+    }
+}

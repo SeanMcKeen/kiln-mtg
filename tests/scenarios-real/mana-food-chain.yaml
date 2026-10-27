@@ -1,0 +1,27 @@
+scenario: mtg-scenario/1
+name: "Food Chain: exile a creature for X+1 mana of one color, spendable only on creature spells"
+cr: ["106.6", "605.1a", "118.3"]
+verifies: [Food Chain]
+players:
+  - battlefield: [Food Chain, Grizzly Bears]
+    hand: [Lightning Bolt, Simian Spirit Guide]
+  - {}
+script:
+  - choose: Activate Food Chain for mana
+  - choose: "Add {R}{R}{R}"
+  # Restricted to creature spells: the Bolt can't use it.
+  - check:
+      pool: { P1: "{R}{R}{R}" }
+      decision:
+        player: P1
+        kind: priority
+        options_include: [Cast Simian Spirit Guide]
+        options_exclude: [Cast Lightning Bolt]
+  - choose: Cast Simian Spirit Guide
+  - choose: "Pay with 3 from pool"
+  - pass_all
+expect:
+  pool: { P1: "" }
+  zones:
+    exile: [Grizzly Bears]
+    P1.battlefield: [Food Chain, Simian Spirit Guide]

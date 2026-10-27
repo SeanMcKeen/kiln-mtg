@@ -1,0 +1,17 @@
+scenario: mtg-scenario/1
+name: "Pongify destroys a permanent and its controller gets a 3/3 token"
+cr: ["701.8a", "111.2", "608.2h"]
+verifies: [Pongify]
+players:
+  - battlefield: [Island]
+    hand: [Pongify]
+  - battlefield: [Grizzly Bears]
+script:
+  - choose: Cast Pongify
+  - choose: Target Grizzly Bears (P2)
+  - choose: Pay with Island
+  - pass_all
+expect:
+  zones:
+    P2.battlefield: [Ape Token]
+    P2.graveyard: [Grizzly Bears]

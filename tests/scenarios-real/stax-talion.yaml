@@ -1,0 +1,24 @@
+scenario: mtg-scenario/1
+name: "Talion: choose a number as it enters; an opponent casting a spell with that mana value, power or toughness loses 2 life, and you draw"
+cr: ["614.12", "603.2"]
+verifies: ["Talion, the Kindly Lord"]
+players:
+  - battlefield: [Island, Island, Swamp, Swamp]
+    hand: ["Talion, the Kindly Lord"]
+    library: [Swamp, Island]
+  - battlefield: [Island]
+    hand: [Opt]
+script:
+  - choose: Cast Talion, the Kindly Lord
+  - choose: Pay with Island, Island, Swamp, Swamp
+  - pass_all
+  - check:
+      decision: { player: P1, kind: choose_number }
+  - choose: Choose 1
+  - pass: 1
+  - { player: P2, choose: Cast Opt }
+  - { player: P2, choose: Pay with Island }
+  - pass_all
+expect:
+  life: { P2: 18 }
+  zones: { P1.hand: [Swamp] }

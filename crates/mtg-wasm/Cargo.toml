@@ -1,0 +1,11 @@
+[package]
+name = "mtg-wasm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "WASM bindings (wasm-bindgen). Becomes a cdylib in M12."
+
+[lints]
+workspace = true

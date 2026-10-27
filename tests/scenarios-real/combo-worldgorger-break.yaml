@@ -1,0 +1,28 @@
+scenario: mtg-scenario/1
+name: "T12: with another creature card in a graveyard, the returning Animate Dead chooses what it enchants, so the loop can end"
+cr: ["303.4f", "104.4b", "607.2a"]
+verifies: [Worldgorger Dragon, Animate Dead]
+players:
+  - battlefield: [Swamp, Swamp]
+    hand: [Animate Dead]
+    graveyard: [Worldgorger Dragon]
+  - graveyard: [Grizzly Bears]
+script:
+  - choose: Cast Animate Dead
+  - choose: Target Worldgorger Dragon
+  - choose: Pay with Swamp, Swamp
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  # The Dragon's leaves trigger returns Animate Dead: what will it enchant?
+  - check:
+      decision: { player: P1, kind: choose_card }
+  - choose: Enchant Grizzly Bears
+  - pass_all
+expect:
+  result: in_progress
+  zones:
+    P1.battlefield: [Swamp, Swamp, Animate Dead, Grizzly Bears]
+    P1.graveyard: [Worldgorger Dragon]

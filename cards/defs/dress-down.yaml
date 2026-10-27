@@ -1,0 +1,12 @@
+card: Dress Down
+faces:
+  - abilities:
+      - keyword: flash
+      - triggered:
+          trigger: { enters: { this: true } }
+          effect: { draw: { who: you, amount: 1 } }
+      - static:
+          effect: { lose_all_abilities: { affected: { types: [creature] } } }
+      - triggered:
+          trigger: { beginning_of: { step: end, whose: any } }
+          effect: { sacrifice: { who: you, what: { one: this } } }

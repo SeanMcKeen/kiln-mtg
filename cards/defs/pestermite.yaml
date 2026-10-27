@@ -1,0 +1,9 @@
+card: "Pestermite"
+faces:
+  - abilities:
+      - keyword: flash
+      - keyword: flying
+      - triggered:
+          trigger: { enters: { this: true } }
+          targets: [{ what: { object: {} } }]
+          effect: { may: { tap_or_untap: { one: { target: 0 } } } }

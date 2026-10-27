@@ -1,0 +1,8 @@
+card: "Silence"
+faces:
+  - abilities:
+      - spell:
+          effect:
+            for_each_player:
+              players: opponent
+              effect: { player_rule: { who: each, rule: cant_cast_spells, until_end_of_turn: true } }

@@ -24,6 +24,29 @@ updated: 2026-10-20
   - deck size
   - **coverage status of every card**, as the gate for experiments
 
+## Validation as built (M1)
+`mtg deck check <file> [--commander NAME]… [--json]` (in `mtg-sim::deck`) runs these checks, each tagged with its rule:
+
+| Check | Rule |
+|---|---|
+| Commander designated: a `Commander` section, `*CMDR*`, an Archidekt `[Commander]` tag, or `--commander` (added to the list if missing) | CR 903.3 |
+| Eligibility: a legendary creature, Vehicle, or Spacecraft with P/T, or "can be your commander" | CR 903.3, 903.3a |
+| Two commanders need a shared partner ability. Variants don't mix | CR 702.124h–m, 702.124f |
+| A Background is only legal with "choose a Background" | CR 702.124k |
+| Exactly 100 cards | CR 903.5a |
+| Singleton, except basics, "any number of cards named ~" and "up to N cards named ~" | CR 903.5b |
+| Color identity ⊆ the commanders' combined identity | CR 903.5c, 702.124c |
+| Basic land types must produce colors inside the identity | CR 903.5d |
+| Sideboard, maybeboard and companion sections are ignored with a warning | CR 903.5e |
+| Banned and not-legal cards, from card DB legality data (not a CR rule) | — |
+
+- **Color identity used:** the union of Scryfall's value and the CR 903.4 recomputation ([[Ingestion Pipeline]]). Each catches cases the other misses, and the union never admits an off-identity card.
+- **Name matching:**
+  - Exact after normalization (case, accents, curly apostrophes).
+  - Punctuation-insensitive matches are accepted with a warning ("Thassas Oracle").
+  - Anything fuzzier is an error with the top 3 suggestions, never a silent pick.
+- **Output:** concise JSON with `--json`. The coverage summary includes `experiment_ready`, which stays false until every card is verified (FR-S8). Exit code 0 means legal, 1 illegal, 2 an error.
+
 ## Output
 `DeckRecord { id, name, commanders[], cards: [(oracle_id, qty)], hash, warnings[] }`. The `hash` (sorted Oracle IDs and quantities) identifies the deck in reports and replays.
 

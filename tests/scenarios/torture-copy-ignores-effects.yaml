@@ -1,0 +1,24 @@
+scenario: mtg-scenario/1
+name: "Torture: a copy takes copiable values only (not counters or anthem bonuses) and then gets its own controller's effects"
+cr: ["707.2", "613.2a", "613.4c"]
+players:
+  - battlefield: [Test Island, Test Island]
+    hand: [Test Mimic]
+  - battlefield:
+      - Test Anthem
+      - { card: Test Herald, counters: { +1/+1: 3 } }
+script:
+  - check:
+      pt: { Test Herald: [6, 6] }
+  - choose: Cast Test Mimic
+  - choose: Pay with Test Island, Test Island
+  - pass_all
+  - choose: Copy Test Herald (P2)
+  - choose: Target P2
+  - pass_all
+expect:
+  # The copied ETB resolved (P2 lost 2); the original keeps its counters.
+  life: { P2: 18 }
+  counters: { Test Herald: { +1/+1: 3 } }
+  zones:
+    P1.battlefield: [Test Island, Test Island, Test Herald]

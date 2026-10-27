@@ -1,0 +1,6 @@
+card: Mental Misstep
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { spell: { min_mana_value: 1, max_mana_value: 1 } } }]
+          effect: { counter: { one: { target: 0 } } }

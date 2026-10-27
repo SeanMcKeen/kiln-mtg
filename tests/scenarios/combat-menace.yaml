@@ -1,0 +1,28 @@
+scenario: mtg-scenario/1
+name: Menace needs two blockers; a lone blocker isn't offered, and a second blocker becomes mandatory
+cr: ["702.111b", "509.1b"]
+players:
+  - battlefield: [Test Brute]
+  - battlefield: [Test Bear, Test Archer]
+turn: { number: 3, active: P1, step: declare_attackers }
+script:
+  - choose: Test Brute attacks P2
+  - pass_all
+  - check:
+      decision:
+        player: P2
+        options: ["Test Bear doesn't block", "Test Bear blocks Test Brute (P1)"]
+  - choose: Test Bear blocks Test Brute (P1)
+  # With one blocker already on the Brute, not blocking would leave an illegal declaration.
+  - check:
+      decision:
+        player: P2
+        kind: declare_blocker
+        options: ["Test Archer blocks Test Brute (P1)"]
+  - choose: Test Archer blocks Test Brute (P1)
+  - pass_all
+  # The Brute (3 power) divides damage among its two blockers.
+  - check:
+      decision: { player: P1, kind: assign_damage }
+expect:
+  life: { P2: 20 }

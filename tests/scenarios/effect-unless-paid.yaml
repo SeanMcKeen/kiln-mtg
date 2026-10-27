@@ -1,0 +1,18 @@
+scenario: mtg-scenario/1
+name: The affected player may pay to stop an "unless" effect
+cr: ["118.12", "601.2h"]
+players:
+  - battlefield: [Test Island, Test Wastes]
+    hand: [Test Tax]
+  - battlefield: [Test Wastes, Test Wastes]
+script:
+  - choose: Cast Test Tax
+  - choose: Target P2
+  - choose: Pay with Test Island, Test Wastes
+  - pass_all
+  - check:
+      decision: { player: P2, kind: optional, options: [Don't pay, Pay] }
+  - choose: Pay
+  - choose: Pay with Test Wastes, Test Wastes
+expect:
+  life: { P2: 20 }

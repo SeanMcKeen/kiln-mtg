@@ -1,0 +1,28 @@
+scenario: mtg-scenario/1
+name: "Jace enters with 4 loyalty; +1 mills two and draws; one loyalty ability per turn, at sorcery speed"
+cr: ["306.5b", "606.3", "606.4", "701.13a"]
+verifies: ["Jace, Wielder of Mysteries"]
+players:
+  - battlefield: [Island, Island, Island, Island]
+    hand: ["Jace, Wielder of Mysteries"]
+    library: [Opt, Swamp]
+  - library: [Ponder, Preordain, Island]
+script:
+  - choose: "Cast Jace, Wielder of Mysteries"
+  - choose: Pay with Island, Island, Island, Island
+  - pass_all
+  - check:
+      counters: { "Jace, Wielder of Mysteries": { loyalty: 4 } }
+  - choose: "Activate Jace, Wielder of Mysteries ability 2"
+  - choose: Target P2
+  - pass_all
+  - check:
+      decision:
+        player: P1
+        kind: priority
+        options_exclude: ["Activate Jace, Wielder of Mysteries ability 2"]
+expect:
+  counters: { "Jace, Wielder of Mysteries": { loyalty: 5 } }
+  zones:
+    P1.hand: [Opt]
+    P2.graveyard: [Ponder, Preordain]

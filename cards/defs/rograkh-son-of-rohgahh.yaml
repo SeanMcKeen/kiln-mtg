@@ -1,0 +1,7 @@
+card: "Rograkh, Son of Rohgahh"
+faces:
+  - abilities:
+      - keyword: first_strike
+      - keyword: menace
+      - keyword: trample
+      - keyword: partner

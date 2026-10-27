@@ -1,0 +1,17 @@
+card: Mox Diamond
+faces:
+  - abilities:
+      - replacement:
+          event: { would_enter: { this: true } }
+          instead:
+            if_does:
+              who: you
+              action:
+                pay:
+                  who: you
+                  cost: [{ discard: { chosen: { count: 1, filter: { types: [land] } } } }]
+              then: { move: { what: { one: this }, to: battlefield } }
+              otherwise: { move: { what: { one: this }, to: graveyard } }
+      - activated:
+          cost: [tap]
+          effect: { add_mana: { mana: { any_color: 1 } } }

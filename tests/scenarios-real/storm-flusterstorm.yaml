@@ -1,0 +1,26 @@
+scenario: mtg-scenario/1
+name: "Flusterstorm counters an instant unless its controller pays {1}; storm copies it"
+cr: ["702.40a", "118.12", "701.6a"]
+verifies: [Flusterstorm]
+players:
+  - battlefield: [Island]
+    hand: [Flusterstorm]
+  - battlefield: [Mountain]
+    hand: [Lightning Bolt]
+turn: { number: 3, active: P2, step: precombat_main }
+script:
+  - { player: P2, choose: Cast Lightning Bolt }
+  - { player: P2, choose: Target P1 }
+  - { player: P2, choose: Pay with Mountain }
+  - pass: 1
+  - choose: Cast Flusterstorm
+  - choose: Target Lightning Bolt
+  - choose: Pay with Island
+  # Storm: one copy (the Bolt was cast before it); it keeps its target.
+  - pass_all
+  - choose: Keep target Lightning Bolt
+  - pass_all
+expect:
+  life: { P1: 20 }
+  zones:
+    P2.graveyard: [Lightning Bolt]

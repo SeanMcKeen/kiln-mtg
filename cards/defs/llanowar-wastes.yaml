@@ -1,0 +1,10 @@
+card: "Llanowar Wastes"
+faces:
+  - abilities:
+      - activated: { cost: [tap], effect: { add_mana: { mana: { fixed: "{C}" } } } }
+      - activated:
+          cost: [tap]
+          effect:
+            seq:
+              - add_mana: { mana: { one_of: ["{B}", "{G}"] } }
+              - deal_damage: { to: { player: you }, amount: 1 }

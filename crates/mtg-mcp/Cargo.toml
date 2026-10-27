@@ -1,0 +1,11 @@
+[package]
+name = "mtg-mcp"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "MCP server exposing the simulation lab to AI agents."
+
+[lints]
+workspace = true

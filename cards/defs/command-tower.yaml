@@ -1,0 +1,6 @@
+card: Command Tower
+faces:
+  - abilities:
+      - activated:
+          cost: [tap]
+          effect: { add_mana: { mana: commander_identity } }

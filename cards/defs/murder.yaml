@@ -1,0 +1,6 @@
+card: Murder
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { object: { types: [creature] } } }]
+          effect: { destroy: { one: { target: 0 } } }

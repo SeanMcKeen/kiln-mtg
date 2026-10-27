@@ -1,0 +1,18 @@
+scenario: mtg-scenario/1
+name: '"Skip your draw step" skips the step; "doesn''t untap during your untap step" keeps a permanent tapped'
+cr: ["614.10", "502.3"]
+players:
+  - battlefield:
+      - Test Abstainer
+      - { card: Test Vault, tapped: true }
+      - { card: Test Island, tapped: true }
+  - {}
+turn: { number: 3, active: P1, step: untap }
+script:
+  - check:
+      step: upkeep
+      tapped: { Test Vault: true, Test Island: false }
+  - pass_all
+expect:
+  step: precombat_main
+  zones: { P1.hand: [] }

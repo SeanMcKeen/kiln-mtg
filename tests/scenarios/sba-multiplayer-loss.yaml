@@ -1,0 +1,25 @@
+scenario: mtg-scenario/1
+name: A player at 0 life loses and leaves; the multiplayer game continues
+cr: ["704.5a", "800.4", "800.4a", "120.3a"]
+players:
+  - hand: [Test Blast]
+    battlefield: [Test Mountain, Test Mountain, Test Mountain]
+  - battlefield: [Test Bear]
+  - life: 5
+    hand: [Test Bolt]
+    battlefield: [Test Ogre]
+turn: { number: 4, active: P1, step: precombat_main }
+script:
+  - choose: Cast Test Blast
+  - choose: Target P3
+  - choose: Pay with Test Mountain, Test Mountain, Test Mountain
+  - pass_all
+expect:
+  result: in_progress
+  life: { P3: 0 }
+  zones:
+    P3.hand: []
+    P3.battlefield: []
+    P3.library: []
+    P2.battlefield: [Test Bear]
+  decision: { player: P1, kind: priority }

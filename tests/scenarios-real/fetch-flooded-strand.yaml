@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: "Flooded Strand fetches a Plains or Island card, including a dual land with those types"
+cr: ["602.2", "701.23b", "305.7"]
+verifies: [Flooded Strand]
+players:
+  - battlefield: [Flooded Strand]
+    library: [Plains, Island, Swamp, Mountain, Forest, Tundra]
+  - {}
+script:
+  - choose: Activate Flooded Strand ability 1
+  - check:
+      life: { P1: 19 }
+  - pass_all
+  - check:
+      decision: { player: P1, kind: choose_card, options: [Stop, Find Plains, Find Island, Find Tundra] }
+  - choose: Find Tundra
+expect:
+  zones:
+    P1.battlefield: [Tundra]
+    P1.graveyard: [Flooded Strand]

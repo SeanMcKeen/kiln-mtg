@@ -1,0 +1,8 @@
+card: Brainstorm
+faces:
+  - abilities:
+      - spell:
+          effect:
+            seq:
+              - draw: { who: you, amount: 3 }
+              - move_cards: { who: you, from: hand, count: 2, to: top_of_library }

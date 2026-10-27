@@ -1,0 +1,15 @@
+scenario: mtg-scenario/1
+name: "A player casts their commander from the command zone, paying the tax"
+cr: ["903.8", "903.6"]
+players:
+  - battlefield: [Test Forest, Test Forest, Test Forest, Test Forest]
+    commanders: [{ card: Test Commander, casts: 1 }]
+  - {}
+script:
+  - choose: Cast Test Commander
+  - choose: Pay with Test Forest, Test Forest, Test Forest, Test Forest
+  - pass_all
+expect:
+  zones:
+    command: []
+    P1.battlefield: [Test Forest, Test Forest, Test Forest, Test Forest, Test Commander]

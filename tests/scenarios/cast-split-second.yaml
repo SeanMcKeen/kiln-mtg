@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: "Split second: while it's on the stack, players can't cast spells or activate non-mana abilities"
+cr: ["702.61a", "702.61b"]
+players:
+  - battlefield: [Test Plains]
+    hand: [Test Split Second]
+  - battlefield: [Test Mountain]
+    hand: [Test Flare]
+script:
+  - choose: Cast Test Split Second
+  - choose: Pay with Test Plains
+  - check:
+      decision: { player: P1, kind: priority, options: [Pass] }
+  - pass: 1
+  - check:
+      decision: { player: P2, kind: priority, options: [Pass, "Tap Test Mountain for {R}"] }
+  - pass: 1
+expect:
+  zones: { P1.hand: [Test Wastes] }

@@ -1,0 +1,17 @@
+scenario: mtg-scenario/1
+name: "Hermit Druid: reveal until a basic land; it goes to hand, the rest to the graveyard"
+cr: ["701.20a", "602.2"]
+verifies: [Hermit Druid]
+players:
+  - battlefield: [Hermit Druid, Forest]
+    library: [Opt, "Thassa's Oracle", Forest, Ponder]
+  - {}
+script:
+  - choose: Activate Hermit Druid ability 1
+  - choose: Pay with Forest
+  - pass_all
+expect:
+  zones:
+    P1.hand: [Forest]
+    P1.graveyard: [Opt, "Thassa's Oracle"]
+  library_top: { P1: [Ponder] }

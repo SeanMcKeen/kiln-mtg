@@ -1,0 +1,25 @@
+scenario: mtg-scenario/1
+name: "Torture: an ability granted after a lose-all-abilities effect is kept (timestamp order in layer 6)"
+cr: ["613.1f", "613.7", "302.6"]
+players:
+  - battlefield:
+      - Test Humbler
+      - Test Mountain
+      - { card: Test Bear, sick: true }
+    hand: [Test Rally]
+  - {}
+script:
+  - choose: Cast Test Rally
+  - choose: Pay with Test Mountain
+  - pass_all
+  - pass_all
+  - pass_all
+  # The Bear lost its abilities to the older Humbler, then gained haste
+  # (newer): it can attack despite coming under control this turn.
+  - check:
+      decision:
+        player: P1
+        kind: declare_attacker
+        options: ["Test Bear doesn't attack", Test Bear attacks P2]
+expect:
+  pt: { Test Bear: [1, 1] }

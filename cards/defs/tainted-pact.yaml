@@ -1,0 +1,8 @@
+card: "Tainted Pact"
+faces:
+  - abilities:
+      - spell:
+          effect:
+            escape:
+              function: tainted_pact
+              text: exile the top card repeatedly; take one, or stop at a repeated name

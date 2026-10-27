@@ -1,0 +1,25 @@
+scenario: mtg-scenario/1
+name: "Tymna: pay X life and draw X, where X is the number of opponents dealt combat damage this turn"
+cr: ["505.1", "510.2", "119.4"]
+verifies: [Tymna the Weaver]
+players:
+  - battlefield: [Tymna the Weaver, Grizzly Bears]
+  - {}
+  - {}
+  - {}
+turn: { number: 3, active: P1, step: declare_attackers }
+script:
+  - choose: Tymna the Weaver attacks P2
+  - choose: Grizzly Bears attacks P3
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - check:
+      step: postcombat_main
+  - pass_all
+  - choose: "Yes"
+expect:
+  life: { P1: 20, P2: 18, P3: 18, P4: 20 }
+  zones:
+    P1.hand: [Test Wastes, Test Wastes]

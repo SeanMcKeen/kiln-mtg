@@ -1,0 +1,17 @@
+scenario: mtg-scenario/1
+name: "Twinflame: a second target isn't offered when the extra {2}{R} can't be paid"
+cr: ["601.2f", "601.2c"]
+verifies: [Twinflame]
+players:
+  - battlefield: [Grizzly Bears, "Rograkh, Son of Rohgahh", Mountain, Mountain, Mountain, Mountain]
+    hand: [Twinflame]
+  - {}
+script:
+  - choose: Cast Twinflame
+  - choose: Target Grizzly Bears (P1)
+  - check:
+      decision: { player: P1, kind: pay_mana }
+  - choose: "Pay with Mountain, Mountain"
+  - pass_all
+expect:
+  zones: { P1.battlefield: [Grizzly Bears, "Rograkh, Son of Rohgahh", Mountain, Mountain, Mountain, Mountain, Grizzly Bears] }

@@ -1,0 +1,16 @@
+scenario: mtg-scenario/1
+name: "Kicker isn't offered when the kicked cost can't be paid"
+cr: ["702.33a", "601.2b"]
+players:
+  - battlefield: [Test Mountain]
+    hand: [Test Kicker Bolt]
+  - {}
+script:
+  - choose: Cast Test Kicker Bolt
+  - check:
+      decision: { player: P1, kind: choose_target }
+  - choose: Target P2
+  - choose: Pay with Test Mountain
+  - pass_all
+expect:
+  life: { P2: 18 }

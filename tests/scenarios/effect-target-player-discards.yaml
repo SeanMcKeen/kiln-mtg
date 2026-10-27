@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: The targeted player chooses the cards they discard
+cr: ["701.9a", "115.1"]
+players:
+  - battlefield: [Test Swamp, Test Swamp, Test Swamp]
+    hand: [Test Mind Rot]
+  - hand: [Test Bolt, Test Bear, Test Ogre]
+script:
+  - choose: Cast Test Mind Rot
+  - choose: Target P2
+  - choose: Pay with Test Swamp, Test Swamp, Test Swamp
+  - pass_all
+  - check:
+      decision: { player: P2, kind: choose_card }
+  - choose: Discard Test Bolt
+  - choose: Discard Test Ogre
+expect:
+  zones:
+    P2.hand: [Test Bear]
+    P2.graveyard: [Test Bolt, Test Ogre]

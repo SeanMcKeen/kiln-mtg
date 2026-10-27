@@ -1,0 +1,25 @@
+scenario: mtg-scenario/1
+name: Phased-out permanents are treated as though they don't exist; a player with protection from everything can't be targeted or damaged
+cr: ["702.26b", "702.26d", "702.16j", "502.1"]
+players:
+  - battlefield: [Test Plains, Test Bear]
+    hand: [Test Shelter]
+  - battlefield: [Test Mountain]
+    hand: [Test Bolt]
+turn: { number: 2, active: P2, step: precombat_main }
+script:
+  - pass: 1
+  - choose: Cast Test Shelter
+  - choose: Pay with Test Plains
+  - pass_all
+  - check:
+      zones: { P1.battlefield: [], exile: [Test Shelter] }
+  - choose: Cast Test Bolt
+    player: P2
+  - check:
+      decision: { player: P2, kind: choose_target, options: [Target P2] }
+  - choose: Target P2
+  - choose: Pay with Test Mountain
+  - pass_all
+expect:
+  life: { P1: 20, P2: 17 }

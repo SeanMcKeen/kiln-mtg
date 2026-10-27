@@ -1,0 +1,13 @@
+card: Demonic Consultation
+faces:
+  - abilities:
+      - spell:
+          effect:
+            seq:
+              - choose: { what: card_name, store: name }
+              - exile: { what: { top_of_library: { owner: you, count: 6 } } }
+              - reveal_until:
+                  who: you
+                  filter: { named: name }
+                  found_to: hand
+                  rest_to: exile

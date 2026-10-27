@@ -1,0 +1,5 @@
+card: "Thalia, Guardian of Thraben"
+faces:
+  - abilities:
+      - keyword: first_strike
+      - static: { effect: { cost_increase: { spells: { not_types: [creature] }, amount: 1 } } }

@@ -1,0 +1,18 @@
+scenario: mtg-scenario/1
+name: "Wheel of Fortune: each player discards their hand, then draws seven"
+cr: ["101.4", "701.9a", "121.1"]
+verifies: [Wheel of Fortune]
+players:
+  - battlefield: [Mountain, Mountain, Mountain]
+    hand: [Wheel of Fortune, Opt]
+  - hand: [Murder]
+script:
+  - choose: Cast Wheel of Fortune
+  - choose: Pay with Mountain, Mountain, Mountain
+  - pass_all
+expect:
+  zones:
+    P1.graveyard: [Opt, Wheel of Fortune]
+    P2.graveyard: [Murder]
+    P1.hand: [Test Wastes, Test Wastes, Test Wastes, Test Wastes, Test Wastes, Test Wastes, Test Wastes]
+    P2.hand: [Test Wastes, Test Wastes, Test Wastes, Test Wastes, Test Wastes, Test Wastes, Test Wastes]

@@ -1,0 +1,14 @@
+scenario: mtg-scenario/1
+name: "Gut Shot with no red mana: pay 2 life"
+cr: ["107.4f", "601.2b"]
+verifies: [Gut Shot]
+players:
+  - battlefield: [Island]
+    hand: [Gut Shot]
+  - {}
+script:
+  - choose: Cast Gut Shot
+  - choose: Target P2
+  - pass_all
+expect:
+  life: { P1: 18, P2: 19 }

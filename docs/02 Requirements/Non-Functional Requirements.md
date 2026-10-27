@@ -2,7 +2,7 @@
 type: requirements
 status: draft
 tags: [requirements, performance]
-updated: 2026-10-20
+updated: 2026-10-27
 ---
 
 # Non-Functional Requirements
@@ -67,6 +67,28 @@ Targets that fall out of this:
 ## Portability
 - Tier 1: macOS aarch64, Linux x86_64.
 - Tier 2: Windows x86_64, `wasm32-unknown-unknown` (engine and sim, without threads).
+
+## Measurements
+| Date | Target | Measured | Conditions |
+|---|---|---|---|
+| 2026-10-21 (M2) | NFR-P1 ≤ 5 ms engine time per 4-player game | **1.37 ms** per complete random game | Synthetic vanilla decks, random policy, one core, Apple Silicon; `cargo bench -p mtg-engine` |
+| 2026-10-21 (M2) | NFR-P2 clone ≤ 10 µs | **377 ns** | 4-player mid-game, 28 permanents (smaller than a cEDH board) |
+| 2026-10-21 (M2) | NFR-P3 priority enumeration ≤ 20 µs | **334 ns** | Same board |
+| 2026-10-21 (M1) | NFR-P6 card DB load ≤ 1 s | **~210 ms** | Full Scryfall `oracle_cards` (38,940 objects) |
+| 2026-10-21 (M2) | NFR-P4 ≥ 85% scaling at 8 cores | 13.2× on 18 cores (73%; mix of performance and efficiency cores) | `mtg dev fuzz`, unchecked |
+| 2026-10-21 (M2) | NFR-D1 identical across thread counts | ✅ identical results on 1 and 18 threads | 5,000-game batch |
+| 2026-10-21 (M3) | — (throughput with real cards) | 475 games/s, 4-player, ~2,100 decisions/game | Verified-card decks, random policy, 2 threads, invariants + view audits + replays on (`mtg dev fuzz --verified`) |
+| 2026-10-23 (M5) | NFR-P1 ≤ 5 ms per 4-player game | **4.19 ms** per complete random game (pre-M5: 4.11 ms) | Same synthetic decks and policy; triggers, replacements and layers on |
+| 2026-10-23 (M5) | NFR-P2 clone ≤ 10 µs | **665 ns** | Same board |
+| 2026-10-23 (M5) | NFR-P3 priority enumeration ≤ 20 µs | **1.46 µs** (pre-M5: 1.04 µs) | Same board |
+| 2026-10-23 (M5) | Characteristic recomputation ≤ 20 µs (M5 exit) | **19.1 µs** | 60 permanents, 10 layer statics, full recompute (`characteristics, recomputed`) |
+| 2026-10-23 (M5) | — (state hash) | 13.8 µs (pre-M5: 11.1 µs) | Same board |
+
+| 2026-10-27 (M6) | NFR-P1 ≤ 5 ms per 4-player game | **22 ms** per random-policy game (104 turns, 4,275 decisions: ~5.2 µs per decision); **17 ms** per greedy game (48 turns, 2,327 decisions) | The four M6 test decks (100 verified cards each, real commanders), one core, Apple Silicon, checks off, policy time included (`mtg dev fuzz --verified --decks … --threads 1`) |
+
+The M2 → M5 rise in per-game time (1.37 → 4.19 ms) leaves little NFR-P1 headroom; profiling is scheduled for M7.
+
+M6 re-baseline with real cEDH-style decks: NFR-P1 is **not met** as measured. Random and greedy games run far longer than real cEDH games (often ten turns or fewer), so per-decision cost (~5 µs including the policy) is the more useful figure until M7 profiling. A game of ~1,000 decisions would land near the 5 ms target.
 
 ## Related
 [[Functional Requirements]] · [[Performance & Cheap Cloning]] · [[Batch Runner & Parallelism]]

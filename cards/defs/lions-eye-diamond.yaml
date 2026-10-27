@@ -1,0 +1,7 @@
+card: Lion's Eye Diamond
+faces:
+  - abilities:
+      - activated:
+          cost: [{ discard: hand }, { sacrifice: { one: this } }]
+          effect: { add_mana: { mana: { any_one_color: 3 } } }
+          timing: instant

@@ -1,0 +1,9 @@
+card: "Silas Renn, Seeker Adept"
+faces:
+  - abilities:
+      - keyword: deathtouch
+      - triggered:
+          trigger: { deals_combat_damage_to_player: { this: true } }
+          targets: [{ what: { object: { types: [artifact], zone: graveyard, controller: you } } }]
+          effect: { may_cast_this_turn: { one: { target: 0 } } }
+      - keyword: partner

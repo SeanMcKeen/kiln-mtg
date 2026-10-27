@@ -1,0 +1,31 @@
+scenario: mtg-scenario/1
+name: "T21: Silence stops opponents' spells this turn; kicked Orim's Chant also stops creatures attacking"
+cr: ["101.2", "702.33d", "508.1a"]
+verifies: [Silence, "Orim's Chant"]
+players:
+  - battlefield: [Plains, Plains, Plains]
+    hand: [Silence, "Orim's Chant"]
+  - battlefield: [Island, Grizzly Bears]
+    hand: [Opt]
+turn: { number: 3, active: P2, step: upkeep }
+script:
+  - pass: 1
+  - choose: Cast Silence
+  - choose: Pay with Plains
+  - pass_all
+  - check:
+      decision: { player: P2, kind: priority, options_exclude: [Cast Opt] }
+  - pass: 1
+  - choose: "Cast Orim's Chant"
+  - choose: Kick
+  - choose: Target P2
+  - choose: Pay with Plains, Plains
+  - pass_all
+  # Through draw, main and beginning of combat: no attack is ever offered.
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+expect:
+  life: { P1: 20 }
+  zones: { P1.graveyard: [Silence, "Orim's Chant"] }

@@ -1,0 +1,31 @@
+scenario: mtg-scenario/1
+name: "Doomsday: five cards from library and graveyard stay on top in any order, the rest are exiled; lose half your life rounded up"
+cr: ["701.23a", "107.1a"]
+verifies: [Doomsday]
+players:
+  - battlefield: [Swamp, Swamp, Swamp]
+    hand: [Doomsday]
+    library: [Opt, Ponder, Preordain, Island, Swamp, Forest]
+    graveyard: ["Thassa's Oracle", Brainstorm]
+    life: 15
+  - {}
+script:
+  - choose: Cast Doomsday
+  - choose: "Pay with Swamp, Swamp, Swamp"
+  - pass_all
+  - choose: "Find Thassa's Oracle"
+  - choose: Find Brainstorm
+  - choose: Find Opt
+  - choose: Find Ponder
+  - choose: Find Preordain
+  # Order them: the last one put on top ends up on top.
+  - choose: Put on top Preordain
+  - choose: Put on top Ponder
+  - choose: Put on top Opt
+  - choose: "Put on top Thassa's Oracle"
+expect:
+  life: { P1: 7 }
+  zones:
+    exile: [Island, Swamp, Forest]
+    P1.graveyard: [Doomsday]
+  library_top: { P1: [Brainstorm, "Thassa's Oracle", Opt, Ponder, Preordain] }

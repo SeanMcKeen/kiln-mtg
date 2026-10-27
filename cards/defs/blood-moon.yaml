@@ -1,0 +1,9 @@
+card: Blood Moon
+faces:
+  - abilities:
+      - static:
+          effect:
+            land_type:
+              affected: { types: [land], not_supertypes: [basic] }
+              land_type: Mountain
+              replace: true

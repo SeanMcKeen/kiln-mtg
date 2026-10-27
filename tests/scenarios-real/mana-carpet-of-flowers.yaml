@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: "Carpet of Flowers: in your main phase, X mana of one color for target opponent's Islands, once each turn"
+cr: ["603.4", "505.1", "106.1"]
+verifies: [Carpet of Flowers]
+players:
+  - battlefield: [Carpet of Flowers]
+  - battlefield: [Island, Island, Volcanic Island, Mountain]
+turn: { number: 3, active: P1, step: upkeep }
+script:
+  # Upkeep, then draw; the trigger happens as the precombat main phase begins.
+  - pass_all
+  - pass_all
+  - choose: Target P2
+  - pass_all
+  - choose: "Yes"
+  - choose: "Add {G}{G}{G}"
+  - check:
+      pool: { P1: "{G}{G}{G}" }
+expect:
+  step: precombat_main

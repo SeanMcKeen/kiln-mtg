@@ -1,0 +1,9 @@
+card: Dualcaster Mage
+faces:
+  - abilities:
+      - keyword: flash
+      # CR 707.10, 707.10c: the copy isn't cast; new targets are optional.
+      - triggered:
+          trigger: { enters: { this: true } }
+          targets: [{ what: { spell: { types: [instant, sorcery] } } }]
+          effect: { copy_spell: { what: { one: { target: 0 } }, new_targets: true } }

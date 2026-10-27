@@ -1,0 +1,12 @@
+scenario: mtg-scenario/1
+name: "Torture: a 1/1 base-P/T setter (7b) applies before counters and anthems (7c)"
+cr: ["613.4b", "613.4c"]
+players:
+  - battlefield:
+      - Test Humbler
+      - Test Anthem
+      - { card: Test Bear, counters: { +1/+1: 2 } }
+  - {}
+expect:
+  # 1/1 base, +2/+2 counters, +1/+1 Test Anthem: 4/4.
+  pt: { Test Bear: [4, 4] }

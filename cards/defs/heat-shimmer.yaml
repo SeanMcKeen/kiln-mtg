@@ -1,0 +1,14 @@
+card: Heat Shimmer
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { object: { types: [creature] } } }]
+          effect:
+            create_token_copy:
+              of: { one: { target: 0 } }
+              except:
+                abilities:
+                  - keyword: haste
+                  - triggered:
+                      trigger: { beginning_of: { step: end, whose: any } }
+                      effect: { exile: { what: { one: this } } }

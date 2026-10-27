@@ -1,0 +1,22 @@
+scenario: mtg-scenario/1
+name: "Kraum: whenever an opponent casts their second spell each turn, draw a card"
+cr: ["603.2", "601.2i"]
+verifies: ["Kraum, Ludevic's Opus"]
+players:
+  - commanders: [{ card: "Kraum, Ludevic's Opus", zone: battlefield }]
+    library: [Opt, Swamp]
+  - battlefield: [Island, Island]
+    hand: [Opt, Opt]
+turn: { number: 3, active: P2, step: precombat_main }
+script:
+  - { player: P2, choose: Cast Opt }
+  - { player: P2, choose: Pay with Island }
+  - pass_all
+  - { player: P2, choose: Put on bottom Test Wastes }
+  - { player: P2, choose: Cast Opt }
+  - { player: P2, choose: Pay with Island }
+  # The second spell: Kraum's trigger goes on the stack above it.
+  - pass_all
+expect:
+  zones:
+    P1.hand: [Opt]

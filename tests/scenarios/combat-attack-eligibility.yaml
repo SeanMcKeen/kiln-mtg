@@ -1,0 +1,27 @@
+scenario: mtg-scenario/1
+name: Defender, summoning sickness and haste decide who may attack; vigilance doesn't tap
+cr: ["508.1a", "302.6", "702.3b", "702.10b", "702.20b", "508.1f"]
+players:
+  - battlefield:
+      - Test Wall
+      - { card: Test Bear, sick: true }
+      - { card: Test Raider, sick: true }
+      - Test Sentry
+  - battlefield: []
+  - battlefield: []
+turn: { number: 5, active: P1, step: declare_attackers }
+script:
+  # Only the hasty Raider and the Sentry are asked; each may attack either opponent.
+  - check:
+      decision:
+        player: P1
+        options: ["Test Raider doesn't attack", "Test Raider attacks P2", "Test Raider attacks P3"]
+  - choose: Test Raider attacks P3
+  - check:
+      decision:
+        options: ["Test Sentry doesn't attack", "Test Sentry attacks P2", "Test Sentry attacks P3"]
+  - choose: Test Sentry attacks P2
+expect:
+  tapped:
+    Test Raider: true
+    Test Sentry: false

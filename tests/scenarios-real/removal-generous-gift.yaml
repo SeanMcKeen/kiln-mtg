@@ -1,0 +1,17 @@
+scenario: mtg-scenario/1
+name: "Generous Gift destroys a permanent and its controller gets a 3/3 token"
+cr: ["701.8a", "111.2", "608.2h"]
+verifies: [Generous Gift]
+players:
+  - battlefield: [Plains, Plains, Plains]
+    hand: [Generous Gift]
+  - battlefield: [Sol Ring]
+script:
+  - choose: Cast Generous Gift
+  - choose: Target Sol Ring (P2)
+  - choose: Pay with Plains, Plains, Plains
+  - pass_all
+expect:
+  zones:
+    P2.battlefield: [Elephant Token]
+    P2.graveyard: [Sol Ring]

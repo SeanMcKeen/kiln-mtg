@@ -1,0 +1,24 @@
+scenario: mtg-scenario/1
+name: "Tivit: each player votes starting with you, who may vote an additional time; investigate per evidence vote, a Treasure per bribery vote"
+cr: ["701.38a", "701.38d", "701.16a"]
+verifies: ["Tivit, Seller of Secrets"]
+players:
+  - battlefield: [Plains, Plains, Island, Island, Swamp, Swamp]
+    hand: ["Tivit, Seller of Secrets"]
+  - {}
+  - {}
+script:
+  - choose: "Cast Tivit, Seller of Secrets"
+  - choose: "Pay with Plains, Plains, Island, Island, Swamp, Swamp"
+  - pass_all
+  - pass_all
+  - check:
+      decision: { player: P1, kind: vote, options: [Vote evidence, Vote bribery] }
+  - choose: Vote evidence
+  - check:
+      decision: { player: P1, kind: vote, options: ["Don't vote again", Vote evidence, Vote bribery] }
+  - choose: Vote bribery
+  - { player: P2, choose: Vote bribery }
+  - { player: P3, choose: Vote evidence }
+expect:
+  zones: { P1.battlefield: [Plains, Plains, Island, Island, Swamp, Swamp, "Tivit, Seller of Secrets", Clue, Clue, Treasure, Treasure] }

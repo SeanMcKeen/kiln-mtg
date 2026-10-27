@@ -1,0 +1,21 @@
+scenario: mtg-scenario/1
+name: '"Enters with X counters" uses the spell''s X; removing a counter is a cost'
+cr: ["614.1c", "107.3a", "118.3"]
+players:
+  - battlefield: [Test Wastes, Test Wastes, Test Wastes, Test Wastes]
+    hand: [Test Ballista]
+  - {}
+script:
+  - choose: Cast Test Ballista
+  - choose: Choose 2
+  - choose: Pay with Test Wastes, Test Wastes, Test Wastes, Test Wastes
+  - pass_all
+  - check:
+      counters: { Test Ballista: { +1/+1: 2 } }
+      pt: { Test Ballista: [2, 2] }
+  - choose: Activate Test Ballista ability 2
+  - choose: Target P2
+  - pass_all
+expect:
+  life: { P2: 19 }
+  pt: { Test Ballista: [1, 1] }

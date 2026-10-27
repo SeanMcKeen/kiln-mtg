@@ -1,0 +1,8 @@
+card: Opt
+faces:
+  - abilities:
+      - spell:
+          effect:
+            seq:
+              - scry: { who: you, amount: 1 }
+              - draw: { who: you, amount: 1 }

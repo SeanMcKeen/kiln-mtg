@@ -1,0 +1,6 @@
+card: Negate
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { spell: { not_types: [creature] } } }]
+          effect: { counter: { one: { target: 0 } } }

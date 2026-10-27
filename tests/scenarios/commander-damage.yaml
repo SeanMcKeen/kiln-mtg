@@ -1,0 +1,17 @@
+scenario: mtg-scenario/1
+name: "21 combat damage from one commander makes a player lose, whatever their life total"
+cr: ["903.10a", "704.6c"]
+players:
+  - commanders: [{ card: Test Titan, zone: battlefield }]
+  - life: 40
+  - {}
+turn: { number: 3, active: P1, step: declare_attackers }
+script:
+  - choose: Test Titan attacks P2
+  - pass_all
+  - pass_all
+  - pass_all
+expect:
+  life: { P2: 19 }
+  commander_damage: { P2: { Test Titan: 21 } }
+  zones: { P2.battlefield: [] }

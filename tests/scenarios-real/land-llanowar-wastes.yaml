@@ -1,0 +1,14 @@
+scenario: mtg-scenario/1
+name: "Llanowar Wastes: {C} painlessly, or {B}/{G} with 1 damage"
+cr: ["605.1a", "106.1"]
+verifies: [Llanowar Wastes]
+players:
+  - battlefield: [Llanowar Wastes, Llanowar Wastes]
+  - {}
+script:
+  - choose: "Tap Llanowar Wastes for {C}"
+  - choose: Tap Llanowar Wastes for mana
+  - choose: "Add {G}"
+expect:
+  life: { P1: 19 }
+  pool: { P1: "{G}{C}" }

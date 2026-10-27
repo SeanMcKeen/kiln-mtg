@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  check:
+    name: fmt, clippy, tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.99.1"
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      # Offline: tests use the synthetic fixture; real-data tests skip without a card DB.
+      - run: cargo nextest run --workspace
+      - run: cargo test --workspace --doc
+
+  fuzz-views:
+    name: fuzz with the hidden-information auditor
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.99.1"
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release -p mtg-cli
+      # Synthetic cards (no card DB in CI). Every seat's view is audited for
+      # leaks after every decision; any violation fails the job.
+      - run: ./target/release/mtg dev fuzz --games 500 --invariants --views --replay-every 25
+      - run: ./target/release/mtg dev fuzz --commander --concede 1 --games 500 --invariants --views --replay-every 25
+
+  cr-citations:
+    name: CR citation check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.99.1"
+      - uses: Swatinem/rust-cache@v2
+      # The CR is downloaded at CI time and never committed (ADR-0002). Keep the URL in sync with CLAUDE.md.
+      - name: Fetch the Comprehensive Rules
+        run: |
+          mkdir -p docs/_external
+          curl -sSL -o docs/_external/cr.txt "https://media.wizards.com/2026/downloads/MagicCompRules%2020260619.txt"
+          tr -d '\r' < docs/_external/cr.txt | sed 's/^\xEF\xBB\xBF//' > docs/_external/cr-lf.txt
+      - run: cargo run --release -p mtg-cli -- dev cr-check --require

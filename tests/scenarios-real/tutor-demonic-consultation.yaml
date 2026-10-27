@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: "Demonic Consultation: name a card, exile six, reveal until it"
+cr: ["201.4", "701.20a"]
+verifies: [Demonic Consultation]
+players:
+  - battlefield: [Swamp]
+    hand: [Demonic Consultation]
+    library: [Opt, Opt, Opt, Opt, Opt, Opt, Swamp, Sol Ring, Divination]
+  - {}
+script:
+  - choose: Cast Demonic Consultation
+  - choose: Pay with Swamp
+  - pass_all
+  - choose: Name Sol Ring
+expect:
+  zones:
+    P1.hand: [Sol Ring]
+    exile: [Opt, Opt, Opt, Opt, Opt, Opt, Swamp]
+    P1.library: [Divination]

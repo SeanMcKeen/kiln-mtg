@@ -1,6 +1,6 @@
 ---
 type: adr
-status: open
+status: accepted
 tags: [adr, prior-art]
 updated: 2026-10-20
 ---
@@ -30,3 +30,18 @@ E1 depend on it · E2 fork it · E3 borrow selectively (parser grammar, test cor
 
 ## Initial leaning
 **E3 (borrow selectively)**, unless the evaluation shows its engine already meets our fidelity and throughput bars. In that case, E1 or E2 could save a year of work. **This is the highest-leverage open decision in the project.**
+
+## Recommendation after the M1 evaluation (2026-10-20)
+**E3: borrow selectively.** Full evidence is in [[phase.rs Evaluation]].
+
+| Criterion | Result |
+|---|---|
+| Decision-model fit | Same state-machine architecture, but legality is advisory: 39 offered actions rejected in 20 random games. Attacks are declared jointly, and mana payment is auto by default. ⚠️ |
+| Hidden information | Client redaction exists, but the AI reads the full state by default (`determinization_samples = 0`). ⚠️ |
+| Throughput | Clone 8.9 µs ✅. `legal_actions` ~4 ms vs a 20 µs target, and ~12 s per random 4-player game vs 5 ms. ❌ |
+| Parser quality on the cEDH pool | 201 of 205 parse without gaps, and spot-checked trees look faithful. ⭐ |
+| Velocity and maintainability | ~1.7M non-test lines in the engine crate, a nightly toolchain, ~7 commits a day, client-first goals, silent drops of unresolved deck names. ⚠️ |
+
+The engine doesn't meet our fidelity or throughput bars, so E1 and E2 would mean rewriting its core anyway. Its parser is the strongest asset in the field, so the M3 card-definition spike should treat it as a primary contender, and its coverage data should serve as a differential oracle.
+
+**Status: ✅ Accepted (2026-10-20): E3, borrow selectively**, with the scope above. Decided by the user after the M1 evaluation. The engine core is clean-room; the phase.rs parser is a primary contender in the M3 card-definition spike; its coverage data is a differential oracle (Q24).

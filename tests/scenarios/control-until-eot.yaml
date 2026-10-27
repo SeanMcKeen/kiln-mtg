@@ -1,0 +1,30 @@
+scenario: mtg-scenario/1
+name: Gaining control until end of turn; the permanent returns to its previous controller in cleanup
+cr: ["613.1b", "302.6", "514.2"]
+players:
+  - battlefield: [Test Mountain, Test Mountain, Test Mountain, Test Mountain, Test Mountain]
+    hand: [Test Usurper]
+  - battlefield: [{ card: Test Bear, tapped: true }]
+script:
+  - choose: Cast Test Usurper
+  - choose: Pay with Test Mountain, Test Mountain, Test Mountain, Test Mountain, Test Mountain
+  - pass_all
+  - choose: Target Test Bear (P2)
+  - pass_all
+  - check:
+      zones: { P2.battlefield: [] }
+      tapped: { Test Bear: false }
+  - pass_all
+  - pass_all
+  - choose: Test Bear attacks P2
+  - choose: "Test Usurper doesn't attack"
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+expect:
+  life: { P2: 18 }
+  step: upkeep
+  zones: { P2.battlefield: [Test Bear] }

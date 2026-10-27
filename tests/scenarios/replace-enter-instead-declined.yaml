@@ -1,0 +1,15 @@
+scenario: mtg-scenario/1
+name: Declining an "instead" choice for entering follows the replacement's otherwise branch
+cr: ["614.1a", "614.6"]
+players:
+  - hand: [Test Diamond, Test Forest]
+  - {}
+script:
+  - choose: Cast Test Diamond
+  - pass_all
+  - choose: "No"
+expect:
+  zones:
+    P1.battlefield: []
+    P1.graveyard: [Test Diamond]
+    P1.hand: [Test Forest]

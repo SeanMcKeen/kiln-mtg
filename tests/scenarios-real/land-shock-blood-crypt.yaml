@@ -1,0 +1,15 @@
+scenario: mtg-scenario/1
+name: "Blood Crypt: as it enters, pay 2 life; it enters untapped"
+cr: ["614.12", "614.1a", "305.1"]
+verifies: ["Blood Crypt"]
+players:
+  - hand: ["Blood Crypt"]
+  - {}
+script:
+  - choose: Play Blood Crypt
+  - check: { decision: { player: P1, kind: optional, options: ["No", "Yes"] } }
+  - choose: "Yes"
+expect:
+  life: { P1: 18 }
+  tapped: { "Blood Crypt": false }
+  zones: { P1.battlefield: ["Blood Crypt"] }

@@ -1,0 +1,15 @@
+scenario: mtg-scenario/1
+name: "Null Rod and Collector Ouphe: activated abilities of artifacts, mana abilities included, can't be activated"
+cr: ["101.2", "605.1a"]
+verifies: [Null Rod, Collector Ouphe]
+players:
+  - battlefield: [Null Rod, Sol Ring, Forest]
+  - battlefield: [Collector Ouphe, Mana Vault]
+script:
+  - check:
+      decision:
+        player: P1
+        kind: priority
+        options: [Pass, "Tap Forest for {G}"]
+expect:
+  zones: { P1.battlefield: [Null Rod, Sol Ring, Forest] }

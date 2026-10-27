@@ -1,0 +1,8 @@
+card: Preordain
+faces:
+  - abilities:
+      - spell:
+          effect:
+            seq:
+              - scry: { who: you, amount: 2 }
+              - draw: { who: you, amount: 1 }

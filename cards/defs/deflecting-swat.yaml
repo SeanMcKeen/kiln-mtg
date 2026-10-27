@@ -1,0 +1,9 @@
+card: "Deflecting Swat"
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { spell_or_ability: {} } }]
+          effect: { change_targets: { target: 0 } }
+          alternative_costs:
+            - cost: []
+              condition: control_commander

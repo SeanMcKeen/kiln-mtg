@@ -1,0 +1,6 @@
+card: "Gaea's Cradle"
+faces:
+  - abilities:
+      - activated:
+          cost: [tap]
+          effect: { add_mana: { mana: { times: { mana: "{G}", times: { count: { types: [creature], controller: you } } } } } }

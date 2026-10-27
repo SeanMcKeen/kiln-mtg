@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: "Vampiric Tutor finds a card"
+cr: ["701.23a", "701.24b", "119.3"]
+verifies: [Vampiric Tutor]
+players:
+  - battlefield: [Swamp]
+    hand: [Vampiric Tutor]
+    library: [Swamp, Lightning Bolt, Sol Ring, Grizzly Bears, Divination]
+  - {}
+script:
+  - choose: Cast Vampiric Tutor
+  - choose: Pay with Swamp
+  - pass_all
+  - check:
+      decision: { player: P1, kind: choose_card, options: [Find Swamp, Find Lightning Bolt, Find Sol Ring, Find Grizzly Bears, Find Divination] }
+  - choose: Find Sol Ring
+expect:
+  life: { P1: 18 }
+  library_top:
+    P1: [Sol Ring]

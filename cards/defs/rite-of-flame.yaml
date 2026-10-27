@@ -1,0 +1,12 @@
+card: "Rite of Flame"
+faces:
+  - abilities:
+      - spell:
+          effect:
+            seq:
+              - add_mana: { mana: { fixed: "{R}{R}" } }
+              - add_mana:
+                  mana:
+                    times:
+                      mana: "{R}"
+                      times: { count: { same_name: true, zone: graveyard } }

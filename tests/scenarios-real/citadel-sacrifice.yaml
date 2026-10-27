@@ -1,0 +1,14 @@
+scenario: mtg-scenario/1
+name: "Bolas's Citadel: tap and sacrifice ten nonland permanents: each opponent loses 10 life"
+cr: ["118.3", "701.21a"]
+verifies: ["Bolas's Citadel"]
+players:
+  - battlefield: ["Bolas's Citadel", Sol Ring, Sol Ring, Sol Ring, Sol Ring, Sol Ring, Sol Ring, Sol Ring, Sol Ring, Sol Ring, Island]
+  - {}
+  - {}
+script:
+  - choose: "Activate Bolas's Citadel ability 2"
+  - pass_all
+expect:
+  life: { P1: 20, P2: 10, P3: 10 }
+  zones: { P1.battlefield: [Island] }

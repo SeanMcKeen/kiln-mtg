@@ -1,0 +1,21 @@
+scenario: mtg-scenario/1
+name: "Absorb counters a spell and gains 3 life"
+cr: ["701.6a", "119.3"]
+verifies: [Absorb]
+players:
+  - battlefield: [Mountain]
+    hand: [Lightning Bolt]
+  - battlefield: [Plains, Island, Island]
+    hand: [Absorb]
+script:
+  - choose: Cast Lightning Bolt
+  - choose: Target P2
+  - choose: Pay with Mountain
+  - pass: 1
+  - choose: Cast Absorb
+    player: P2
+  - choose: Target Lightning Bolt
+  - choose: Pay with Plains, Island, Island
+  - pass_all
+expect:
+  life: { P2: 23 }

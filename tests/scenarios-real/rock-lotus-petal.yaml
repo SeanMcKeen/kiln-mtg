@@ -1,0 +1,14 @@
+scenario: mtg-scenario/1
+name: "Lotus Petal: tap and sacrifice for one mana of any color"
+cr: ["605.3a", "701.21a"]
+verifies: [Lotus Petal]
+players:
+  - battlefield: [Lotus Petal]
+  - {}
+script:
+  - choose: Activate Lotus Petal for mana
+  - choose: "Add {G}"
+expect:
+  pool: { P1: "{G}" }
+  zones:
+    P1.graveyard: [Lotus Petal]

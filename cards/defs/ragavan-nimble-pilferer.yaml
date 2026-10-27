@@ -1,0 +1,11 @@
+card: "Ragavan, Nimble Pilferer"
+faces:
+  - abilities:
+      - triggered:
+          trigger: { deals_combat_damage_to_player: { this: true } }
+          effect:
+            seq:
+              - create_token: { token: { predefined: Treasure }, count: 1, controller: you }
+              - exile: { what: { top_of_library: { owner: triggering, count: 1 } }, remember: pilfered }
+              - may_cast_this_turn: { one: { remembered: pilfered } }
+      - keyword: { dash: [{ mana: "{1}{R}" }] }

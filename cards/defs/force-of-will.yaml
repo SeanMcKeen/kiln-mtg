@@ -1,0 +1,8 @@
+card: Force of Will
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { spell: {} } }]
+          effect: { counter: { one: { target: 0 } } }
+          alternative_costs:
+            - cost: [{ pay_life: 1 }, { exile_from_hand: { color: U } }]

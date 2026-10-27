@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: "T03: Thassa's Oracle entering under Dress Down has no abilities, so its ETB doesn't trigger"
+cr: ["603.6a", "613.1f", "611.3a"]
+verifies: [Dress Down, "Thassa's Oracle"]
+players:
+  - battlefield: [Dress Down, Island, Island]
+    hand: ["Thassa's Oracle"]
+    library: []
+  - {}
+script:
+  - choose: "Cast Thassa's Oracle"
+  - choose: Pay with Island, Island
+  - pass_all
+  - check:
+      decision: { player: P1, kind: priority }
+expect:
+  result: in_progress
+  zones:
+    P1.battlefield: [Dress Down, Island, Island, "Thassa's Oracle"]

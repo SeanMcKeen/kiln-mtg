@@ -1,0 +1,23 @@
+scenario: mtg-scenario/1
+name: "Command Tower and Arcane Signet add only colors in the commander's color identity"
+cr: ["903.4", "903.4f", "106.1"]
+verifies: [Command Tower, Arcane Signet]
+players:
+  # Kinnan's color identity is green-blue.
+  - battlefield: [Command Tower, Arcane Signet]
+    commanders: ["Kinnan, Bonder Prodigy"]
+  # No commander: the color identity is undefined, so they add nothing (903.4f).
+  - battlefield: [Command Tower]
+script:
+  - choose: Tap Command Tower for mana
+  - check:
+      decision:
+        player: P1
+        kind: choose_mana
+        options: ["Add {U}", "Add {G}"]
+  - choose: "Add {G}"
+  - choose: Tap Arcane Signet for mana
+  - choose: "Add {U}"
+expect:
+  pool: { P1: "{U}{G}" }
+  tapped: { Command Tower: true, Arcane Signet: true }

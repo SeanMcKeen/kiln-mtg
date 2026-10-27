@@ -1,0 +1,6 @@
+card: Go for the Throat
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { object: { types: [creature], not_types: [artifact] } } }]
+          effect: { destroy: { one: { target: 0 } } }

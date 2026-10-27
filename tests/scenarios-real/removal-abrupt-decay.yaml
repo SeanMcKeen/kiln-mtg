@@ -1,0 +1,26 @@
+scenario: mtg-scenario/1
+name: "Abrupt Decay: mana value 3 or less, nonland; it can't be countered"
+cr: ["202.3", "101.2", "701.6a"]
+verifies: [Abrupt Decay, Counterspell]
+players:
+  - battlefield: [Swamp, Forest]
+    hand: [Abrupt Decay]
+  - battlefield: [Island, Island, Grizzly Bears, Thran Dynamo, Tropical Island]
+    hand: [Counterspell]
+script:
+  - choose: Cast Abrupt Decay
+  - check:
+      decision: { player: P1, kind: choose_target, options: [Target Grizzly Bears (P2)] }
+  - choose: Target Grizzly Bears (P2)
+  - choose: Pay with Swamp, Forest
+  - pass: 1
+  - choose: Cast Counterspell
+    player: P2
+  - choose: Target Abrupt Decay
+  - choose: Pay with Island, Island
+  - pass_all
+  - pass_all
+expect:
+  zones:
+    P2.graveyard: [Counterspell, Grizzly Bears]
+    P1.graveyard: [Abrupt Decay]

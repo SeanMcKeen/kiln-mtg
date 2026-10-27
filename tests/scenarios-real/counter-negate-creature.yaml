@@ -1,0 +1,15 @@
+scenario: mtg-scenario/1
+name: "Negate and Spell Pierce can't target a creature spell"
+cr: ["115.1", "601.2c"]
+verifies: [Negate, Spell Pierce]
+players:
+  - battlefield: [Forest, Forest]
+    hand: [Grizzly Bears]
+  - battlefield: [Island, Island]
+    hand: [Negate, Spell Pierce, Counterspell]
+script:
+  - choose: Cast Grizzly Bears
+  - choose: Pay with Forest, Forest
+  - pass: 1
+expect:
+  decision: { player: P2, kind: priority, options_include: [Cast Counterspell], options_exclude: [Cast Negate, Cast Spell Pierce] }

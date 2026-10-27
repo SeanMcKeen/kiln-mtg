@@ -1,0 +1,15 @@
+scenario: mtg-scenario/1
+name: "Mana of any color in your commander's color identity: a green commander gives only {G}"
+cr: ["903.4", "903.4f"]
+players:
+  - battlefield: [Test Tower]
+    commanders: [Test Commander]
+  - battlefield: [Test Tower]
+script:
+  - check:
+      decision:
+        player: P1
+        kind: priority
+        options_include: ["Tap Test Tower for {G}"]
+expect:
+  zones: { command: [Test Commander] }

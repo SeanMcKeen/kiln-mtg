@@ -1,0 +1,21 @@
+scenario: mtg-scenario/1
+name: "T10: Rings of Brighthearth copies Basalt Monolith's untap ability (not a mana ability)"
+cr: ["605.1a", "707.10", "602.2b"]
+verifies: [Rings of Brighthearth, Basalt Monolith]
+players:
+  - battlefield: [Rings of Brighthearth, Basalt Monolith, Sol Ring]
+  - {}
+script:
+  - choose: Tap Basalt Monolith for {C}{C}{C}
+  - choose: Activate Basalt Monolith ability 3
+  - choose: Pay with 3 from pool
+  - pass_all
+  - choose: "Yes"
+  - choose: Pay with Sol Ring
+  # The copy resolves first: untap, tap again, then the original resolves.
+  - pass_all
+  - choose: Tap Basalt Monolith for {C}{C}{C}
+  - pass_all
+expect:
+  tapped: { Basalt Monolith: false }
+  pool: { P1: "{C}{C}{C}" }

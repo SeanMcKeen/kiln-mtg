@@ -1,0 +1,22 @@
+card: "Najeela, the Blade-Blossom"
+faces:
+  - abilities:
+      - triggered:
+          trigger: { attacks: { subtypes: [Warrior] } }
+          effect:
+            may:
+              create_token:
+                token: { creature: { power: 1, toughness: 1, colors: W, subtypes: [Warrior] } }
+                count: 1
+                controller: { controller_of: triggering }
+                attacking: true
+      - activated:
+          cost: [{ mana: "{W}{U}{B}{R}{G}" }]
+          condition: in_combat
+          effect:
+            seq:
+              - untap: { all: { types: [creature], attacking: true } }
+              - gain_keyword: { what: { all: { types: [creature], attacking: true } }, keyword: trample }
+              - gain_keyword: { what: { all: { types: [creature], attacking: true } }, keyword: lifelink }
+              - gain_keyword: { what: { all: { types: [creature], attacking: true } }, keyword: haste }
+              - additional_combat_phase

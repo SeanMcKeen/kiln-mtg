@@ -1,0 +1,10 @@
+card: Spell Pierce
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { spell: { not_types: [creature] } } }]
+          effect:
+            unless:
+              payer: { controller_of: { target: 0 } }
+              cost: [{ mana: "{2}" }]
+              effect: { counter: { one: { target: 0 } } }

@@ -1,0 +1,13 @@
+scenario: mtg-scenario/1
+name: "Simic Signet: pay {1} and tap for {G}{U}"
+cr: ["605.3a", "602.2b"]
+verifies: [Simic Signet]
+players:
+  - battlefield: [Simic Signet, Island]
+  - {}
+script:
+  - choose: "Activate Simic Signet for {U}{G}"
+  - choose: Pay with Island
+expect:
+  pool: { P1: "{U}{G}" }
+  tapped: { Simic Signet: true, Island: true }

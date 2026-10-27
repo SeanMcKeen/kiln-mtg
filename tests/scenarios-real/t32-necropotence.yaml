@@ -1,0 +1,35 @@
+scenario: mtg-scenario/1
+name: "Necropotence: skip the draw step; pay 1 life to exile the top card face down, returning it at the end step"
+cr: ["614.10", "406.3", "603.7a"]
+verifies: [Necropotence]
+players:
+  - battlefield: [Necropotence]
+    library: [Island, Swamp, Forest]
+  - {}
+turn: { number: 2, active: P1, step: upkeep }
+script:
+  - pass_all
+  # The draw step is skipped (CR 614.10).
+  - check:
+      step: precombat_main
+      zones: { P1.hand: [] }
+  - choose: Activate Necropotence ability 3
+  - pass_all
+  - check:
+      life: { P1: 19 }
+      zones: { exile: [Island], P1.hand: [] }
+      library_top: { P1: [Swamp] }
+  # Beginning of combat, declare attackers, end of combat, postcombat main, end step.
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - check: { step: end }
+  # The delayed trigger is on the stack.
+  - pass_all
+expect:
+  life: { P1: 19 }
+  zones:
+    exile: []
+    P1.hand: [Island]

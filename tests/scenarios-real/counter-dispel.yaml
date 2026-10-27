@@ -1,0 +1,21 @@
+scenario: mtg-scenario/1
+name: "Dispel counters an instant"
+cr: ["701.6a"]
+verifies: [Dispel]
+players:
+  - battlefield: [Mountain]
+    hand: [Lightning Bolt]
+  - battlefield: [Island]
+    hand: [Dispel]
+script:
+  - choose: Cast Lightning Bolt
+  - choose: Target P2
+  - choose: Pay with Mountain
+  - pass: 1
+  - choose: Cast Dispel
+    player: P2
+  - choose: Target Lightning Bolt
+  - choose: Pay with Island
+  - pass_all
+expect:
+  life: { P2: 20 }

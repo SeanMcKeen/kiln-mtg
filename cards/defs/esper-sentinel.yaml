@@ -1,0 +1,11 @@
+card: Esper Sentinel
+faces:
+  - abilities:
+      - triggered:
+          trigger: { cast: { by: opponent, spell: { not_types: [creature] }, first_each_turn: true } }
+          effect:
+            unless:
+              payer: triggering
+              # {X}, where X is this creature's power: {1} paid X times.
+              cost: [{ mana_repeated: { mana: "{1}", times: { power_of: this } } }]
+              effect: { draw: { who: you, amount: 1 } }

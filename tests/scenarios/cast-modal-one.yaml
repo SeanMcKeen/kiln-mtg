@@ -1,0 +1,21 @@
+scenario: mtg-scenario/1
+name: A modal spell's mode is chosen while casting; an unchosen mode's target isn't required
+cr: ["700.2a", "601.2b", "601.2c"]
+players:
+  - battlefield: [Test Mountain]
+    hand: [Test Charm]
+  - {}
+script:
+  - choose: Cast Test Charm
+  - check:
+      decision: { player: P1, kind: choose_mode, options: [Mode 1, Mode 2] }
+  - choose: Mode 2
+  # No target decision: only mode 1 uses the target.
+  - check:
+      decision: { player: P1, kind: pay_mana }
+  - choose: Pay with Test Mountain
+  - pass_all
+expect:
+  zones:
+    P1.hand: [Test Wastes]
+    P1.graveyard: [Test Charm]
