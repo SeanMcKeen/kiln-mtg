@@ -307,6 +307,10 @@ pub enum Trigger {
     Attacks(ObjectFilter),
     /// "Whenever [object] becomes tapped" (CR 110.5; City of Brass).
     BecomesTapped(ObjectFilter),
+    /// "Whenever [player] searches their library" (CR 701.23; Archivist of Oghma).
+    Searches {
+        by: PlayerRel,
+    },
     /// "Whenever [source] deals combat damage to a player".
     DealsCombatDamageToPlayer(ObjectFilter),
     /// Several trigger conditions for one ability ("When ~ enters and whenever …").
@@ -429,6 +433,9 @@ pub enum RuleMod {
     /// battlefield. Players can't cast spells from graveyards or libraries."
     /// (Grafdigger's Cage).
     GraveyardLibraryLock,
+    /// "If an opponent would search a library, that player searches the top
+    /// four cards of that library instead" (Aven Mindcensor).
+    OpponentsSearchTopFour,
 }
 
 /// The exceptions to a copy effect (CR 707.9). They become part of the
@@ -1065,6 +1072,10 @@ pub struct ObjectFilter {
     /// "non[color]": none of these color letters (Snuff Out: "nonblack").
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub not_color: Option<String>,
+    /// "with mana value, power, or toughness equal to the chosen number"
+    /// (Talion): the source's choice under this name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub number_is: Option<String>,
     /// "with the same name as this" ("each card named Rite of Flame", CR 201.2).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub same_name: bool,

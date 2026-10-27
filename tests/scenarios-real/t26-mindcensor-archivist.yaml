@@ -1,0 +1,27 @@
+scenario: mtg-scenario/1
+name: "T26: under Aven Mindcensor an opponent's search sees only the top four cards; Archivist of Oghma triggers on the search"
+cr: ["701.23a", "614.1a", "603.2"]
+verifies: [Aven Mindcensor, Archivist of Oghma, Demonic Tutor]
+players:
+  - battlefield: [Aven Mindcensor, Archivist of Oghma]
+    library: [Island, Swamp]
+  - battlefield: [Swamp, Swamp]
+    hand: [Demonic Tutor]
+    library: [Opt, Ponder, Preordain, Brainstorm, Lightning Bolt]
+turn: { number: 3, active: P2, step: precombat_main }
+script:
+  - { player: P2, choose: Cast Demonic Tutor }
+  - { player: P2, choose: "Pay with Swamp, Swamp" }
+  - pass_all
+  - check:
+      decision:
+        player: P2
+        kind: choose_card
+        options_exclude: [Find Lightning Bolt]
+  - { player: P2, choose: Find Brainstorm }
+  - pass_all
+expect:
+  life: { P1: 21 }
+  zones:
+    P1.hand: [Island]
+    P2.hand: [Brainstorm]

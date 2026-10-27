@@ -468,6 +468,9 @@ impl Game {
                 (step_is(*step, *now) && self.player_rel(*whose, you, active))
                     .then(|| seen(None, Some(active)))
             }
+            (Trigger::Searches { by }, Event::Searched { player, .. }) => self
+                .player_rel(*by, you, *player)
+                .then(|| seen(None, Some(*player))),
             (Trigger::BecomesTapped(f), Event::Tapped { object }) => {
                 let ok = if f.this {
                     *object == source

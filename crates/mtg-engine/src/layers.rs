@@ -292,6 +292,7 @@ pub(crate) fn is_rule_static(e: &StaticEffect) -> bool {
                     | mtg_cards::ir::RuleMod::OneSpellEachTurn
                     | mtg_cards::ir::RuleMod::OpponentsCastOnlyFromHand
                     | mtg_cards::ir::RuleMod::GraveyardLibraryLock
+                    | mtg_cards::ir::RuleMod::OpponentsSearchTopFour
             )
     )
 }

@@ -1021,9 +1021,21 @@ impl Game {
                 };
                 let count = self.amount(&t.ctx, count);
                 let library = self.player(p).library.clone();
+                // Aven Mindcensor: an opponent of its controller searches the top four.
+                let top_four = self.active_rule_statics().iter().any(|(_, controller, e)| {
+                    *controller != p
+                        && matches!(
+                            e,
+                            mtg_cards::ir::StaticEffect::Rule(
+                                mtg_cards::ir::RuleMod::OpponentsSearchTopFour
+                            )
+                        )
+                });
+                let searched = if top_four { 4 } else { library.len() };
                 let candidates: Vec<ObjectId> = library
                     .iter()
                     .rev()
+                    .take(searched)
                     .copied()
                     .filter(|id| self.matches_card(&t.ctx, *id, filter))
                     .collect();

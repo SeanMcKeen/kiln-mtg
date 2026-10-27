@@ -573,6 +573,7 @@ fn trigger(t: &mtg_cards::ir::Trigger) -> Check {
         | T::BeginningOf { .. }
         | T::Attacks(_)
         | T::BecomesTapped(_)
+        | T::Searches { .. }
         | T::DealsCombatDamageToPlayer(_) => Ok(()),
     }
 }

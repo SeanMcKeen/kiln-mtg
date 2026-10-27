@@ -42,6 +42,18 @@ impl Game {
         if !self.player_rel(f.owner, you, o.owner) {
             return false;
         }
+        // Talion: mana value, power or toughness equal to the source's chosen number.
+        if let Some(name) = &f.number_is {
+            let Some(n) = this.and_then(|s| self.object_var(s, name)) else {
+                return false;
+            };
+            let mv = i64::from(self.mana_value_of(id));
+            let def = self.def(c.def_id());
+            let pt = |x: Option<i32>| x.map(i64::from);
+            if mv != n && pt(def.power) != Some(n) && pt(def.toughness) != Some(n) {
+                return false;
+            }
+        }
         if let Some(letters) = &f.not_color
             && letters
                 .chars()
