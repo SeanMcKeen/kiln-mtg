@@ -1,0 +1,13 @@
+scenario: mtg-scenario/1
+name: "Mirror Gallery: the legend rule doesn't apply"
+cr: ["704.5j"]
+verifies: [Mirror Gallery]
+players:
+  - battlefield: [Mirror Gallery, "Rograkh, Son of Rohgahh"]
+    hand: ["Rograkh, Son of Rohgahh"]
+  - {}
+script:
+  - choose: "Cast Rograkh, Son of Rohgahh"
+  - pass_all
+expect:
+  zones: { P1.battlefield: [Mirror Gallery, "Rograkh, Son of Rohgahh", "Rograkh, Son of Rohgahh"] }

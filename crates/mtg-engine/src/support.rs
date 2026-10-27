@@ -118,8 +118,10 @@ pub(crate) fn check(def: &CardDef) -> Check {
                 if let Some(c) = &t.condition {
                     condition(c)?;
                 }
-                if matches!(t.effect, Effect::Modal { .. }) {
-                    return Err("modal triggered abilities (later in M4)".into());
+                if let Effect::Modal { min, max, modes } = &t.effect
+                    && (min > max || *max as usize > modes.len())
+                {
+                    return Err("modal triggered ability with impossible mode counts".into());
                 }
                 if t.targets.iter().any(|s| s.up_to == Some(0)) {
                     return Err("a target slot that allows zero targets".into());
@@ -267,7 +269,8 @@ fn effect(e: &Effect) -> Check {
         Effect::Move { what, .. }
         | Effect::Pump { what, .. }
         | Effect::Tap(what)
-        | Effect::Untap(what) => set(what),
+        | Effect::Untap(what)
+        | Effect::TapOrUntap(what) => set(what),
         Effect::RevealUntil { who, .. } | Effect::Shuffle(who) => player(who),
         Effect::Reveal(what) => set(what),
         Effect::Sacrifice { who, what } => {
@@ -363,6 +366,17 @@ fn effect(e: &Effect) -> Check {
             set(what)
         }
         Effect::ChangeTargets(r) => object(r),
+        Effect::EndTheTurn | Effect::CopyTriggeringAbility { .. } => Ok(()),
+        Effect::Become {
+            what,
+            base_pt,
+            add_subtypes,
+        } => {
+            if base_pt.is_none() && add_subtypes.is_empty() {
+                return Err("a \"becomes\" effect that changes nothing".into());
+            }
+            set(what)
+        }
         Effect::MayCastThisTurn(what) => set(what),
         Effect::Repeat(x) => effect(x),
         Effect::GainControl { what, .. } => set(what),
@@ -573,6 +587,7 @@ fn trigger(t: &mtg_cards::ir::Trigger) -> Check {
         | T::Attacks(_)
         | T::BecomesTapped(_)
         | T::Searches { .. }
+        | T::Activates { .. }
         | T::DealsCombatDamageToPlayer(_) => Ok(()),
     }
 }

@@ -1,0 +1,10 @@
+card: "Rings of Brighthearth"
+faces:
+  - abilities:
+      - triggered:
+          trigger: { activates: { by: you } }
+          effect:
+            if_does:
+              who: you
+              action: { pay: { who: you, cost: [{ mana: "{2}" }] } }
+              then: { copy_triggering_ability: { new_targets: true } }

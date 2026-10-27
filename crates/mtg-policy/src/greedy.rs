@@ -375,6 +375,8 @@ impl Policy for GreedyPolicy {
                 | OptionalKind::Kicker => 1,
                 // Repeating is a gamble; the baseline stops.
                 OptionalKind::Repeat => 0,
+                // Untapping is the usual reason to play Pestermite.
+                OptionalKind::TapOrUntap => 1,
             },
             // Keep the commander available (CR 903.9).
             DecisionKind::CommanderZone { .. } => 1,

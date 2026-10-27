@@ -1734,6 +1734,36 @@ impl Game {
         self.tasks.push(Task::BeginStep);
     }
 
+    /// CR 724.1: an effect ends the turn (Sundial of the Infinite). Called
+    /// while that effect resolves; the rest of the turn's procedure is replaced.
+    pub(crate) fn end_the_turn(&mut self) {
+        // 724.1a: abilities waiting to go on the stack cease to exist.
+        self.pending_triggers.clear();
+        // 724.1b: exile every object on the stack, including the one resolving.
+        let items = std::mem::take(&mut self.stack);
+        for item in items.iter().rev() {
+            if item.is_spell()
+                && self
+                    .obj(item.object)
+                    .is_some_and(|o| o.zone == ZoneId::Stack)
+            {
+                self.move_object(item.object, ZoneId::Exile, true);
+            }
+        }
+        // 724.1d: the step ends (mana empties, CR 500.5) and the game skips
+        // straight to cleanup; creatures leave combat. No player gets priority.
+        self.tasks.clear();
+        self.combat = None;
+        for p in &mut self.players {
+            p.pool.clear();
+        }
+        self.restricted.clear();
+        self.turn.step = Step::Cleanup;
+        self.tasks.push(Task::BeginStep);
+        // 724.1c: state-based actions, with no triggers put on the stack.
+        self.tasks.push(Task::Sba(crate::sba::SbaTask::default()));
+    }
+
     /// CR 514: cleanup.
     fn cleanup(&mut self, discarded: bool) {
         let active = self.turn.active;

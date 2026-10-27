@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: "Deceiver Exarch: with no permanent an opponent controls, only the untap mode can be chosen"
+cr: ["700.2b", "603.3c"]
+verifies: [Deceiver Exarch]
+players:
+  - battlefield: [Island, Sol Ring]
+    hand: [Deceiver Exarch]
+  - {}
+script:
+  - choose: Cast Deceiver Exarch
+  - choose: Pay with Island, Sol Ring
+  - pass_all
+  - check:
+      decision: { player: P1, kind: choose_mode, options: [Mode 1] }
+  - choose: Mode 1
+  - choose: Target Sol Ring (P1)
+  - pass_all
+expect:
+  tapped: { Sol Ring: false, Island: true }

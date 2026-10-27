@@ -1,0 +1,20 @@
+scenario: mtg-scenario/1
+name: "T10: Power Artifact on Basalt Monolith: the untap costs {1}, so each loop nets {C}{C}"
+cr: ["601.2f", "602.2b", "605.1a"]
+verifies: [Power Artifact, Basalt Monolith]
+players:
+  - battlefield: [Basalt Monolith, Island, Island]
+    hand: [Power Artifact]
+  - {}
+script:
+  - choose: Cast Power Artifact
+  - choose: Target Basalt Monolith (P1)
+  - choose: "Pay with Island, Island"
+  - pass_all
+  - choose: Tap Basalt Monolith for {C}{C}{C}
+  - choose: Activate Basalt Monolith ability 3
+  - choose: Pay with 1 from pool
+  - pass_all
+  - choose: Tap Basalt Monolith for {C}{C}{C}
+expect:
+  pool: { P1: "{C}{C}{C}{C}{C}" }

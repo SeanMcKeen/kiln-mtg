@@ -121,6 +121,12 @@ pub enum Event {
         def: DefId,
         ability: u8,
     },
+    /// A copy of an activated ability was put on the stack (CR 707.10).
+    AbilityCopied {
+        source: ObjectId,
+        ability: u8,
+        controller: PlayerId,
+    },
     /// An activated ability became activated (CR 602.2b, applying 601.2i).
     AbilityActivated {
         player: PlayerId,
@@ -258,6 +264,7 @@ impl Event {
             Event::LookedAtHand { .. } => "402.3",
             Event::ManaAdded { .. } => "605.1a",
             Event::AbilityActivated { .. } => "602.2b",
+            Event::AbilityCopied { .. } => "707.10",
             Event::Resolved { .. } => "608.2",
             Event::DidNotResolve { .. } => "608.2b",
             Event::Damage { combat: true, .. } => "510.2",

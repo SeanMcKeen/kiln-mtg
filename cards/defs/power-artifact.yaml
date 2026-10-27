@@ -1,0 +1,5 @@
+card: "Power Artifact"
+faces:
+  - abilities:
+      - keyword: { enchant: { object: { types: [artifact] } } }
+      - static: { effect: { activation_cost_reduction: { affected: { attached: true }, amount: 2 } } }

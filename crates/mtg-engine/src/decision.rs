@@ -256,6 +256,8 @@ pub enum OptionalKind {
     Kicker,
     /// Whether to repeat the process ("any number of times").
     Repeat,
+    /// "Tap or untap": option 0 taps, option 1 untaps (Pestermite).
+    TapOrUntap,
 }
 
 /// Why a card is being chosen.

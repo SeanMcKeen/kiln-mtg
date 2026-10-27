@@ -467,6 +467,18 @@ impl Game {
                         .count()
                         == 2))
                 .then(|| seen(Some(*object), Some(*player))),
+            (
+                Trigger::Activates { by },
+                Event::AbilityActivated {
+                    player,
+                    source: activated,
+                    ability,
+                    ..
+                },
+            ) => self.player_rel(*by, you, *player).then(|| TriggerInfo {
+                stack_ability: Some(*ability),
+                ..seen(Some(*activated), Some(*player))
+            }),
             (Trigger::Discards { by }, Event::Discarded { player, object }) => self
                 .player_rel(*by, you, *player)
                 .then(|| seen(Some(*object), Some(*player))),
@@ -682,12 +694,24 @@ impl Game {
             return;
         };
         let src = self.def(pt.source_def);
-        let satisfiable = ta.targets.iter().all(|s| {
-            s.up_to.is_some()
-                || !self
-                    .legal_targets(&s.what, pt.controller, None, Some(src))
-                    .is_empty()
-        });
+        // CR 603.3c: a modal one needs enough modes with legal targets.
+        let modal = match &ta.effect {
+            mtg_cards::ir::Effect::Modal { min, .. } => Some((*min).max(1) as usize),
+            _ => None,
+        };
+        let satisfiable = match modal {
+            Some(min) => {
+                self.ok_modes(src, Some(pt.ability), pt.controller, None)
+                    .len()
+                    >= min
+            }
+            None => ta.targets.iter().all(|s| {
+                s.up_to.is_some()
+                    || !self
+                        .legal_targets(&s.what, pt.controller, None, Some(src))
+                        .is_empty()
+            }),
+        };
         if !satisfiable {
             self.log(Event::TriggerRemoved {
                 source: pt.source,
@@ -702,7 +726,11 @@ impl Game {
         self.tasks.push(Task::Cast(CastTask {
             spell: pt.source,
             caster: pt.controller,
-            stage: CastStage::Targets,
+            stage: if modal.is_some() {
+                CastStage::Modes
+            } else {
+                CastStage::Targets
+            },
             index: 0,
         }));
     }

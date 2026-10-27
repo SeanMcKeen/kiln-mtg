@@ -192,6 +192,8 @@ pub(crate) enum Frame {
     },
     /// Sylvan Library: pay 4 life or put `card` on top of its owner's library.
     SylvanCard { card: ObjectId },
+    /// Tap or untap these objects, as the controller chooses.
+    TapOrUntap { ids: Vec<ObjectId> },
     /// Offer `chooser` to change target `index` of a spell or ability on the
     /// stack (CR 707.10c copies, 115.7d Deflecting Swat).
     ChangeTargets {
@@ -628,6 +630,18 @@ impl Game {
                     t.frames.push(Frame::TaintedPact { names, last: None });
                 }
             }
+            (Frame::TapOrUntap { ids }, DecisionKind::Optional { .. }) => {
+                for id in ids {
+                    if !self.on_battlefield_now(id) {
+                        continue;
+                    }
+                    if option == 1 {
+                        self.untap(id);
+                    } else {
+                        self.tap(id);
+                    }
+                }
+            }
             (Frame::SylvanCard { card }, DecisionKind::Optional { .. }) => {
                 let who = t.ctx.controller;
                 if option == 1 {
@@ -650,6 +664,18 @@ impl Game {
                 chooser,
             } => self.change_targets_step(t, item, index, chooser),
             Frame::TaintedPact { names, last } => self.tainted_pact_step(t, names, last),
+            Frame::TapOrUntap { ids } => {
+                let source = ids[0];
+                t.frames.push(Frame::TapOrUntap { ids });
+                Flow::Decide(
+                    t.ctx.controller,
+                    DecisionKind::Optional {
+                        source,
+                        kind: OptionalKind::TapOrUntap,
+                    },
+                    "608.2d",
+                )
+            }
             Frame::SylvanCard { card } => {
                 let who = t.ctx.controller;
                 if self.obj(card).is_none_or(|o| o.zone != ZoneId::Hand(who)) {
@@ -1265,6 +1291,63 @@ impl Game {
                     if self.on_battlefield_now(id) {
                         self.untap(id);
                     }
+                }
+            }
+            Effect::EndTheTurn => {
+                t.frames.clear();
+                self.end_the_turn();
+            }
+            Effect::Become {
+                what,
+                base_pt,
+                add_subtypes,
+            } => {
+                // CR 611.2c: the affected set is locked in now.
+                let affected: SmallVec<[ObjectId; 4]> = self
+                    .set_now(&t.ctx, what)
+                    .into_iter()
+                    .filter(|id| self.on_battlefield_now(*id))
+                    .collect();
+                if !affected.is_empty() {
+                    if let Some([power, toughness]) = *base_pt {
+                        self.add_effect(
+                            affected.clone(),
+                            crate::layers::LayerEffect::SetBasePt { power, toughness },
+                            crate::layers::Duration::EndOfTurn,
+                        );
+                    }
+                    for st in add_subtypes {
+                        self.add_effect(
+                            affected.clone(),
+                            crate::layers::LayerEffect::AddSubtype(st.clone()),
+                            crate::layers::Duration::EndOfTurn,
+                        );
+                    }
+                }
+            }
+            Effect::CopyTriggeringAbility { new_targets } => {
+                let who = t.ctx.controller;
+                if let (Some(source), Some(ability)) =
+                    (t.ctx.triggering_object, t.ctx.triggering_ability)
+                    && let Some(copy) = self.copy_ability(source, ability, who)
+                    && *new_targets
+                {
+                    // CR 707.10c: the copy's controller may choose new targets.
+                    t.frames.push(Frame::ChangeTargets {
+                        item: copy,
+                        index: 0,
+                        chooser: who,
+                    });
+                }
+            }
+            Effect::TapOrUntap(set) => {
+                let ids: Vec<ObjectId> = self
+                    .set_now(&t.ctx, set)
+                    .into_iter()
+                    .filter(|id| self.on_battlefield_now(*id))
+                    .collect();
+                if !ids.is_empty() {
+                    t.frames.push(Frame::TapOrUntap { ids });
                 }
             }
             Effect::Choose { what, store } => {
@@ -2329,6 +2412,7 @@ impl Game {
         if o.zone != ZoneId::Stack
             || self.def(o.def).cant_be_countered()
             || self.uncounterable.contains(&id)
+            || self.static_uncounterable(id)
             || self.has_player_rule(
                 o.controller,
                 mtg_cards::ir::PlayerRuleKind::SpellsCantBeCountered,
@@ -2682,6 +2766,43 @@ impl Game {
             of: spell,
         });
         Some(copy)
+    }
+
+    /// CR 707.10: copies the highest instance of `source`'s activated ability
+    /// `ability` on the stack, for `controller` (Rings of Brighthearth). The
+    /// one that triggered is the highest: nothing else can be activated
+    /// before its trigger goes on the stack.
+    fn copy_ability(
+        &mut self,
+        source: ObjectId,
+        ability: u8,
+        controller: PlayerId,
+    ) -> Option<Target> {
+        let same = |s: &crate::state::StackItem| s.object == source && s.ability == Some(ability);
+        let item = self
+            .stack
+            .iter()
+            .rev()
+            .find(|s| same(s) && s.trigger.is_none() && s.delayed.is_none())?
+            .clone();
+        self.stack
+            .push(crate::state::StackItem { controller, ..item });
+        self.log(Event::AbilityCopied {
+            source,
+            ability,
+            controller,
+        });
+        let nth = self
+            .stack
+            .iter()
+            .filter(|s| same(s))
+            .count()
+            .saturating_sub(1);
+        Some(Target::StackAbility {
+            source,
+            ability,
+            nth: u8::try_from(nth).unwrap_or(u8::MAX),
+        })
     }
 
     /// CR 707.10c: for each target of a copied spell, keep it or choose a

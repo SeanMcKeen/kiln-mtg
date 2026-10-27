@@ -331,6 +331,8 @@ pub struct CardDef {
     /// Derived: for a modal spell, a bitmask per mode of the target slots it
     /// refers to (CR 601.2c: only the chosen modes' targets are required).
     pub mode_slots: SmallVec<[u32; 4]>,
+    /// Derived: the same per modal triggered ability, by ability index (CR 700.2b).
+    pub trigger_mode_slots: SmallVec<[(u8, SmallVec<[u32; 4]>); 1]>,
     /// A token's definition (CR 111): never in a deck, never a nameable card (CR 201.4).
     pub token: bool,
     /// Abilities from this index on aren't printed: they're the abilities
@@ -461,11 +463,22 @@ impl CardDef {
         }
         abilities.extend(granted);
         let mut mode_slots = SmallVec::new();
-        for a in abilities.iter().take(printed) {
-            if let Ability::Spell(s) = a
-                && let ir::Effect::Modal { modes, .. } = &s.effect
-            {
-                mode_slots.extend(modes.iter().map(target_slots));
+        let mut trigger_mode_slots = SmallVec::new();
+        for (i, a) in abilities.iter().enumerate().take(printed) {
+            match a {
+                Ability::Spell(s) => {
+                    if let ir::Effect::Modal { modes, .. } = &s.effect {
+                        mode_slots.extend(modes.iter().map(target_slots));
+                    }
+                }
+                Ability::Triggered(t) => {
+                    if let ir::Effect::Modal { modes, .. } = &t.effect
+                        && let Ok(i) = u8::try_from(i)
+                    {
+                        trigger_mode_slots.push((i, modes.iter().map(target_slots).collect()));
+                    }
+                }
+                _ => {}
             }
         }
         let color_identity = ch.color_identity.union(ch.colors).union(
@@ -487,6 +500,7 @@ impl CardDef {
             keywords,
             mana_abilities,
             mode_slots,
+            trigger_mode_slots,
             token: false,
             hidden_from,
             enchant,
@@ -564,6 +578,19 @@ impl CardDef {
 
     pub fn mana_value(&self) -> u32 {
         self.mana_cost.as_ref().map_or(0, ManaCost::mana_value)
+    }
+
+    /// The per-mode target masks of the spell (`None`) or of triggered
+    /// ability `ability`; empty if it isn't modal.
+    pub fn mode_masks(&self, ability: Option<u8>) -> &[u32] {
+        match ability {
+            None => &self.mode_slots,
+            Some(i) => self
+                .trigger_mode_slots
+                .iter()
+                .find(|(a, _)| *a == i)
+                .map_or(&[], |(_, m)| m.as_slice()),
+        }
     }
 
     /// "This spell can't be countered."

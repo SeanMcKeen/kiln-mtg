@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: "Deceiver Exarch: a modal enters trigger; the mode and its target are chosen as it goes on the stack"
+cr: ["700.2b", "603.3c", "601.2c"]
+verifies: [Deceiver Exarch]
+players:
+  - battlefield: [Island, Island, Island]
+    hand: [Deceiver Exarch]
+  - battlefield: [Forest]
+script:
+  - choose: Cast Deceiver Exarch
+  - choose: Pay with Island, Island, Island
+  - pass_all
+  - check:
+      decision: { player: P1, kind: choose_mode, options: [Mode 1, Mode 2] }
+  - choose: Mode 2
+  - choose: Target Forest (P2)
+  - pass_all
+expect:
+  tapped: { Forest: true }

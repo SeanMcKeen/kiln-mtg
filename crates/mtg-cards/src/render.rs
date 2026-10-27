@@ -347,6 +347,7 @@ fn effect(e: &Effect, t: &[TargetSpec]) -> String {
         Effect::Exile { what, .. } => format!("exile {}", objects(what, t)),
         Effect::Tap(o) => format!("tap {}", objects(o, t)),
         Effect::Untap(o) => format!("untap {}", objects(o, t)),
+        Effect::TapOrUntap(o) => format!("tap or untap {}", objects(o, t)),
         Effect::Move {
             what,
             to: Destination::Hand,

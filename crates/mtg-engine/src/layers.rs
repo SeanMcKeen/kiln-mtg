@@ -41,6 +41,8 @@ pub(crate) enum LayerEffect {
     AddSubtype(String),
     /// Layer 6: it has this keyword (CR 613.1f).
     GrantKeyword(Box<mtg_cards::ir::Keyword>),
+    /// Layer 7b: base power and toughness become these (CR 613.4b).
+    SetBasePt { power: i32, toughness: i32 },
     /// Layer 7c: "+N/+M" (CR 613.4c).
     ModifyPt { power: i32, toughness: i32 },
 }
@@ -244,6 +246,7 @@ fn layer_of(p: Part<'_>) -> Option<u8> {
             LayerEffect::Control { .. } => Some(2),
             LayerEffect::AddSubtype(_) => Some(4),
             LayerEffect::GrantKeyword(_) => Some(6),
+            LayerEffect::SetBasePt { .. } => Some(72),
             LayerEffect::ModifyPt { .. } => Some(73),
         },
         Part::Static(s) => match s {
@@ -285,6 +288,8 @@ pub(crate) fn is_rule_static(e: &StaticEffect) -> bool {
             | StaticEffect::PlayerRule { .. }
             | StaticEffect::GrantEscape { .. }
             | StaticEffect::CostIncrease { .. }
+            | StaticEffect::SpellsCantBeCountered { .. }
+            | StaticEffect::ActivationCostReduction { .. }
             | StaticEffect::Rule(
                 mtg_cards::ir::RuleMod::CreaturesEnteringDontTrigger
                     | mtg_cards::ir::RuleMod::ControlOpponentsWhileSearching
@@ -294,6 +299,7 @@ pub(crate) fn is_rule_static(e: &StaticEffect) -> bool {
                     | mtg_cards::ir::RuleMod::GraveyardLibraryLock
                     | mtg_cards::ir::RuleMod::OpponentsSearchTopFour
                     | mtg_cards::ir::RuleMod::PlayFromTopPayingLife
+                    | mtg_cards::ir::RuleMod::NoLegendRule
             )
     )
 }
@@ -927,6 +933,10 @@ impl Game {
                     if let Some(bit) = Keywords::of_ir(k) {
                         c.keywords = c.keywords.with(bit);
                     }
+                }
+                &LayerEffect::SetBasePt { power, toughness } => {
+                    c.power = Some(power);
+                    c.toughness = Some(toughness);
                 }
                 &LayerEffect::ModifyPt { power, toughness } => {
                     c.power = c.power.map(|p| p + power);

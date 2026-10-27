@@ -316,6 +316,11 @@ pub enum Trigger {
     },
     /// "Whenever [source] deals combat damage to a player".
     DealsCombatDamageToPlayer(ObjectFilter),
+    /// "Whenever [player] activates an ability that isn't a mana ability"
+    /// (CR 602.2b; mana abilities don't use the stack, CR 605.3a).
+    Activates {
+        by: PlayerRel,
+    },
     /// Several trigger conditions for one ability ("When ~ enters and whenever …").
     AnyOf(Vec<Trigger>),
 }
@@ -407,6 +412,12 @@ pub enum StaticEffect {
     },
     /// "[spells] cost {N} more to cast" (Thalia; CR 601.2f).
     CostIncrease { spells: ObjectFilter, amount: u32 },
+    /// "[spells] can't be countered" (Allosaurus Shepherd; CR 101.2).
+    SpellsCantBeCountered { spells: ObjectFilter },
+    /// "Activated abilities of [objects] cost {N} less to activate. This
+    /// effect can't reduce the mana in that cost to less than one mana"
+    /// (Power Artifact; CR 601.2f, 602.2b).
+    ActivationCostReduction { affected: ObjectFilter, amount: u32 },
     /// Named rule modifications.
     Rule(RuleMod),
 }
@@ -444,6 +455,8 @@ pub enum RuleMod {
     /// spell this way, pay life equal to its mana value rather than pay its
     /// mana cost." (Bolas's Citadel).
     PlayFromTopPayingLife,
+    /// "The 'legend rule' doesn't apply" (Mirror Gallery; CR 704.5j).
+    NoLegendRule,
 }
 
 /// The exceptions to a copy effect (CR 707.9). They become part of the
@@ -667,6 +680,27 @@ pub enum Effect {
     },
     Tap(ObjectSet),
     Untap(ObjectSet),
+    /// "Tap or untap [objects]": the controller chooses which as it
+    /// resolves (Pestermite).
+    TapOrUntap(ObjectSet),
+    /// "End the turn" (CR 724.1; Sundial of the Infinite).
+    EndTheTurn,
+    /// "Until end of turn, [objects] have base power and toughness P/T and
+    /// become [subtypes] in addition to their other types" (Allosaurus
+    /// Shepherd; CR 613.4b, 613.1d, 611.2c).
+    Become {
+        what: ObjectSet,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        base_pt: Option<[i32; 2]>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        add_subtypes: Vec<String>,
+    },
+    /// "Copy that ability", the activated ability that triggered this one
+    /// (Rings of Brighthearth; CR 707.10). Its controller may choose new
+    /// targets for the copy (CR 707.10c).
+    CopyTriggeringAbility {
+        new_targets: bool,
+    },
     CreateToken {
         token: TokenSpec,
         count: Quantity,
@@ -1342,7 +1376,8 @@ fn max_target_ref(e: &Effect) -> Option<u8> {
         Effect::Destroy(ObjectSet::One(ObjectRef::Target(n)))
         | Effect::Counter(ObjectSet::One(ObjectRef::Target(n)))
         | Effect::Tap(ObjectSet::One(ObjectRef::Target(n)))
-        | Effect::Untap(ObjectSet::One(ObjectRef::Target(n))) => Some(*n),
+        | Effect::Untap(ObjectSet::One(ObjectRef::Target(n)))
+        | Effect::TapOrUntap(ObjectSet::One(ObjectRef::Target(n))) => Some(*n),
         Effect::Exile {
             what: ObjectSet::One(ObjectRef::Target(n)),
             ..

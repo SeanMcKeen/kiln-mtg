@@ -1,0 +1,4 @@
+card: "Mirror Gallery"
+faces:
+  - abilities:
+      - static: { effect: { rule: no_legend_rule } }

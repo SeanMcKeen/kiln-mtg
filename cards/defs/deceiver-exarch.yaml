@@ -1,0 +1,17 @@
+card: "Deceiver Exarch"
+faces:
+  - abilities:
+      - keyword: flash
+      # CR 700.2b: the mode is chosen as the trigger goes on the stack.
+      - triggered:
+          trigger: { enters: { this: true } }
+          targets:
+            - { what: { object: { controller: you } } }
+            - { what: { object: { controller: opponent } } }
+          effect:
+            modal:
+              min: 1
+              max: 1
+              modes:
+                - { untap: { one: { target: 0 } } }
+                - { tap: { one: { target: 1 } } }

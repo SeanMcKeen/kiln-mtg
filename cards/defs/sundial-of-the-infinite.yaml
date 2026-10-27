@@ -1,0 +1,7 @@
+card: "Sundial of the Infinite"
+faces:
+  - abilities:
+      - activated:
+          cost: [{ mana: "{1}" }, tap]
+          condition: your_turn
+          effect: end_the_turn

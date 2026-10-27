@@ -57,6 +57,9 @@ impl SbaChecks {
 impl Game {
     /// CR 704.5j: groups of two or more legendary permanents with the same name and controller.
     fn legend_groups(&self) -> Vec<(PlayerId, Vec<ObjectId>)> {
+        if !self.legend_rule_applies() {
+            return Vec::new();
+        }
         let mut by: BTreeMap<(PlayerId, &str), Vec<ObjectId>> = BTreeMap::new();
         for &id in &self.battlefield {
             // CR 613: name and supertypes after the layers (a copy, CR 707.2).

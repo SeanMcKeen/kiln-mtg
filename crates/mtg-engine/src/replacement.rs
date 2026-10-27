@@ -350,6 +350,46 @@ impl Game {
             })
     }
 
+    /// "[spells] can't be countered" from a permanent (Allosaurus Shepherd).
+    pub(crate) fn static_uncounterable(&self, spell: ObjectId) -> bool {
+        self.pool.has_rule_statics()
+            && self
+                .active_rule_statics()
+                .iter()
+                .any(|(source, controller, e)| {
+                    matches!(e, StaticEffect::SpellsCantBeCountered { spells }
+                        if self.matches_filter(spell, spells, *controller, Some(*source)))
+                })
+    }
+
+    /// CR 601.2f: generic mana taken off the activation costs of `source`'s
+    /// abilities (Power Artifact).
+    pub(crate) fn activation_cost_reduction(&self, source: ObjectId) -> u32 {
+        if !self.pool.has_rule_statics() {
+            return 0;
+        }
+        self.active_rule_statics()
+            .iter()
+            .filter_map(|(s, controller, e)| match e {
+                StaticEffect::ActivationCostReduction { affected, amount }
+                    if self.matches_filter(source, affected, *controller, Some(*s)) =>
+                {
+                    Some(*amount)
+                }
+                _ => None,
+            })
+            .sum()
+    }
+
+    /// Mirror Gallery: whether the legend rule applies (CR 704.5j).
+    pub(crate) fn legend_rule_applies(&self) -> bool {
+        !self.pool.has_rule_statics()
+            || !self
+                .active_rule_statics()
+                .iter()
+                .any(|(_, _, e)| matches!(e, StaticEffect::Rule(ir::RuleMod::NoLegendRule)))
+    }
+
     /// CR 601.2f: generic mana added to the cost of spell `card` by cost
     /// increases (Thalia).
     pub(crate) fn cost_increase(&self, card: ObjectId) -> u32 {

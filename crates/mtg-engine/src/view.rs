@@ -298,6 +298,8 @@ impl Game {
                 (OptionalKind::Kicker, _) => "Kick".into(),
                 (OptionalKind::Repeat, 0) => "Stop".into(),
                 (OptionalKind::Repeat, _) => "Repeat".into(),
+                (OptionalKind::TapOrUntap, 0) => "Tap".into(),
+                (OptionalKind::TapOrUntap, _) => "Untap".into(),
             },
             DecisionKind::ChooseCard { purpose, cards, .. } => match cards[i] {
                 None => "Stop".into(),

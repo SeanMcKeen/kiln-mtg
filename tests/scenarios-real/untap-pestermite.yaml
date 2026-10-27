@@ -1,0 +1,22 @@
+scenario: mtg-scenario/1
+name: "Pestermite: you may tap or untap target permanent, choosing which as it resolves"
+cr: ["608.2d", "701.26a", "701.26b"]
+verifies: [Pestermite]
+players:
+  - battlefield: [Island, Island, Island, Basalt Monolith]
+    hand: [Pestermite]
+  - battlefield: [Forest]
+script:
+  - choose: Tap Basalt Monolith for {C}{C}{C}
+  - choose: Cast Pestermite
+  - choose: Pay with Island, Island, Island
+  - pass_all
+  - choose: Target Basalt Monolith (P1)
+  - pass_all
+  - choose: "Yes"
+  - check:
+      decision: { player: P1, kind: optional, options: [Tap, Untap] }
+  - choose: Untap
+expect:
+  tapped: { Basalt Monolith: false }
+  pool: { P1: "{C}{C}{C}" }

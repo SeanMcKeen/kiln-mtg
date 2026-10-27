@@ -7,9 +7,7 @@
 //! complete legal cast still exists, so the CR 601.2e legality check can't
 //! fail and no rewind (CR 733) is needed.
 
-use mtg_cards::ir::{
-    Ability, ActivatedAbility, CostPart, Effect, Quantity, SpellAbility, TargetSpec, Timing,
-};
+use mtg_cards::ir::{Ability, ActivatedAbility, CostPart, Effect, Quantity, TargetSpec, Timing};
 use mtg_core::{CardType, ManaCost, ManaSymbol, ObjectId, PlayerId};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -267,6 +265,29 @@ fn cost_shape(def: &CardDef, ability: Option<u8>, cost: CastCost) -> Option<Cost
     })
 }
 
+/// Takes up to `cut` generic mana off `symbols`, leaving at least one mana
+/// (CR 601.2f). X counts as no mana here, so an X cost may be reduced less
+/// than it could be once X is chosen, never more.
+fn reduce_keeping_one(symbols: &mut Vec<ManaSymbol>, cut: u32) {
+    let total: u32 = symbols
+        .iter()
+        .map(|s| match s {
+            ManaSymbol::Generic(n) => *n,
+            ManaSymbol::Variable(_) => 0,
+            _ => 1,
+        })
+        .sum();
+    let mut left = cut.min(total.saturating_sub(1));
+    for s in symbols.iter_mut() {
+        if let ManaSymbol::Generic(n) = s {
+            let c = (*n).min(left);
+            *n -= c;
+            left -= c;
+        }
+    }
+    symbols.retain(|s| *s != ManaSymbol::Generic(0));
+}
+
 /// Whether non-mana cost parts use X ("pay X life").
 fn cost_uses_x(parts: &[CostPart]) -> bool {
     parts.iter().any(|p| {
@@ -411,23 +432,25 @@ impl Game {
                 .is_empty()
     }
 
-    /// The modes of a modal spell whose targets can be chosen.
-    fn ok_modes(
+    /// The modes of a modal spell (`ability` `None`) or modal triggered
+    /// ability whose targets can be chosen (CR 700.2a–b).
+    pub(crate) fn ok_modes(
         &self,
         def: &CardDef,
-        spell: &SpellAbility,
+        ability: Option<u8>,
         p: PlayerId,
         this: Option<ObjectId>,
     ) -> Vec<u8> {
+        let targets = targets_of(def, ability);
+        let masks = def.mode_masks(ability);
         let slots_ok = |mask: u32| {
-            spell
-                .targets
+            targets
                 .iter()
                 .enumerate()
                 .all(|(i, t)| mask & (1 << i) == 0 || self.slot_ok(t, p, this, def))
         };
-        (0..def.mode_slots.len())
-            .filter(|m| slots_ok(def.mode_slots[*m]))
+        (0..masks.len())
+            .filter(|m| slots_ok(masks[*m]))
             .filter_map(|m| u8::try_from(m).ok())
             .collect()
     }
@@ -515,7 +538,7 @@ impl Game {
         }
         if let Some(spell) = def.spell()
             && let Effect::Modal { min, .. } = &spell.effect
-            && self.ok_modes(def, spell, p, None).len() < *min as usize
+            && self.ok_modes(def, None, p, None).len() < *min as usize
         {
             return false;
         }
@@ -707,7 +730,7 @@ impl Game {
         }
         if let Some(spell) = def.spell() {
             if let Effect::Modal { min, .. } = &spell.effect {
-                if self.ok_modes(def, spell, p, None).len() < *min as usize {
+                if self.ok_modes(def, None, p, None).len() < *min as usize {
                     return false;
                 }
             } else if !spell.targets.iter().all(|t| self.slot_ok(t, p, None, def)) {
@@ -754,11 +777,18 @@ impl Game {
         let except = taps_source(def, item.ability).then_some(t.spell);
         match t.stage {
             CastStage::Modes => {
-                let Some(spell) = def.spell().filter(|_| item.is_spell()) else {
-                    return self.advance(t, CastStage::Cost);
+                // A triggered ability has no costs: after its modes, its targets (CR 603.3c-d).
+                let (effect, next, rule) = match item.ability {
+                    None => (def.spell().map(|s| &s.effect), CastStage::Cost, "700.2a"),
+                    Some(i) => match def.abilities.get(usize::from(i)) {
+                        Some(Ability::Triggered(ta)) => {
+                            (Some(&ta.effect), CastStage::Targets, "700.2b")
+                        }
+                        _ => (None, CastStage::Cost, "700.2a"),
+                    },
                 };
-                let Effect::Modal { min, max, .. } = &spell.effect else {
-                    return self.advance(t, CastStage::Cost);
+                let Some(Effect::Modal { min, max, .. }) = effect else {
+                    return self.advance(t, next);
                 };
                 let chosen = item.modes.len();
                 let mut modes: Vec<Option<u8>> = Vec::new();
@@ -767,14 +797,14 @@ impl Game {
                 }
                 if chosen < *max as usize {
                     modes.extend(
-                        self.ok_modes(def, spell, t.caster, Some(t.spell))
+                        self.ok_modes(def, item.ability, t.caster, Some(t.spell))
                             .into_iter()
                             .filter(|m| !item.modes.contains(m))
                             .map(Some),
                     );
                 }
                 if modes.iter().all(Option::is_none) {
-                    return self.advance(t, CastStage::Cost);
+                    return self.advance(t, next);
                 }
                 self.tasks.push(Task::Cast(t));
                 self.decide(
@@ -783,7 +813,7 @@ impl Game {
                         spell: t.spell,
                         modes,
                     },
-                    "700.2a",
+                    rule,
                 );
             }
             CastStage::Cost => {
@@ -924,12 +954,12 @@ impl Game {
                     ..t
                 };
                 // CR 601.2c: a modal spell requires only its chosen modes' targets.
-                let required = def.mode_slots.is_empty()
-                    || !item.is_spell()
+                let masks = def.mode_masks(item.ability);
+                let required = masks.is_empty()
                     || item
                         .modes
                         .iter()
-                        .any(|m| def.mode_slots[usize::from(*m)] & (1 << slot) != 0);
+                        .any(|m| masks[usize::from(*m)] & (1 << slot) != 0);
                 if !required {
                     self.tasks.push(Task::Cast(next_slot));
                     return;
@@ -1118,6 +1148,13 @@ impl Game {
                 }
             }
             shape.symbols.retain(|s| *s != ManaSymbol::Generic(0));
+        }
+        // Power Artifact: "cost {N} less to activate", leaving at least one mana.
+        if ability.is_some() {
+            let cut = self.activation_cost_reduction(object);
+            if cut > 0 {
+                reduce_keeping_one(&mut shape.symbols, cut);
+            }
         }
         // CR 702.33: a paid kicker is part of the total cost.
         if ability.is_none()
