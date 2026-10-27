@@ -121,6 +121,17 @@ pub enum Event {
         def: DefId,
         ability: u8,
     },
+    /// A creature was put onto the battlefield attacking; it was never
+    /// declared as an attacker (CR 508.4, 508.3a).
+    EnteredAttacking {
+        object: ObjectId,
+        defending: PlayerId,
+    },
+    /// A player voted (CR 701.38a).
+    Voted {
+        player: PlayerId,
+        choice: String,
+    },
     /// A copy of an activated ability was put on the stack (CR 707.10).
     AbilityCopied {
         source: ObjectId,
@@ -265,6 +276,8 @@ impl Event {
             Event::ManaAdded { .. } => "605.1a",
             Event::AbilityActivated { .. } => "602.2b",
             Event::AbilityCopied { .. } => "707.10",
+            Event::EnteredAttacking { .. } => "508.4",
+            Event::Voted { .. } => "701.38a",
             Event::Resolved { .. } => "608.2",
             Event::DidNotResolve { .. } => "608.2b",
             Event::Damage { combat: true, .. } => "510.2",

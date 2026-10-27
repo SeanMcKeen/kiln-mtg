@@ -99,8 +99,14 @@ impl Game {
     }
 
     /// CR 111.2: creates `n` tokens owned and controlled by `owner`, on the battlefield.
-    pub(crate) fn create_tokens(&mut self, def: DefId, owner: PlayerId, n: u32) {
+    pub(crate) fn create_tokens(
+        &mut self,
+        def: DefId,
+        owner: PlayerId,
+        n: u32,
+    ) -> smallvec::SmallVec<[ObjectId; 2]> {
         self.bump_layers();
+        let mut made = smallvec::SmallVec::new();
         for _ in 0..n {
             let timestamp = self.next_timestamp();
             let id = self.objects.alloc(GameObject {
@@ -115,12 +121,14 @@ impl Game {
                 timestamp,
             });
             self.battlefield.push(id);
+            made.push(id);
             self.log(Event::TokenCreated {
                 player: owner,
                 object: id,
                 def,
             });
         }
+        made
     }
 
     /// CR 704.5d: tokens in a zone other than the battlefield.

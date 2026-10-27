@@ -766,6 +766,7 @@ fn clause(c: &mut Cur, ctx: &mut Ctx) -> Option<Effect> {
             token: TokenSpec::Predefined(cap),
             count: Quantity::Fixed(n),
             controller: PlayerRef::You,
+            attacking: false,
         });
     }
     // "<objects> get(s) +N/+M until end of turn"

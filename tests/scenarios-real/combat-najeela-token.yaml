@@ -1,0 +1,25 @@
+scenario: mtg-scenario/1
+name: "Najeela: an attacking Warrior makes a 1/1 Warrior tapped and attacking; its controller chooses which defending player it attacks"
+cr: ["508.4", "802.2", "506.3b", "508.3a"]
+verifies: ["Najeela, the Blade-Blossom"]
+players:
+  - battlefield: ["Najeela, the Blade-Blossom"]
+  - {}
+  - {}
+turn: { number: 3, active: P1, step: declare_attackers }
+script:
+  - choose: "Najeela, the Blade-Blossom attacks P2"
+  - pass_all
+  - choose: "Yes"
+  - check:
+      decision: { player: P1, kind: choose_attacked, options: [Warrior Token attacks P2, Warrior Token attacks P3] }
+  - choose: Warrior Token attacks P3
+  # The token wasn't declared as an attacker: Najeela doesn't trigger again.
+  - check:
+      decision: { player: P1, kind: priority }
+  - pass_all
+  - pass_all
+  - pass_all
+expect:
+  life: { P2: 17, P3: 19 }
+  tapped: { Warrior Token: true }

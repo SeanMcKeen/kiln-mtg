@@ -323,6 +323,23 @@ impl Game {
                 }
             },
             DecisionKind::ChoosePlayer { players, .. } => format!("Choose {}", players[i]),
+            DecisionKind::ChooseAttacked {
+                creature,
+                players,
+                planeswalkers,
+            } => match players.get(i) {
+                Some(p) => format!("{} attacks {p}", name(*creature)),
+                None => format!(
+                    "{} attacks {}",
+                    name(*creature),
+                    who(planeswalkers[i - players.len()])
+                ),
+            },
+            DecisionKind::Vote { choices, extra, .. } => match (extra, i) {
+                (true, 0) => "Don't vote again".into(),
+                (true, _) => format!("Vote {}", choices[i - 1]),
+                (false, _) => format!("Vote {}", choices[i]),
+            },
             DecisionKind::ChooseMana { options, .. } => {
                 let mut s = String::from("Add ");
                 for t in ManaType::ALL {

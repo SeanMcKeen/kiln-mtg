@@ -45,6 +45,28 @@ pub(crate) struct DamageTask {
 impl Game {
     // ---- declare attackers (CR 508.1) -------------------------------------
 
+    /// CR 508.4: `creature` is now attacking `defending` (or planeswalker
+    /// `planeswalker`) without having been declared as an attacker.
+    pub(crate) fn enter_attacking(
+        &mut self,
+        creature: ObjectId,
+        defending: PlayerId,
+        planeswalker: Option<ObjectId>,
+    ) {
+        let Some(c) = &mut self.combat else { return };
+        c.attackers.push(Attacker {
+            object: creature,
+            defending,
+            planeswalker,
+            blocked: false,
+            blockers: SmallVec::new(),
+        });
+        self.log(Event::EnteredAttacking {
+            object: creature,
+            defending,
+        });
+    }
+
     pub(crate) fn attack_task(&self) -> AttackTask {
         let active = self.turn.active;
         let has_opponent = self.players.iter().any(|p| p.in_game() && p.id != active);

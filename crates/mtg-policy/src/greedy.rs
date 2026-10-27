@@ -394,6 +394,8 @@ impl Policy for GreedyPolicy {
             | DecisionKind::ChooseName { .. }
             | DecisionKind::ChooseColor { .. }
             | DecisionKind::ChoosePlayer { .. }
+            | DecisionKind::ChooseAttacked { .. }
+            | DecisionKind::Vote { .. }
             | DecisionKind::ChooseCost { .. }
             | DecisionKind::ChooseSymbolPay { .. }
             | DecisionKind::OrderTriggers { .. }

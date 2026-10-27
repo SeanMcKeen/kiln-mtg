@@ -194,6 +194,17 @@ pub(crate) enum Frame {
     SylvanCard { card: ObjectId },
     /// Tap or untap these objects, as the controller chooses.
     TapOrUntap { ids: Vec<ObjectId> },
+    /// A creature put onto the battlefield attacking: what it attacks (CR 508.4).
+    EnterAttacking { creature: ObjectId },
+    /// Voting on the `Vote` at `node`: `voters[next]` votes next; `extra`
+    /// when that vote is the controller's additional one (CR 701.38).
+    Vote {
+        node: Path,
+        voters: Vec<PlayerId>,
+        next: usize,
+        tally: Vec<u32>,
+        extra: bool,
+    },
     /// Offer `chooser` to change target `index` of a spell or ability on the
     /// stack (CR 707.10c copies, 115.7d Deflecting Swat).
     ChangeTargets {
@@ -351,6 +362,7 @@ fn child(e: &Effect, i: u8) -> Option<&Effect> {
     match e {
         Effect::Seq(v) => v.get(i),
         Effect::Modal { modes, .. } => modes.get(i),
+        Effect::Vote { choices, .. } => choices.get(i).map(|c| &c.per_vote),
         Effect::May(x)
         | Effect::Unless { effect: x, .. }
         | Effect::ForEachPlayer { effect: x, .. }
@@ -630,6 +642,64 @@ impl Game {
                     t.frames.push(Frame::TaintedPact { names, last: None });
                 }
             }
+            (
+                Frame::EnterAttacking { creature },
+                DecisionKind::ChooseAttacked {
+                    players,
+                    planeswalkers,
+                    ..
+                },
+            ) => {
+                if let Some(&p) = players.get(option) {
+                    self.enter_attacking(creature, p, None);
+                } else if let Some(&pw) = planeswalkers.get(option - players.len())
+                    && let Some(defending) = self.obj(pw).map(|o| o.controller)
+                {
+                    self.enter_attacking(creature, defending, Some(pw));
+                }
+            }
+            (
+                Frame::Vote {
+                    node,
+                    voters,
+                    next,
+                    mut tally,
+                    extra,
+                },
+                DecisionKind::Vote { choices, .. },
+            ) => {
+                let voter = voters[next];
+                let choice = if extra {
+                    option.checked_sub(1)
+                } else {
+                    Some(option)
+                };
+                if let Some(c) = choice {
+                    tally[c] += 1;
+                    self.log(Event::Voted {
+                        player: voter,
+                        choice: choices[c].clone(),
+                    });
+                }
+                // CR 701.38d: the controller's additional vote comes right after.
+                let pool = Arc::clone(&self.pool);
+                let more = !extra
+                    && voter == t.ctx.controller
+                    && matches!(
+                        self::node(&pool, t.ctx.ability, &node),
+                        Some(Effect::Vote {
+                            extra_vote: true,
+                            ..
+                        })
+                    );
+                t.frames.push(Frame::Vote {
+                    node,
+                    voters,
+                    next: if more { next } else { next + 1 },
+                    tally,
+                    extra: more,
+                });
+            }
             (Frame::TapOrUntap { ids }, DecisionKind::Optional { .. }) => {
                 for id in ids {
                     if !self.on_battlefield_now(id) {
@@ -664,6 +734,96 @@ impl Game {
                 chooser,
             } => self.change_targets_step(t, item, index, chooser),
             Frame::TaintedPact { names, last } => self.tainted_pact_step(t, names, last),
+            Frame::EnterAttacking { creature } => {
+                let Some(o) = self.obj(creature).copied() else {
+                    return Flow::Continue;
+                };
+                // CR 506.3b: only under the attacking player's control.
+                let active = self.turn.active;
+                if o.zone != ZoneId::Battlefield || o.controller != active || self.combat.is_none()
+                {
+                    return Flow::Continue;
+                }
+                // CR 802.2: every opponent is a defending player.
+                let players: Vec<PlayerId> = self
+                    .turn_order_from(active)
+                    .into_iter()
+                    .filter(|p| *p != active && self.in_game(*p))
+                    .collect();
+                let planeswalkers: Vec<ObjectId> = self
+                    .battlefield
+                    .iter()
+                    .copied()
+                    .filter(|id| {
+                        self.obj(*id).is_some_and(|x| x.controller != active)
+                            && self
+                                .chars(*id)
+                                .is_some_and(|c| c.is(mtg_core::CardType::Planeswalker))
+                    })
+                    .collect();
+                match (players.as_slice(), planeswalkers.is_empty()) {
+                    ([], true) => {}
+                    ([only], true) => self.enter_attacking(creature, *only, None),
+                    _ => {
+                        t.frames.push(Frame::EnterAttacking { creature });
+                        return Flow::Decide(
+                            active,
+                            DecisionKind::ChooseAttacked {
+                                creature,
+                                players,
+                                planeswalkers,
+                            },
+                            "508.4",
+                        );
+                    }
+                }
+                Flow::Continue
+            }
+            Frame::Vote {
+                node,
+                voters,
+                next,
+                tally,
+                extra,
+            } => {
+                let pool = Arc::clone(&self.pool);
+                let Some(Effect::Vote { choices, .. }) = self::node(&pool, t.ctx.ability, &node)
+                else {
+                    return Flow::Continue;
+                };
+                // Players who left the game don't vote (CR 800.4a).
+                let mut next = next;
+                while voters.get(next).is_some_and(|p| !self.in_game(*p)) {
+                    next += 1;
+                }
+                if let Some(&p) = voters.get(next) {
+                    let names = choices.iter().map(|c| c.name.clone()).collect();
+                    t.frames.push(Frame::Vote {
+                        node,
+                        voters,
+                        next,
+                        tally,
+                        extra,
+                    });
+                    return Flow::Decide(
+                        p,
+                        DecisionKind::Vote {
+                            source: t.ctx.source,
+                            choices: names,
+                            extra,
+                        },
+                        "701.38a",
+                    );
+                }
+                // Each vote's effect, in the listed order.
+                for (i, n) in tally.iter().enumerate().rev() {
+                    let Ok(i) = u8::try_from(i) else { continue };
+                    for _ in 0..*n {
+                        t.frames.push(Frame::Run(with(&node, i)));
+                    }
+                }
+                Flow::Continue
+            }
             Frame::TapOrUntap { ids } => {
                 let source = ids[0];
                 t.frames.push(Frame::TapOrUntap { ids });
@@ -1633,13 +1793,36 @@ impl Game {
                 token,
                 count,
                 controller,
+                attacking,
             } => {
                 let n = self.amount(&t.ctx, count);
                 if let (Some(def), Some(p)) =
                     (self.pool.token(token), self.player_ref(&t.ctx, controller))
                 {
-                    self.create_tokens(def, p, n);
+                    let made = self.create_tokens(def, p, n);
+                    if *attacking {
+                        // "Tapped and attacking": it enters tapped (not "becomes
+                        // tapped"), then its controller chooses what it attacks.
+                        for &id in made.iter().rev() {
+                            if let Some(o) = self.objects.get_mut(id) {
+                                o.tapped = true;
+                            }
+                            t.frames.push(Frame::EnterAttacking { creature: id });
+                        }
+                    }
                 }
+            }
+            Effect::AdditionalCombatPhase => self.extra_combats += 1,
+            Effect::Vote { choices, .. } => {
+                // CR 701.38a: starting with the controller, in turn order.
+                let voters = self.turn_order_from(t.ctx.controller).to_vec();
+                t.frames.push(Frame::Vote {
+                    node: path.clone(),
+                    voters,
+                    next: 0,
+                    tally: vec![0; choices.len()],
+                    extra: false,
+                });
             }
             Effect::Escape(x) => {
                 // `support::check` admits only registered escapes.
@@ -1910,6 +2093,18 @@ impl Game {
         match c {
             Condition::YourTurn => self.turn.active == ctx.controller,
             Condition::ThisTapped => self.obj(ctx.source).is_some_and(|o| o.tapped),
+            Condition::InCombat => {
+                use crate::state::Step;
+                matches!(
+                    self.turn.step,
+                    Step::BeginCombat
+                        | Step::DeclareAttackers
+                        | Step::DeclareBlockers
+                        | Step::FirstStrikeDamage
+                        | Step::CombatDamage
+                        | Step::EndCombat
+                )
+            }
             Condition::AtLeast(a, b) => self.quantity(ctx, a) >= self.quantity(ctx, b),
             // Recorded when the ability adds mana (see `mana_added`).
             Condition::Kicked => self.kicked.contains(&ctx.source),

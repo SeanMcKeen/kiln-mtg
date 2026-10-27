@@ -39,6 +39,14 @@ impl Game {
         if f.attached && !self.is_attached_to(this, id) {
             return false;
         }
+        if f.attacking
+            && self
+                .combat
+                .as_ref()
+                .is_none_or(|c| c.attacker(id).is_none())
+        {
+            return false;
+        }
         if !self.player_rel(f.owner, you, o.owner) {
             return false;
         }

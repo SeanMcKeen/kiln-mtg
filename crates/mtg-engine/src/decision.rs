@@ -163,6 +163,21 @@ pub enum DecisionKind {
         source: ObjectId,
         players: Vec<PlayerId>,
     },
+    /// What a creature put onto the battlefield attacking attacks: a
+    /// defending player, or a planeswalker after them (CR 508.4).
+    ChooseAttacked {
+        creature: ObjectId,
+        players: Vec<PlayerId>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        planeswalkers: Vec<ObjectId>,
+    },
+    /// Vote for one of `choices` (CR 701.38a); with `extra`, option 0
+    /// declines an additional vote (CR 701.38d).
+    Vote {
+        source: ObjectId,
+        choices: Vec<String>,
+        extra: bool,
+    },
     /// Choose a color (CR 105.1).
     ChooseColor {
         source: ObjectId,
@@ -331,6 +346,12 @@ impl PendingDecision {
             }
             DecisionKind::ChooseColor { colors, .. } => colors.len(),
             DecisionKind::ChoosePlayer { players, .. } => players.len(),
+            DecisionKind::ChooseAttacked {
+                players,
+                planeswalkers,
+                ..
+            } => players.len() + planeswalkers.len(),
+            DecisionKind::Vote { choices, extra, .. } => choices.len() + usize::from(*extra),
             DecisionKind::ChooseMode { modes, .. } => modes.len(),
             DecisionKind::OrderTriggers { triggers } => triggers.len(),
             DecisionKind::ChooseReplacement { options } => options.len(),
@@ -355,6 +376,7 @@ impl PendingDecision {
                 targets.first().is_some_and(Option::is_none)
             }
             DecisionKind::ChooseMode { modes, .. } => modes.first().is_some_and(Option::is_none),
+            DecisionKind::Vote { extra, .. } => *extra,
             // Not blocking can be illegal when it would strand a menace attacker.
             DecisionKind::DeclareBlocker { attackers, .. } => {
                 attackers.first().is_some_and(Option::is_none)

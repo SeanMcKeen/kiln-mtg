@@ -278,6 +278,8 @@ pub struct Game {
     pub(crate) escaping: Vec<(ObjectId, Vec<ir::CostPart>)>,
     /// Spells being cast from the top of a library with Bolas's Citadel.
     pub(crate) library_casts: Vec<ObjectId>,
+    /// Additional combat phases still to come this turn (CR 500.8; Najeela).
+    pub(crate) extra_combats: u8,
     /// Cards drawn this turn, by player (Faerie Mastermind's "second card",
     /// Sylvan Library's "drawn this turn").
     pub(crate) drawn_this_turn: Vec<(PlayerId, ObjectId)>,
@@ -377,6 +379,7 @@ impl Game {
             graveyard_casts: Vec::new(),
             drawn_this_turn: Vec::new(),
             library_casts: Vec::new(),
+            extra_combats: 0,
         };
         // CR 903.6: each commander starts the game in the command zone.
         for (seat, defs) in setup.commanders.iter().enumerate() {
@@ -684,6 +687,9 @@ impl Game {
         }
         if !self.library_casts.is_empty() {
             self.library_casts.hash(&mut h);
+        }
+        if self.extra_combats > 0 {
+            self.extra_combats.hash(&mut h);
         }
         h.finish()
     }
@@ -1592,6 +1598,7 @@ impl Game {
         self.cast_this_turn.clear();
         self.drawn_this_turn.clear();
         self.combat_damaged = 0;
+        self.extra_combats = 0;
         self.log(Event::TurnBegan {
             number,
             active: next,
@@ -1723,7 +1730,13 @@ impl Game {
             Step::EndCombat => {
                 // CR 511.3: creatures stop attacking and blocking as combat ends.
                 self.combat = None;
-                Step::PostcombatMain
+                // CR 500.8: an additional combat phase directly after this one.
+                if self.extra_combats > 0 {
+                    self.extra_combats -= 1;
+                    Step::BeginCombat
+                } else {
+                    Step::PostcombatMain
+                }
             }
             Step::PostcombatMain => Step::End,
             Step::End => Step::Cleanup,
@@ -1761,6 +1774,7 @@ impl Game {
         // straight to cleanup; creatures leave combat. No player gets priority.
         self.tasks.clear();
         self.combat = None;
+        self.extra_combats = 0;
         for p in &mut self.players {
             p.pool.clear();
         }

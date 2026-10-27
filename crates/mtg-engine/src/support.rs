@@ -369,6 +369,13 @@ fn effect(e: &Effect) -> Check {
         Effect::ChangeTargets(r) => object(r),
         Effect::EndTheTurn | Effect::CopyTriggeringAbility { .. } => Ok(()),
         Effect::Flicker(what) => set(what),
+        Effect::AdditionalCombatPhase => Ok(()),
+        Effect::Vote { choices, .. } => {
+            if choices.is_empty() || choices.len() > 8 {
+                return Err("a vote with no choices or more than 8".into());
+            }
+            choices.iter().try_for_each(|c| effect(&c.per_vote))
+        }
         Effect::Become {
             what,
             base_pt,
@@ -408,6 +415,7 @@ fn effect(e: &Effect) -> Check {
             token,
             count,
             controller,
+            ..
         } => {
             crate::card::token_def(token).map_err(|e| e.reason)?;
             player(controller)?;
@@ -686,6 +694,7 @@ fn condition(c: &Condition) -> Check {
         Condition::TopOfLibraryMatches { who, .. } => player(who),
         Condition::YourTurn
         | Condition::ThisTapped
+        | Condition::InCombat
         | Condition::UnusedThisTurn
         | Condition::Kicked
         | Condition::TargetMatches { .. } => Ok(()),

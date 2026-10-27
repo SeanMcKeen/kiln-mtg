@@ -486,6 +486,14 @@ pub struct CopyExcept {
     pub counters: Vec<TypedCounter>,
 }
 
+/// A choice players can vote for, and what each vote for it does.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct VoteChoice {
+    pub name: String,
+    pub per_vote: Effect,
+}
+
 /// A counter a copy enters with if it has a card type.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -704,6 +712,17 @@ pub enum Effect {
     /// "Exile [objects], then return those cards to the battlefield under
     /// their owners' control" (Displacer Kitten; new objects, CR 400.7).
     Flicker(ObjectSet),
+    /// "After this phase, there is an additional combat phase" (CR 500.8).
+    AdditionalCombatPhase,
+    /// Voting (CR 701.38): starting with the controller, each player in turn
+    /// order votes for one choice; then each choice's effect happens once
+    /// per vote for it, in the listed order (Council's dilemma).
+    Vote {
+        choices: Vec<VoteChoice>,
+        /// "While voting, you may vote an additional time" (CR 701.38d).
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        extra_vote: bool,
+    },
     /// "Until end of turn, [objects] have base power and toughness P/T and
     /// become [subtypes] in addition to their other types" (Allosaurus
     /// Shepherd; CR 613.4b, 613.1d, 611.2c).
@@ -724,6 +743,9 @@ pub enum Effect {
         token: TokenSpec,
         count: Quantity,
         controller: PlayerRef,
+        /// "that's tapped and attacking" (CR 508.4).
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        attacking: bool,
     },
     /// "Put N [kind] counters on [objects]" (CR 122.1, 122.6).
     PutCounters {
@@ -1162,6 +1184,9 @@ pub struct ObjectFilter {
     /// "with mana value N or less" (CR 202.3).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_mana_value: Option<u32>,
+    /// "attacking creatures" (CR 506.4).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub attacking: bool,
 }
 
 /// Numbers (CR 107.1).
@@ -1231,6 +1256,8 @@ pub enum Condition {
     ControlCommander,
     /// "if this is tapped".
     ThisTapped,
+    /// "Activate only during combat" (the combat phase, CR 506.1).
+    InCombat,
     /// left ≥ right.
     AtLeast(Quantity, Quantity),
     /// "if you haven't added mana with this ability this turn" (Carpet of Flowers).
