@@ -184,6 +184,14 @@ pub(crate) enum Frame {
     Pick(Pick),
     /// `left` more cards for `who` to draw.
     Draws { who: PlayerId, left: u32 },
+    /// Tainted Pact: the names exiled so far, and the card just exiled if
+    /// its controller is being asked whether to take it.
+    TaintedPact {
+        names: Vec<DefId>,
+        last: Option<ObjectId>,
+    },
+    /// Sylvan Library: pay 4 life or put `card` on top of its owner's library.
+    SylvanCard { card: ObjectId },
     /// Offer `chooser` to change target `index` of a spell or ability on the
     /// stack (CR 707.10c copies, 115.7d Deflecting Swat).
     ChangeTargets {
@@ -258,6 +266,11 @@ pub(crate) enum AfterPick {
     /// The ability's source enters the battlefield as a copy of the pick, or
     /// as itself if none (CR 707.9); `node` is the `EnterAsCopy` effect.
     EnterAsCopy { node: Path },
+    /// Doomsday: every other card in `pool` is exiled, then the picks go on
+    /// top of the library in the order chosen.
+    Doomsday { pool: Vec<ObjectId> },
+    /// Sylvan Library: each pick is kept for 4 life or put back on top.
+    Sylvan,
     /// Looked-at cards taken `to`; the rest (`rest`) go per `order`.
     Take {
         to: Destination,
@@ -598,6 +611,28 @@ impl Game {
                     choice: text,
                 });
             }
+            (
+                Frame::TaintedPact {
+                    names,
+                    last: Some(card),
+                },
+                DecisionKind::Optional { .. },
+            ) => {
+                if option == 1 {
+                    let who = t.ctx.controller;
+                    self.place(&mut t.ctx, card, Destination::Hand, who);
+                } else {
+                    t.frames.push(Frame::TaintedPact { names, last: None });
+                }
+            }
+            (Frame::SylvanCard { card }, DecisionKind::Optional { .. }) => {
+                let who = t.ctx.controller;
+                if option == 1 {
+                    self.lose_life(who, 4);
+                } else {
+                    self.place(&mut t.ctx, card, Destination::TopOfLibrary, who);
+                }
+            }
             (frame, kind) => unreachable!("effect frame {frame:?} answered with {kind:?}"),
         }
         self.tasks.push(Task::Effect(t));
@@ -611,6 +646,27 @@ impl Game {
                 index,
                 chooser,
             } => self.change_targets_step(t, item, index, chooser),
+            Frame::TaintedPact { names, last } => self.tainted_pact_step(t, names, last),
+            Frame::SylvanCard { card } => {
+                let who = t.ctx.controller;
+                if self.obj(card).is_none_or(|o| o.zone != ZoneId::Hand(who)) {
+                    return Flow::Continue;
+                }
+                // CR 119.4: 4 life can be paid only with at least 4 life.
+                if self.player(who).life < 4 {
+                    self.place(&mut t.ctx, card, Destination::TopOfLibrary, who);
+                    return Flow::Continue;
+                }
+                t.frames.push(Frame::SylvanCard { card });
+                Flow::Decide(
+                    who,
+                    DecisionKind::Optional {
+                        source: card,
+                        kind: OptionalKind::PayUnless,
+                    },
+                    "119.4",
+                )
+            }
             Frame::Run(path) => {
                 let pool = Arc::clone(&self.pool);
                 match node(&pool, t.ctx.ability, &path) {
@@ -2328,9 +2384,11 @@ impl Game {
 
     fn discard_all(&mut self, ctx: &mut EffectCtx, p: PlayerId, ids: &[ObjectId]) {
         let mut n = 0;
+        let mut discarded: SmallVec<[ObjectId; 2]> = SmallVec::new();
         for &id in ids {
             if let Some(new) = self.fx_move(ctx, id, ZoneId::Graveyard(p), true) {
                 n += 1;
+                discarded.push(new);
                 self.log(Event::Discarded {
                     player: p,
                     object: new,
@@ -2341,6 +2399,99 @@ impl Game {
             Some((_, c)) => *c += n,
             None => ctx.discarded.push((p, n)),
         }
+        // "the discarded card" later in the effect (Malcolm).
+        ctx.remembered.retain(|(k, _)| k != "discarded");
+        ctx.remembered.push(("discarded".to_owned(), discarded));
+    }
+
+    // ---- escapes (escapes.rs) ----------------------------------------------
+
+    /// Doomsday: "Search your library and graveyard for five cards and exile
+    /// the rest. Put the chosen cards on top of your library in any order."
+    pub(crate) fn doomsday(&mut self, t: &mut EffectTask) {
+        let who = t.ctx.controller;
+        let pl = self.player(who);
+        let pool: Vec<ObjectId> = pl.library.iter().chain(&pl.graveyard).copied().collect();
+        t.frames.push(Frame::Pick(exact_pick(
+            who,
+            CardPurpose::Search,
+            pool.clone(),
+            5,
+            AfterPick::Doomsday { pool },
+        )));
+    }
+
+    /// Sylvan Library (after the two extra draws): choose two cards in hand
+    /// drawn this turn; for each, pay 4 life or put it on top of the library.
+    pub(crate) fn sylvan_library(&mut self, t: &mut EffectTask) {
+        let who = t.ctx.controller;
+        let drawn: Vec<ObjectId> = self
+            .drawn_this_turn
+            .iter()
+            .filter(|(p, id)| {
+                *p == who && self.obj(*id).is_some_and(|o| o.zone == ZoneId::Hand(who))
+            })
+            .map(|(_, id)| *id)
+            .collect();
+        t.frames.push(Frame::Pick(exact_pick(
+            who,
+            CardPurpose::Take,
+            drawn,
+            2,
+            AfterPick::Sylvan,
+        )));
+    }
+
+    /// Tainted Pact: exile the top card; you may put it into your hand
+    /// unless its name matches another card exiled this way; repeat until a
+    /// card is taken or two exiled cards share a name.
+    pub(crate) fn tainted_pact(&mut self, t: &mut EffectTask) {
+        t.frames.push(Frame::TaintedPact {
+            names: Vec::new(),
+            last: None,
+        });
+    }
+
+    fn tainted_pact_step(
+        &mut self,
+        t: &mut EffectTask,
+        mut names: Vec<DefId>,
+        last: Option<ObjectId>,
+    ) -> Flow {
+        debug_assert!(
+            last.is_none(),
+            "an asked Tainted Pact frame is answered, not run"
+        );
+        let who = t.ctx.controller;
+        let Some(&top) = self.player(who).library.last() else {
+            return Flow::Continue;
+        };
+        let Some(new) = self.fx_move(&mut t.ctx, top, ZoneId::Exile, true) else {
+            return Flow::Continue;
+        };
+        let Some(name) = self.obj(new).map(|o| o.def) else {
+            return Flow::Continue;
+        };
+        // Two cards with the same name: the process stops.
+        if names
+            .iter()
+            .any(|d| self.def(*d).name == self.def(name).name)
+        {
+            return Flow::Continue;
+        }
+        names.push(name);
+        t.frames.push(Frame::TaintedPact {
+            names,
+            last: Some(new),
+        });
+        Flow::Decide(
+            who,
+            DecisionKind::Optional {
+                source: new,
+                kind: OptionalKind::May,
+            },
+            "608.2d",
+        )
     }
 
     pub(crate) fn shuffle_library(&mut self, p: PlayerId) {
@@ -2838,6 +2989,28 @@ impl Game {
                 }));
             }
             AfterPick::Discard => self.discard_all(&mut t.ctx, who, &picked),
+            AfterPick::Doomsday { pool } => {
+                let rest: Vec<ObjectId> =
+                    pool.into_iter().filter(|id| !picked.contains(id)).collect();
+                // The rest are exiled now; then the picks are put on top in
+                // the order chosen (the pushed frame runs next).
+                let n = u32::try_from(picked.len()).unwrap_or(0);
+                t.frames.push(Frame::Pick(Pick {
+                    who,
+                    purpose: CardPurpose::PutOnTop,
+                    candidates: picked,
+                    picked: Vec::new(),
+                    max: n,
+                    min: n,
+                    then: AfterPick::Place(Destination::TopOfLibrary),
+                }));
+                self.exile_all(&mut t.ctx, &rest, None, false);
+            }
+            AfterPick::Sylvan => {
+                for card in picked.into_iter().rev() {
+                    t.frames.push(Frame::SylvanCard { card });
+                }
+            }
             AfterPick::Sacrifice => self.sacrifice_all(&mut t.ctx, &picked),
             AfterPick::Amass { n, subtype } => {
                 for id in picked {

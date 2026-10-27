@@ -3,8 +3,9 @@
 //! `Effect::Escape { function, .. }`; a name that isn't registered here keeps
 //! the card `unsupported` (`support.rs`), so nothing runs as a silent no-op.
 //!
-//! The registry starts empty: all 123 verified cards are pure IR. Adding an
-//! entry is a reviewed engine change, like adding an IR variant.
+//! Adding an entry is a reviewed engine change, like adding an IR variant.
+//! Each one starts a procedure the IR can't express and pushes frames for
+//! its decisions (M6 6.6: Doomsday, Sylvan Library, Tainted Pact).
 
 use crate::effects::EffectTask;
 use crate::engine::Game;
@@ -13,7 +14,11 @@ use crate::engine::Game;
 pub(crate) type EscapeFn = fn(&mut Game, &mut EffectTask);
 
 /// Registered escapes, sorted by name.
-const ESCAPES: &[(&str, EscapeFn)] = &[];
+const ESCAPES: &[(&str, EscapeFn)] = &[
+    ("doomsday", |g, t| g.doomsday(t)),
+    ("sylvan_library", |g, t| g.sylvan_library(t)),
+    ("tainted_pact", |g, t| g.tainted_pact(t)),
+];
 
 /// The implementation registered under `name`.
 pub(crate) fn lookup(name: &str) -> Option<EscapeFn> {

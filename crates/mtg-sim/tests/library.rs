@@ -59,7 +59,7 @@ fn overrides_win_parser_fills_in_and_gaps_are_named() {
 
     // A card neither an override nor the parser covers stays unsupported,
     // and the reason says why.
-    let doomsday = card("Doomsday");
+    let doomsday = card("Shahrazad");
     let Coverage::Unsupported { reasons } = &doomsday.definition.coverage else {
         panic!("{:?}", doomsday.definition.coverage);
     };

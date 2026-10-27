@@ -1,0 +1,23 @@
+scenario: mtg-scenario/1
+name: "Malcolm: a chorus counter, then loot; at four counters, cast the discarded card free"
+cr: ["122.1", "608.2g", "701.9a"]
+verifies: ["Malcolm, Alluring Scoundrel"]
+players:
+  - battlefield: [{ card: "Malcolm, Alluring Scoundrel", counters: { chorus: 3 } }]
+    hand: [Lightning Bolt]
+    library: [Island]
+  - {}
+turn: { number: 3, active: P1, step: declare_attackers }
+script:
+  - choose: Malcolm, Alluring Scoundrel attacks P2
+  - pass_all
+  - pass_all
+  - pass_all
+  - choose: Discard Lightning Bolt
+  - choose: "Yes"
+  - choose: Target P2
+  - pass_all
+expect:
+  life: { P2: 15 }
+  counters: { "Malcolm, Alluring Scoundrel": { chorus: 4 } }
+  zones: { P1.hand: [Island], P1.graveyard: [Lightning Bolt] }

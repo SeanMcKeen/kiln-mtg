@@ -1,0 +1,13 @@
+card: "Sylvan Library"
+faces:
+  - abilities:
+      - triggered:
+          trigger: { beginning_of: { step: draw, whose: you } }
+          effect:
+            if_does:
+              who: you
+              action: { draw: { who: you, amount: 2 } }
+              then:
+                escape:
+                  function: sylvan_library
+                  text: for two cards drawn this turn, pay 4 life each or put it back on top

@@ -1,0 +1,10 @@
+card: "Doomsday"
+faces:
+  - abilities:
+      - spell:
+          effect:
+            seq:
+              - escape:
+                  function: doomsday
+                  text: keep five cards from library and graveyard on top in any order, exile the rest
+              - lose_life: { who: you, amount: { half_rounded_up: { life_of: you } } }

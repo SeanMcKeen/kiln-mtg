@@ -679,7 +679,8 @@ impl Game {
             }
         }
         let ctx = cast_ctx(def_id, def, None, id, p);
-        cost_shape(def, None, CastCost::WithoutPaying)
+        // Cost increases and additional costs still apply (CR 601.2f).
+        self.spell_shape(def, None, CastCost::WithoutPaying, id)
             .is_some_and(|shape| self.shape_payable(p, &ctx, &shape, 0, &[], None))
     }
 

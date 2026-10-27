@@ -1,0 +1,23 @@
+scenario: mtg-scenario/1
+name: "Sylvan Library: draw two more; for two cards drawn this turn, pay 4 life or put it back"
+cr: ["119.4", "121.1", "603.2"]
+verifies: [Sylvan Library]
+players:
+  - battlefield: [Sylvan Library]
+    library: [Opt, Ponder, Preordain, Island]
+  - {}
+turn: { number: 3, active: P1, step: upkeep }
+script:
+  - pass_all
+  # The trigger is on the stack in the draw step.
+  - pass_all
+  - choose: "Yes"
+  - choose: Take Ponder
+  - choose: Take Preordain
+  # Keep Ponder for 4 life; put Preordain back.
+  - choose: Pay
+  - choose: "Don't pay"
+expect:
+  life: { P1: 16 }
+  zones: { P1.hand: [Opt, Ponder] }
+  library_top: { P1: [Preordain, Island] }
