@@ -18,7 +18,7 @@ use crate::state::{Attacker, Target, ZoneId};
 pub(crate) struct AttackTask {
     candidates: Vec<ObjectId>,
     next: usize,
-    declared: Vec<(ObjectId, PlayerId)>,
+    declared: Vec<(ObjectId, PlayerId, Option<ObjectId>)>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -87,16 +87,32 @@ impl Game {
                     .filter(|p| *p != active)
                     .map(Some),
             );
+            // CR 508.1b: or a planeswalker an opponent controls.
+            let planeswalkers: Vec<ObjectId> = self
+                .battlefield
+                .iter()
+                .copied()
+                .filter(|id| {
+                    self.obj(*id).is_some_and(|o| o.controller != active)
+                        && self
+                            .chars(*id)
+                            .is_some_and(|c| c.is(mtg_core::CardType::Planeswalker))
+                })
+                .collect();
             self.tasks.push(Task::DeclareAttackers(t));
             self.decide(
                 active,
-                DecisionKind::DeclareAttacker { creature, targets },
+                DecisionKind::DeclareAttacker {
+                    creature,
+                    targets,
+                    planeswalkers,
+                },
                 "508.1a",
             );
             return;
         }
         let mut attackers = Vec::new();
-        for (id, defending) in t.declared {
+        for (id, defending, planeswalker) in t.declared {
             // CR 508.1f: attacking creatures become tapped, except with vigilance (CR 702.20b).
             if !self.keywords(id).has(Keywords::VIGILANCE) {
                 self.tap(id);
@@ -108,6 +124,7 @@ impl Game {
             attackers.push(Attacker {
                 object: id,
                 defending,
+                planeswalker,
                 blocked: false,
                 blockers: SmallVec::new(),
             });
@@ -118,9 +135,13 @@ impl Game {
         }
     }
 
-    pub(crate) fn attack_answer(&mut self, mut t: AttackTask, target: Option<PlayerId>) {
-        if let Some(p) = target {
-            t.declared.push((t.candidates[t.next], p));
+    pub(crate) fn attack_answer(
+        &mut self,
+        mut t: AttackTask,
+        target: Option<(PlayerId, Option<ObjectId>)>,
+    ) {
+        if let Some((p, pw)) = target {
+            t.declared.push((t.candidates[t.next], p, pw));
         }
         t.next += 1;
         self.tasks.push(Task::DeclareAttackers(t));
@@ -435,9 +456,16 @@ impl Game {
                 continue;
             }
             let trample = self.keywords(a).has(Keywords::TRAMPLE);
-            let player = DamageRecipient::Player(att.defending);
+            // An attacked planeswalker takes the damage (if it's still there, CR 506.4).
+            let player = match att.planeswalker {
+                Some(pw) => DamageRecipient::Creature(pw),
+                None => DamageRecipient::Player(att.defending),
+            };
             // CR 800.4e: no combat damage is assigned to a player who has left.
-            let player_ok = self.in_game(att.defending);
+            let player_ok = match att.planeswalker {
+                Some(pw) => self.on_battlefield(pw),
+                None => self.in_game(att.defending),
+            };
             let blockers: Vec<ObjectId> = att
                 .blockers
                 .iter()

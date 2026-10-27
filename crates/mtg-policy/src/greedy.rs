@@ -355,7 +355,9 @@ impl Policy for GreedyPolicy {
             DecisionKind::ChooseTarget { spell, targets, .. } => {
                 Self::choose_target(view, *spell, targets)
             }
-            DecisionKind::DeclareAttacker { creature, targets } => {
+            DecisionKind::DeclareAttacker {
+                creature, targets, ..
+            } => {
                 Self::attack(view, *creature, targets)
             }
             DecisionKind::DeclareBlocker {

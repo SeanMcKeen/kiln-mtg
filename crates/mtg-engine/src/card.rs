@@ -300,6 +300,9 @@ pub struct Characteristics {
     /// their colors and their cost's colors.
     #[serde(default)]
     pub color_identity: Colors,
+    /// A planeswalker's printed loyalty (CR 209.1).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub loyalty: Option<i32>,
 }
 
 /// A card definition: characteristics plus IR abilities, with derived indexes.
@@ -316,6 +319,9 @@ pub struct CardDef {
     /// CR 903.4: the card's color identity (Commander).
     #[serde(default)]
     pub color_identity: Colors,
+    /// A planeswalker's printed loyalty (CR 209.1, 306.5b).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub loyalty: Option<i32>,
     /// Abilities in printed order, then intrinsic ones (CR 305.6).
     pub abilities: Vec<Ability>,
     /// Derived: the keyword bitset, for fast combat checks.
@@ -476,6 +482,7 @@ impl CardDef {
             power: ch.power,
             toughness: ch.toughness,
             color_identity,
+            loyalty: ch.loyalty,
             abilities,
             keywords,
             mana_abilities,
@@ -858,6 +865,10 @@ impl Characteristics {
             power,
             toughness,
             color_identity: rec.color_identity,
+            loyalty: match &f.loyalty {
+                Some(PrintedStat::Fixed(n)) => Some(*n),
+                _ => None,
+            },
         })
     }
 }
@@ -1636,6 +1647,7 @@ pub fn synthetic(
         power: pt.map(|(p, _)| p),
         toughness: pt.map(|(_, t)| t),
         color_identity: Colors::COLORLESS,
+        loyalty: None,
     }
 }
 
@@ -1766,7 +1778,8 @@ mod tests {
     fn permanent_kinds_without_rules_are_unsupported() {
         // M4 4.5: their state-based actions and rules aren't implemented yet.
         for (types, why) in [
-            ("Legendary Planeswalker — Test", "704.5i"),
+            // Planeswalkers need a printed loyalty (made-up ones have none).
+            ("Legendary Planeswalker — Test", "306.5b"),
             ("Battle — Siege", "704.5v"),
             ("Enchantment — Saga", "704.5s"),
             ("World Enchantment", "704.5k"),

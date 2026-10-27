@@ -1,0 +1,21 @@
+scenario: mtg-scenario/1
+name: "Attacking a planeswalker: combat damage removes loyalty counters; at 0 loyalty it goes to the graveyard"
+cr: ["508.1b", "120.3c", "704.5i"]
+verifies: ["Jace, Wielder of Mysteries"]
+players:
+  - battlefield: [{ card: "Jace, Wielder of Mysteries", counters: { loyalty: 2 } }]
+  - battlefield: [Grizzly Bears]
+turn: { number: 3, active: P2, step: declare_attackers }
+script:
+  - check:
+      decision:
+        player: P2
+        kind: declare_attacker
+        options: ["Grizzly Bears doesn't attack", Grizzly Bears attacks P1, "Grizzly Bears attacks Jace, Wielder of Mysteries (P1)"]
+  - { player: P2, choose: "Grizzly Bears attacks Jace, Wielder of Mysteries (P1)" }
+  - pass_all
+  - pass_all
+  - pass_all
+expect:
+  life: { P1: 20 }
+  zones: { P1.graveyard: ["Jace, Wielder of Mysteries"] }

@@ -216,6 +216,9 @@ pub(crate) enum Frame {
         to: Destination,
         who: PlayerId,
     },
+    /// Return the card this Aura enchants (Animate Dead), after any
+    /// "as this enters, choose" (CR 614.12).
+    ReturnAttached,
 }
 
 /// Picking cards one at a time.
@@ -461,7 +464,7 @@ impl Game {
             return;
         }
         // CR 614.12: likewise for "as this enters, choose".
-        if matches!(frame, Frame::Place { .. })
+        if matches!(frame, Frame::Place { .. } | Frame::ReturnAttached)
             && matches!(
                 kind,
                 DecisionKind::ChooseColor { .. } | DecisionKind::ChooseNumber { .. }
@@ -705,6 +708,21 @@ impl Game {
                 Flow::Continue
             }
             Frame::Pay { who, parts, next } => self.pay_step(t, who, parts, next),
+            Frame::ReturnAttached => {
+                let controller = t.ctx.controller;
+                // CR 614.12: "as this enters, choose" before it's put onto the battlefield.
+                if let Some(Target::Object(card)) = self.attached_to(t.ctx.source)
+                    && self
+                        .obj(card)
+                        .is_some_and(|o| matches!(o.zone, ZoneId::Graveyard(_)))
+                    && let Some((p, kind)) = self.entering_question(card, controller)
+                {
+                    t.frames.push(Frame::ReturnAttached);
+                    return Flow::Decide(p, kind, "614.12");
+                }
+                self.return_attached(t.ctx.source, controller);
+                Flow::Continue
+            }
             Frame::Place { ids, to, who } => {
                 // CR 903.9b: each commander's owner answers before the move.
                 if let Some((owner, kind)) =
@@ -1286,10 +1304,7 @@ impl Game {
                     self.attach_source(t.ctx.source, host);
                 }
             }
-            Effect::ReturnAttached => {
-                let controller = t.ctx.controller;
-                self.return_attached(t.ctx.source, controller);
-            }
+            Effect::ReturnAttached => t.frames.push(Frame::ReturnAttached),
             Effect::GainControl {
                 what,
                 until_end_of_turn,
@@ -3206,6 +3221,11 @@ impl Game {
             }
             CostPart::Tap => self.obj(ctx.source).is_some_and(|o| !o.tapped),
             CostPart::Untap => self.obj(ctx.source).is_some_and(|o| o.tapped),
+            CostPart::Loyalty(n) => {
+                *n >= 0
+                    || i64::from(self.counters_on(ctx.source, mtg_cards::ir::CounterKind::Loyalty))
+                        >= i64::from(n.unsigned_abs())
+            }
             CostPart::Sacrifice(set) => match set {
                 ObjectSet::ChosenFrom { filter, count, .. } => {
                     self.own_permanents(ctx, who, filter).len() >= self.amount(ctx, count) as usize
@@ -3291,6 +3311,15 @@ impl Game {
             }
             CostPart::Untap => {
                 self.untap(t.ctx.source);
+                Flow::Continue
+            }
+            CostPart::Loyalty(n) => {
+                let k = n.unsigned_abs();
+                if n >= 0 {
+                    self.add_counters(t.ctx.source, mtg_cards::ir::CounterKind::Loyalty, k);
+                } else {
+                    self.remove_counters(t.ctx.source, mtg_cards::ir::CounterKind::Loyalty, k);
+                }
                 Flow::Continue
             }
             CostPart::Sacrifice(set) => {

@@ -1,0 +1,29 @@
+scenario: mtg-scenario/1
+name: "Animate Dead returning a creature with an \"as this enters, choose\" asks before it enters"
+cr: ["614.12", "303.4f"]
+verifies: [Animate Dead, "Talion, the Kindly Lord"]
+players:
+  - battlefield: [Swamp, Swamp]
+    hand: [Animate Dead]
+    library: [Island]
+  - battlefield: [Island]
+    hand: [Opt]
+    graveyard: ["Talion, the Kindly Lord"]
+script:
+  - choose: Cast Animate Dead
+  - choose: "Target Talion, the Kindly Lord"
+  - choose: Pay with Swamp, Swamp
+  - pass_all
+  - pass_all
+  - check:
+      decision: { player: P1, kind: choose_number }
+  - choose: Choose 1
+  - check:
+      zones: { P1.battlefield: [Swamp, Swamp, Animate Dead, "Talion, the Kindly Lord"] }
+  - pass: 1
+  - { player: P2, choose: Cast Opt }
+  - { player: P2, choose: Pay with Island }
+  - pass_all
+expect:
+  life: { P2: 18 }
+  zones: { P1.hand: [Island] }

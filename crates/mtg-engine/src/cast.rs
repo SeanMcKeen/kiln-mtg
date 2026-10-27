@@ -115,6 +115,15 @@ fn requirement(symbols: &[ManaSymbol], x: u32, pays: &[SymbolPay]) -> (CostReq, 
 }
 
 /// The activated ability `i` of a definition.
+/// Marks "a loyalty ability of this permanent was activated this turn"
+/// in `activated_this_turn` (CR 606.3).
+const LOYALTY_USED: u8 = u8::MAX;
+
+/// Whether an activated ability is a loyalty ability (CR 606.4).
+fn is_loyalty(x: &ActivatedAbility) -> bool {
+    x.cost.iter().any(|c| matches!(c, CostPart::Loyalty(_)))
+}
+
 /// A spell's kicker cost (CR 702.33a), if it has one.
 fn kicker_cost(def: &CardDef) -> Option<&[CostPart]> {
     def.abilities.iter().find_map(|a| match a {
@@ -240,6 +249,13 @@ fn cost_shape(def: &CardDef, ability: Option<u8>, cost: CastCost) -> Option<Cost
         // CR 702.138a: the mana cost plus the escape grant's extra cost
         // (added by the game, which knows the grant).
         CastCost::Escape => symbols.extend(def.mana_cost.as_ref()?.symbols().iter().cloned()),
+        // Life equal to its mana value (X is 0, CR 107.3b), rather than its mana cost.
+        CastCost::LifeInsteadOfMana => add(
+            &[CostPart::PayLife(Quantity::Fixed(i64::from(
+                def.mana_value(),
+            )))],
+            &mut symbols,
+        ),
     }
     if let Some(s) = spell {
         add(&s.additional_costs, &mut symbols);
@@ -431,7 +447,14 @@ impl Game {
         let from_graveyard = in_graveyard || being_cast.is_some();
         let permitted = self.cast_permitted(ctx.source, p) || being_cast.is_some_and(|(_, ok)| *ok);
         let mut candidates: Vec<CastCost> = Vec::new();
-        if !from_graveyard || permitted {
+        // Bolas's Citadel: from the library, only life instead of mana.
+        let from_library = self
+            .obj(ctx.source)
+            .is_some_and(|o| matches!(o.zone, ZoneId::Library(_)))
+            || self.library_casts.contains(&ctx.source);
+        if from_library {
+            candidates.push(CastCost::LifeInsteadOfMana);
+        } else if !from_graveyard || permitted {
             candidates.push(CastCost::Normal);
             candidates.extend(
                 (0..alts)
@@ -550,6 +573,13 @@ impl Game {
         if x.once_per_turn && self.activated_this_turn.contains(&(source, ability)) {
             return false;
         }
+        // CR 606.3: a loyalty ability: sorcery timing, and only one per
+        // permanent each turn.
+        if is_loyalty(x)
+            && (!sorcery_timing || self.activated_this_turn.contains(&(source, LOYALTY_USED)))
+        {
+            return false;
+        }
         // CR 302.6: a creature's {T}/{Q} abilities need it under control since the turn began.
         if taps_source(def, Some(ability))
             && self.is_creature(source)
@@ -604,9 +634,15 @@ impl Game {
             .obj(card)
             .is_some_and(|o| matches!(o.zone, ZoneId::Graveyard(_)));
         let permitted = self.cast_permitted(card, p);
+        let from_library = self
+            .obj(card)
+            .is_some_and(|o| matches!(o.zone, ZoneId::Library(_)));
         let Some(spell) = self.move_object(card, ZoneId::Stack, true) else {
             return;
         };
+        if from_library {
+            self.library_casts.push(spell);
+        }
         if from_graveyard {
             self.graveyard_casts.push((spell, permitted));
         }
@@ -997,6 +1033,9 @@ impl Game {
                 Some(ability) => {
                     if activated(def, ability).is_some_and(|x| x.once_per_turn) {
                         self.activated_this_turn.push((t.spell, ability));
+                    }
+                    if activated(def, ability).is_some_and(is_loyalty) {
+                        self.activated_this_turn.push((t.spell, LOYALTY_USED));
                     }
                     self.log(Event::AbilityActivated {
                         player: t.caster,

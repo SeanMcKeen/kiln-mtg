@@ -1,0 +1,23 @@
+card: "Jace, Wielder of Mysteries"
+faces:
+  - abilities:
+      # CR 614.11, 121.6a: applies even though no card could be drawn.
+      - replacement:
+          event: { would_draw: { by: you } }
+          condition: { not: { at_least: [{ cards_in_library: you }, 1] } }
+          instead: { win_game: you }
+      - activated:
+          cost: [{ loyalty: 1 }]
+          targets: [{ what: { player: any } }]
+          effect:
+            seq:
+              - move: { what: { top_of_library: { owner: { target: 0 }, count: 2 } }, to: graveyard }
+              - draw: { who: you, amount: 1 }
+      - activated:
+          cost: [{ loyalty: -8 }]
+          effect:
+            seq:
+              - draw: { who: you, amount: 7 }
+              - if:
+                  condition: { not: { at_least: [{ cards_in_library: you }, 1] } }
+                  then: { win_game: you }

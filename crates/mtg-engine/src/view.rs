@@ -91,6 +91,9 @@ pub struct ViewSnapshot {
     /// The command zone (CR 408; public, CR 400.2).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub command: Vec<VisibleObject>,
+    /// The top card of the viewer's library, when they may look at it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub library_top: Option<VisibleObject>,
 }
 
 /// "Target Rhystic Study ability 1", with "[k]" telling identical ones apart.
@@ -129,6 +132,7 @@ impl Game {
             .chain(&snap.battlefield)
             .chain(&snap.exile)
             .chain(&snap.command)
+            .chain(&snap.library_top)
             .map(|o| o.id)
             .collect();
         // An ability's source may have left play (CR 113.7a); only spells are stack objects.
@@ -144,7 +148,7 @@ impl Game {
                 return Err(format!("view exposes dead object {id}"));
             };
             match o.zone {
-                ZoneId::Library(_) => {
+                ZoneId::Library(p) if !(p == me && self.top_card_visible(p) == Some(id)) => {
                     return Err(format!("view for {me} exposes library object {id}"));
                 }
                 ZoneId::Hand(p) if p != me => {
@@ -243,9 +247,18 @@ impl Game {
                 }
                 ManaStep::Spend(m) => format!("Spend {m}"),
             },
-            DecisionKind::DeclareAttacker { creature, targets } => match targets[i] {
-                None => format!("{} doesn't attack", name(*creature)),
-                Some(p) => format!("{} attacks {p}", name(*creature)),
+            DecisionKind::DeclareAttacker {
+                creature,
+                targets,
+                planeswalkers,
+            } => match targets.get(i) {
+                Some(None) => format!("{} doesn't attack", name(*creature)),
+                Some(Some(p)) => format!("{} attacks {p}", name(*creature)),
+                None => format!(
+                    "{} attacks {}",
+                    name(*creature),
+                    who(planeswalkers[i - targets.len()])
+                ),
             },
             DecisionKind::DeclareBlocker {
                 creature,
@@ -379,6 +392,7 @@ impl Game {
                 CastCost::WithoutPaying => "Cast without paying its mana cost".into(),
                 CastCost::Dash => "Pay the dash cost".into(),
                 CastCost::Escape => "Pay the escape cost".into(),
+                CastCost::LifeInsteadOfMana => "Pay life equal to its mana value".into(),
             },
             DecisionKind::ChooseSymbolPay {
                 symbol, options, ..
@@ -429,7 +443,8 @@ impl<'g> PlayerView<'g> {
     /// Whether the viewer may see object `id` (CR 400.2).
     pub fn can_see(&self, id: ObjectId) -> bool {
         self.game.obj(id).is_some_and(|o| match o.zone {
-            ZoneId::Library(_) => false,
+            // Bolas's Citadel: its controller may look at their top card.
+            ZoneId::Library(p) => p == self.me && self.game.top_card_visible(p) == Some(id),
             ZoneId::Hand(p) => p == self.me,
             // CR 406.3
             ZoneId::Exile => !self.game.face_down.contains(&id),
@@ -571,6 +586,10 @@ impl<'g> PlayerView<'g> {
                 .collect(),
             exile: objs(&self.game.exile),
             command: objs(&self.game.cmd.zone),
+            library_top: self
+                .game
+                .top_card_visible(self.me)
+                .and_then(|id| self.object(id)),
         }
     }
 }

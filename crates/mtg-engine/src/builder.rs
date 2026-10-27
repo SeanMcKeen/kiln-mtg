@@ -321,6 +321,7 @@ impl GameBuilder {
             escaping: Vec::new(),
             graveyard_casts: Vec::new(),
             drawn_this_turn: Vec::new(),
+            library_casts: Vec::new(),
         };
         if self.pregame {
             game.turn.number = 0;

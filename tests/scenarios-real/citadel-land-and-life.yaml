@@ -1,0 +1,19 @@
+scenario: mtg-scenario/1
+name: "Bolas's Citadel: play a land from the top; a spell costing more life than you have can't be cast"
+cr: ["305.1", "119.4", "118.3"]
+verifies: ["Bolas's Citadel"]
+players:
+  - battlefield: ["Bolas's Citadel"]
+    library: [Island, Demonic Tutor]
+    life: 1
+  - {}
+script:
+  - choose: Play Island
+  - check:
+      decision:
+        player: P1
+        kind: priority
+        options_exclude: [Cast Demonic Tutor]
+expect:
+  zones: { P1.battlefield: ["Bolas's Citadel", Island] }
+  library_top: { P1: [Demonic Tutor] }

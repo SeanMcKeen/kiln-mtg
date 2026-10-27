@@ -439,6 +439,11 @@ pub enum RuleMod {
     /// "If an opponent would search a library, that player searches the top
     /// four cards of that library instead" (Aven Mindcensor).
     OpponentsSearchTopFour,
+    /// "You may look at the top card of your library any time. You may play
+    /// lands and cast spells from the top of your library. If you cast a
+    /// spell this way, pay life equal to its mana value rather than pay its
+    /// mana cost." (Bolas's Citadel).
+    PlayFromTopPayingLife,
 }
 
 /// The exceptions to a copy effect (CR 707.9). They become part of the
@@ -1203,6 +1208,8 @@ pub enum CostPart {
     Tap,
     /// {Q} (CR 107.6).
     Untap,
+    /// A loyalty cost: put (+N) or remove (−N) loyalty counters (CR 606.4).
+    Loyalty(i32),
     PayLife(Quantity),
     Sacrifice(ObjectSet),
     Discard(DiscardSpec),

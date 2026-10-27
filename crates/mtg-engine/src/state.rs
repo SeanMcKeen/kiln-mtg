@@ -352,7 +352,12 @@ pub struct TurnState {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Attacker {
     pub object: ObjectId,
+    /// The defending player: the attacked player, or the attacked
+    /// planeswalker's controller (CR 506.2).
     pub defending: PlayerId,
+    /// The planeswalker it attacks, if any (CR 508.1b).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub planeswalker: Option<ObjectId>,
     /// CR 509.1h: stays blocked even if its blockers leave combat.
     pub blocked: bool,
     pub blockers: SmallVec<[ObjectId; 2]>,

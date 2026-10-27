@@ -125,6 +125,16 @@ impl Game {
                 dying.push((id, true));
             }
         }
+        // CR 704.5i: a planeswalker with 0 loyalty goes to its owner's graveyard.
+        for &id in &self.battlefield {
+            if self
+                .chars(id)
+                .is_some_and(|c| c.is(mtg_core::CardType::Planeswalker))
+                && self.counters_on(id, CounterKind::Loyalty) == 0
+            {
+                dying.push((id, false));
+            }
+        }
         let (auras, unattach) = if self.attachments.is_empty() && !self.pool.has_auras() {
             (Vec::new(), Vec::new())
         } else {

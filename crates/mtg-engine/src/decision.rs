@@ -102,6 +102,9 @@ pub enum DecisionKind {
     DeclareAttacker {
         creature: ObjectId,
         targets: Vec<Option<PlayerId>>,
+        /// Planeswalkers it may attack (CR 508.1b); options after `targets`.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        planeswalkers: Vec<ObjectId>,
     },
     /// CR 509.1a: `attackers[0]` is `None` (doesn't block).
     DeclareBlocker {
@@ -225,6 +228,8 @@ pub enum CastCost {
     Dash,
     /// The escape cost from the graveyard (CR 702.138a).
     Escape,
+    /// Life equal to its mana value rather than its mana cost (Bolas's Citadel).
+    LifeInsteadOfMana,
 }
 
 /// How one hybrid or Phyrexian mana symbol is paid (CR 107.4e–f).
@@ -307,7 +312,11 @@ impl PendingDecision {
             DecisionKind::ChooseTarget { targets, .. } => targets.len(),
             DecisionKind::PayMana { plans, .. } => plans.len() + 1,
             DecisionKind::ManaStep { steps, .. } => steps.len(),
-            DecisionKind::DeclareAttacker { targets, .. } => targets.len(),
+            DecisionKind::DeclareAttacker {
+                targets,
+                planeswalkers,
+                ..
+            } => targets.len() + planeswalkers.len(),
             DecisionKind::DeclareBlocker { attackers, .. } => attackers.len(),
             DecisionKind::AssignDamage { recipients, .. } => recipients.len(),
             DecisionKind::LegendRule { candidates } => candidates.len(),

@@ -276,6 +276,8 @@ pub struct Game {
     /// Spells being cast from a graveyard with escape and the extra cost
     /// their escape grant adds (CR 702.138a; Underworld Breach).
     pub(crate) escaping: Vec<(ObjectId, Vec<ir::CostPart>)>,
+    /// Spells being cast from the top of a library with Bolas's Citadel.
+    pub(crate) library_casts: Vec<ObjectId>,
     /// Cards drawn this turn, by player (Faerie Mastermind's "second card",
     /// Sylvan Library's "drawn this turn").
     pub(crate) drawn_this_turn: Vec<(PlayerId, ObjectId)>,
@@ -374,6 +376,7 @@ impl Game {
             escaping: Vec::new(),
             graveyard_casts: Vec::new(),
             drawn_this_turn: Vec::new(),
+            library_casts: Vec::new(),
         };
         // CR 903.6: each commander starts the game in the command zone.
         for (seat, defs) in setup.commanders.iter().enumerate() {
@@ -679,6 +682,9 @@ impl Game {
         if !self.drawn_this_turn.is_empty() {
             self.drawn_this_turn.hash(&mut h);
         }
+        if !self.library_casts.is_empty() {
+            self.library_casts.hash(&mut h);
+        }
         h.finish()
     }
 
@@ -861,6 +867,17 @@ impl Game {
             let v = self.zone_vec_mut(to);
             if top { v.push(new) } else { v.insert(0, new) }
         }
+        // CR 306.5b: a planeswalker enters with its printed loyalty.
+        if to == ZoneId::Battlefield
+            && let Some(n) = self.def(old.def).loyalty
+            && self.def(old.def).is(CardType::Planeswalker)
+        {
+            self.add_counters(
+                new,
+                ir::CounterKind::Loyalty,
+                u32::try_from(n.max(0)).unwrap_or(0),
+            );
+        }
         self.commander_moved(id, Some(new), to);
         if !self.uncounterable.is_empty() {
             self.uncounterable.retain(|x| *x != id);
@@ -876,6 +893,9 @@ impl Game {
         }
         if !self.graveyard_casts.is_empty() {
             self.graveyard_casts.retain(|(x, _)| *x != id);
+        }
+        if !self.library_casts.is_empty() {
+            self.library_casts.retain(|x| *x != id);
         }
         // CR 614.12: an "as this enters" choice goes with it onto the
         // battlefield; anything else forgets it (CR 400.7).
@@ -1258,9 +1278,21 @@ impl Game {
             (Task::ManualPay(t), DecisionKind::ManaStep { steps, .. }) => {
                 self.manual_pay_answer(t, steps[option]);
             }
-            (Task::DeclareAttackers(t), DecisionKind::DeclareAttacker { targets, .. }) => {
-                self.attack_answer(t, targets[option]);
-            }
+            (
+                Task::DeclareAttackers(t),
+                DecisionKind::DeclareAttacker {
+                    targets,
+                    planeswalkers,
+                    ..
+                },
+            ) => match targets.get(option) {
+                Some(&target) => self.attack_answer(t, target.map(|p| (p, None))),
+                None => {
+                    let pw = planeswalkers[option - targets.len()];
+                    let controller = self.obj(pw).map_or(self.turn.active, |o| o.controller);
+                    self.attack_answer(t, Some((controller, Some(pw))));
+                }
+            },
             (Task::DeclareBlockers(t), DecisionKind::DeclareBlocker { attackers, .. }) => {
                 self.block_answer(t, attackers[option]);
             }
@@ -1783,6 +1815,24 @@ impl Game {
         self.decide(holder, DecisionKind::Priority { actions }, "117.1");
     }
 
+    /// The top card of `p`'s library if `p` may look at it and play it
+    /// (Bolas's Citadel).
+    pub(crate) fn top_card_visible(&self, p: PlayerId) -> Option<ObjectId> {
+        if !self.pool.has_rule_statics() {
+            return None;
+        }
+        let citadel = self.active_rule_statics().iter().any(|(_, controller, e)| {
+            *controller == p
+                && matches!(
+                    e,
+                    ir::StaticEffect::Rule(ir::RuleMod::PlayFromTopPayingLife)
+                )
+        });
+        citadel
+            .then(|| self.player(p).library.last().copied())
+            .flatten()
+    }
+
     /// Whether `p` may cast card `id` this turn by an effect's permission.
     pub(crate) fn cast_permitted(&self, id: ObjectId, p: PlayerId) -> bool {
         self.cast_permissions
@@ -1892,6 +1942,18 @@ impl Game {
                 {
                     actions.push(Action::Cast(id));
                 }
+            }
+        }
+        // Bolas's Citadel: the top card of `p`'s library, as a land or a spell.
+        if let Some(top) = self.top_card_visible(p)
+            && let Some(def) = self.obj_def(top)
+        {
+            if def.is(CardType::Land) {
+                if sorcery_timing && self.player(p).lands_played < 1 {
+                    actions.push(Action::PlayLand(top));
+                }
+            } else if self.can_cast(p, top, sorcery_timing) {
+                actions.push(Action::Cast(top));
             }
         }
         // Cards in a graveyard `p` may cast: escape (Underworld Breach) or
@@ -2317,6 +2379,20 @@ impl Game {
                 self.lose_life(p, amount);
             }
             Target::Object(id) => {
+                // CR 120.3c: damage to a planeswalker removes loyalty counters.
+                if self.obj(id).is_some_and(|o| o.zone == ZoneId::Battlefield)
+                    && !self.is_creature(id)
+                    && self.chars(id).is_some_and(|c| c.is(CardType::Planeswalker))
+                {
+                    self.log(Event::Damage {
+                        source,
+                        target,
+                        amount,
+                        combat,
+                    });
+                    self.remove_counters(id, ir::CounterKind::Loyalty, amount);
+                    return;
+                }
                 // CR 702.16e: damage from a source with the quality is prevented.
                 if let Some(src) = self.obj(source).copied()
                     && self.protected_from(id, self.def(src.def), src.controller)

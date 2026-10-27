@@ -419,10 +419,8 @@ fn effect(e: &Effect) -> Check {
 /// supported abilities (M4 4.5).
 fn permanent_kind(def: &CardDef) -> Check {
     let t = &def.type_line;
-    if def.is(CardType::Planeswalker) {
-        return Err(
-            "planeswalkers: starting loyalty and loyalty abilities (CR 306.5b, 704.5i)".into(),
-        );
+    if def.is(CardType::Planeswalker) && def.loyalty.is_none() {
+        return Err("a planeswalker without a printed loyalty (CR 306.5b)".into());
     }
     if def.is(CardType::Battle) {
         return Err("battles: defense and protectors (CR 310.4b, 704.5v-x)".into());
