@@ -282,6 +282,11 @@ pub struct Game {
     pub(crate) extra_combats: u8,
     /// What Auras entering without being cast will enchant (CR 303.4f).
     pub(crate) entering_hosts: Vec<(ObjectId, Target)>,
+    /// Pending "you control [player] during their next turn" effects:
+    /// (controlled player, controller) (CR 723.1).
+    pub(crate) player_control: Vec<(PlayerId, PlayerId)>,
+    /// The player being controlled this turn, and by whom (CR 723.1).
+    pub(crate) controlled: Option<(PlayerId, PlayerId)>,
     /// Cards drawn this turn, by player (Faerie Mastermind's "second card",
     /// Sylvan Library's "drawn this turn").
     pub(crate) drawn_this_turn: Vec<(PlayerId, ObjectId)>,
@@ -383,6 +388,8 @@ impl Game {
             library_casts: Vec::new(),
             extra_combats: 0,
             entering_hosts: Vec::new(),
+            player_control: Vec::new(),
+            controlled: None,
         };
         // CR 903.6: each commander starts the game in the command zone.
         for (seat, defs) in setup.commanders.iter().enumerate() {
@@ -697,6 +704,12 @@ impl Game {
         if !self.entering_hosts.is_empty() {
             self.entering_hosts.hash(&mut h);
         }
+        if !self.player_control.is_empty() {
+            self.player_control.hash(&mut h);
+        }
+        if self.controlled.is_some() {
+            self.controlled.hash(&mut h);
+        }
         h.finish()
     }
 
@@ -765,6 +778,26 @@ impl Game {
         if self.rules.log_events {
             self.events.push(e);
         }
+    }
+
+    /// Who makes `p`'s decisions: the player controlling them (CR 723.5),
+    /// or `p` (who still acts with their own resources, 723.5a).
+    pub fn decider_for(&self, p: PlayerId) -> PlayerId {
+        match self.controlled {
+            Some((t, c)) if t == p && c != p && self.in_game(c) => c,
+            _ => p,
+        }
+    }
+
+    /// Who makes the pending decision (see [`Game::decider_for`]).
+    pub fn decider(&self) -> Option<PlayerId> {
+        self.pending.as_ref().map(|d| self.decider_for(d.player))
+    }
+
+    /// Whether `me` sees what `p` sees in the game: themselves, or the
+    /// player they control (CR 723.4).
+    pub(crate) fn sees_as(&self, me: PlayerId, p: PlayerId) -> bool {
+        p == me || self.controlled == Some((p, me))
     }
 
     pub(crate) fn decide(&mut self, player: PlayerId, kind: DecisionKind, cr: &str) {
@@ -1101,6 +1134,11 @@ impl Game {
         pl.graveyard.clear();
         pl.pool.clear();
         self.restricted.retain(|r| r.player != p);
+        // CR 800.4a: effects giving them control of a player end.
+        self.player_control.retain(|(_, c)| *c != p);
+        if self.controlled.is_some_and(|(_, c)| c == p) {
+            self.controlled = None;
+        }
         // CR 800.4a: effects giving them control of objects end.
         self.end_effects(
             |e| matches!(e.effect, crate::layers::LayerEffect::Control { to, .. } if to == p),
@@ -1601,6 +1639,13 @@ impl Game {
         self.drawn_this_turn.clear();
         self.combat_damaged = 0;
         self.extra_combats = 0;
+        // CR 723.1: control of a player lasts their whole turn and ends as
+        // the next turn begins; a pending effect applies to the next turn
+        // the affected player actually takes (723.1b).
+        self.controlled = None;
+        if let Some(i) = self.player_control.iter().position(|(t, _)| *t == next) {
+            self.controlled = Some(self.player_control.remove(i));
+        }
         self.log(Event::TurnBegan {
             number,
             active: next,

@@ -324,6 +324,8 @@ impl GameBuilder {
             library_casts: Vec::new(),
             extra_combats: 0,
             entering_hosts: Vec::new(),
+            player_control: Vec::new(),
+            controlled: None,
         };
         if self.pregame {
             game.turn.number = 0;

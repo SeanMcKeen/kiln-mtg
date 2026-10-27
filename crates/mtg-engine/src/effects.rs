@@ -1875,6 +1875,13 @@ impl Game {
                 }
             }
             Effect::AdditionalCombatPhase => self.extra_combats += 1,
+            Effect::ControlNextTurn(who) => {
+                if let Some(p) = self.player_ref(&t.ctx, who) {
+                    // CR 723.1a: the last one created works.
+                    self.player_control.retain(|(target, _)| *target != p);
+                    self.player_control.push((p, t.ctx.controller));
+                }
+            }
             Effect::Vote { choices, .. } => {
                 // CR 701.38a: starting with the controller, in turn order.
                 let voters = self.turn_order_from(t.ctx.controller).to_vec();

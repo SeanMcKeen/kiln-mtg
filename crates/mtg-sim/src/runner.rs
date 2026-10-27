@@ -262,9 +262,11 @@ pub fn run_game(
             0
         } else {
             outcome.policy_calls += 1;
-            let seat = d.player.0 as usize;
+            // CR 723.5: a controlled player's decisions are their controller's.
+            let decider = game.decider_for(d.player);
+            let seat = decider.0 as usize;
             let d = d.clone();
-            let choice = policies[seat].decide(&game.view(d.player), &d);
+            let choice = policies[seat].decide(&game.view(decider), &d);
             if choice as usize >= n {
                 outcome.violation = Some(format!(
                     "policy {} chose option {choice} of {n}",

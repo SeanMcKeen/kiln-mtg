@@ -370,6 +370,7 @@ fn effect(e: &Effect) -> Check {
         Effect::EndTheTurn | Effect::CopyTriggeringAbility { .. } => Ok(()),
         Effect::Flicker(what) => set(what),
         Effect::AdditionalCombatPhase => Ok(()),
+        Effect::ControlNextTurn(who) => player(who),
         Effect::Vote { choices, .. } => {
             if choices.is_empty() || choices.len() > 8 {
                 return Err("a vote with no choices or more than 8".into());

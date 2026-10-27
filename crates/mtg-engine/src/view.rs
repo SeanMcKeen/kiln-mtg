@@ -94,6 +94,9 @@ pub struct ViewSnapshot {
     /// The top card of the viewer's library, when they may look at it.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub library_top: Option<VisibleObject>,
+    /// The hand of the player the viewer controls this turn (CR 723.4).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub controlled_hand: Vec<VisibleObject>,
 }
 
 /// "Target Rhystic Study ability 1", with "[k]" telling identical ones apart.
@@ -133,6 +136,7 @@ impl Game {
             .chain(&snap.exile)
             .chain(&snap.command)
             .chain(&snap.library_top)
+            .chain(&snap.controlled_hand)
             .map(|o| o.id)
             .collect();
         // An ability's source may have left play (CR 113.7a); only spells are stack objects.
@@ -148,10 +152,12 @@ impl Game {
                 return Err(format!("view exposes dead object {id}"));
             };
             match o.zone {
-                ZoneId::Library(p) if !(p == me && self.top_card_visible(p) == Some(id)) => {
+                ZoneId::Library(p)
+                    if !(self.sees_as(me, p) && self.top_card_visible(p) == Some(id)) =>
+                {
                     return Err(format!("view for {me} exposes library object {id}"));
                 }
-                ZoneId::Hand(p) if p != me => {
+                ZoneId::Hand(p) if !self.sees_as(me, p) => {
                     return Err(format!("view for {me} exposes {p}'s hand object {id}"));
                 }
                 _ => {}
@@ -464,8 +470,11 @@ impl<'g> PlayerView<'g> {
     pub fn can_see(&self, id: ObjectId) -> bool {
         self.game.obj(id).is_some_and(|o| match o.zone {
             // Bolas's Citadel: its controller may look at their top card.
-            ZoneId::Library(p) => p == self.me && self.game.top_card_visible(p) == Some(id),
-            ZoneId::Hand(p) => p == self.me,
+            ZoneId::Library(p) => {
+                self.game.sees_as(self.me, p) && self.game.top_card_visible(p) == Some(id)
+            }
+            // CR 723.4: also the hand of the player `me` controls.
+            ZoneId::Hand(p) => self.game.sees_as(self.me, p),
             // CR 406.3
             ZoneId::Exile => !self.game.face_down.contains(&id),
             _ => true,
@@ -610,6 +619,10 @@ impl<'g> PlayerView<'g> {
                 .game
                 .top_card_visible(self.me)
                 .and_then(|id| self.object(id)),
+            controlled_hand: match self.game.controlled {
+                Some((p, c)) if c == self.me && p != self.me => objs(&self.game.player(p).hand),
+                _ => Vec::new(),
+            },
         }
     }
 }

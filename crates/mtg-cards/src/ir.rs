@@ -718,6 +718,9 @@ pub enum Effect {
     Flicker(ObjectSet),
     /// "After this phase, there is an additional combat phase" (CR 500.8).
     AdditionalCombatPhase,
+    /// "You control [player] during that player's next turn" (Mindslaver;
+    /// CR 723.1).
+    ControlNextTurn(PlayerRef),
     /// Voting (CR 701.38): starting with the controller, each player in turn
     /// order votes for one choice; then each choice's effect happens once
     /// per vote for it, in the listed order (Council's dilemma).

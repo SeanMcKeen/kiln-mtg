@@ -1,0 +1,28 @@
+scenario: mtg-scenario/1
+name: "Mindslaver: you make every decision for the target player during their next turn, with their resources"
+cr: ["723.1", "723.5", "723.5a", "723.4"]
+verifies: [Mindslaver]
+players:
+  - battlefield: [Mindslaver, Sol Ring, Sol Ring]
+  - battlefield: [Mountain]
+    hand: [Lightning Bolt]
+    library: [Island, Island]
+turn: { number: 3, active: P1, step: end }
+script:
+  - choose: Activate Mindslaver ability 1
+  - choose: Target P2
+  - choose: "Pay with Sol Ring, Sol Ring"
+  - pass_all
+  - pass_all
+  # P2's turn: P1 decides for P2.
+  - check:
+      decision: { player: P2, decider: P1, kind: priority }
+  - { player: P2, choose: Cast Lightning Bolt }
+  - { player: P2, choose: Target P2 }
+  - { player: P2, choose: Pay with Mountain }
+  - pass_all
+expect:
+  life: { P1: 20, P2: 17 }
+  zones:
+    P1.graveyard: [Mindslaver]
+    P2.graveyard: [Lightning Bolt]

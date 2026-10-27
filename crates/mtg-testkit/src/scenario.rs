@@ -202,6 +202,8 @@ pub struct Expect {
 #[serde(deny_unknown_fields)]
 pub struct DecisionExpect {
     pub player: Option<String>,
+    /// Who makes it, if another player controls `player` (CR 723.5).
+    pub decider: Option<String>,
     /// Snake-case kind, e.g. `priority`, `declare_blocker`, `assign_damage`.
     pub kind: Option<String>,
     #[serde(default)]
@@ -717,6 +719,13 @@ fn check_expect(game: &Game, e: &Expect, at: &str) -> Result<(), ScenarioError> 
                     "decision belongs to {}, expected {p}",
                     pending.player
                 )));
+            }
+        }
+        if let Some(p) = &d.decider {
+            let want = player_id(p, n).map_err(fail)?;
+            let actual = game.decider_for(pending.player);
+            if actual != want {
+                return Err(fail(format!("decision is made by {actual}, expected {p}")));
             }
         }
         if let Some(k) = &d.kind
