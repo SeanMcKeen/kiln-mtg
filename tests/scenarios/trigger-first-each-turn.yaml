@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: '"Their first noncreature spell each turn" triggers once per turn; {X} scales with power'
 cr: ["603.2", "118.12"]
 players:

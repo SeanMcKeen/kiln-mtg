@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "A player casts their commander from the command zone, paying the tax"
 cr: ["903.8", "903.6"]
 players:

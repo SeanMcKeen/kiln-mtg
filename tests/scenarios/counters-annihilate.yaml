@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: +1/+1 and -1/-1 counters on one permanent are removed in pairs
 cr: ["704.5q", "122.3"]
 players:

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Utopia Sprawl: choose a color as it enters; the enchanted Forest adds one more mana of that color"
 cr: ["614.12", "605.1b", "303.4a"]
 verifies: [Utopia Sprawl]

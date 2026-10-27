@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Exclude counters a creature spell and draws a card"
 cr: ["701.6a", "121.1"]
 verifies: [Exclude]

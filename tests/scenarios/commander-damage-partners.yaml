@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Partner commanders keep separate commander-damage tallies (T42)"
 cr: ["903.10a", "702.124c", "704.6c"]
 players:

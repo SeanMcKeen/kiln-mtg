@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "A commander put into a graveyard may go to the command zone (a state-based action)"
 cr: ["903.9a", "704.6d"]
 players:

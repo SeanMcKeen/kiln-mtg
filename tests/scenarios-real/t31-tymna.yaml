@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Tymna: pay X life and draw X, where X is the number of opponents dealt combat damage this turn"
 cr: ["505.1", "510.2", "119.4"]
 verifies: [Tymna the Weaver]

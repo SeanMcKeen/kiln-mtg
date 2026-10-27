@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Gilded Drake exchanges control of itself and an opponent's creature"
 cr: ["701.12a", "701.12b", "613.1b"]
 verifies: [Gilded Drake]

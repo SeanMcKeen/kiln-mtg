@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Isochron Scepter imprints Dramatic Reversal; its ability casts a copy for free, which untaps the Scepter and the rocks"
 cr: ["607.2a", "707.12", "608.2g", "118.9", "704.5e"]
 verifies: [Isochron Scepter, Dramatic Reversal]

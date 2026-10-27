@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Aetherflux Reservoir: gain 1 life per spell cast this turn; pay 50 life for 50 damage"
 cr: ["119.4", "603.2", "120.3"]
 verifies: [Aetherflux Reservoir]

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Rite of Flame: {R}{R}, plus {R} for each card named Rite of Flame in each graveyard"
 cr: ["201.2", "106.1", "608.2c"]
 verifies: [Rite of Flame]

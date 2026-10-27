@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Silas Renn: combat damage to a player lets you cast target artifact card from your graveyard this turn"
 cr: ["601.2", "603.2"]
 verifies: ["Silas Renn, Seeker Adept"]

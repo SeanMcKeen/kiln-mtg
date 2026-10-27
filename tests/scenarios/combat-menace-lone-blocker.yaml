@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: A single potential blocker can't block a menace attacker
 cr: ["702.111b"]
 players:

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Sylvan Library: draw two more; for two cards drawn this turn, pay 4 life or put it back"
 cr: ["119.4", "121.1", "603.2"]
 verifies: [Sylvan Library]

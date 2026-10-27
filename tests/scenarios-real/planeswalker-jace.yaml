@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Jace enters with 4 loyalty; +1 mills two and draws; one loyalty ability per turn, at sorcery speed"
 cr: ["306.5b", "606.3", "606.4", "701.13a"]
 verifies: ["Jace, Wielder of Mysteries"]

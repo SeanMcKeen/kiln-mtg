@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: An activated ability with tap, life and sacrifice costs uses the stack and searches on resolution
 cr: ["602.2", "602.2b", "701.21a", "701.23b", "608.2n"]
 players:

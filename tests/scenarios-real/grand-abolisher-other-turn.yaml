@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Grand Abolisher: on an opponent's own turn the restriction doesn't apply"
 cr: ["613.11", "611.3a"]
 verifies: [Grand Abolisher]

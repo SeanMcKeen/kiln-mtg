@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: A mana ability with a mana cost is paid with other sources ({1}, {T} - add two mana)
 cr: ["605.3a", "602.2b"]
 players:

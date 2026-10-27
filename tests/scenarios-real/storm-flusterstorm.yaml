@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Flusterstorm counters an instant unless its controller pays {1}; storm copies it"
 cr: ["702.40a", "118.12", "701.6a"]
 verifies: [Flusterstorm]

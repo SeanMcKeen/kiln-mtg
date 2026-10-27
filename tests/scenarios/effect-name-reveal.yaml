@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: Choose a card name, then reveal until a card with that name
 cr: ["201.4", "701.20a", "608.2d"]
 players:

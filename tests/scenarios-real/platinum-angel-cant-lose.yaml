@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Platinum Angel: its controller at 0 or less life doesn't lose until the Angel leaves"
 cr: ["704.5a", "101.2"]
 verifies: [Platinum Angel, Lightning Bolt]

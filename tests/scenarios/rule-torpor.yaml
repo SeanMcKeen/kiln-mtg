@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: '"Creatures entering don''t cause abilities to trigger" stops a creature''s own ETB'
 cr: ["603.6a", "613.11"]
 players:

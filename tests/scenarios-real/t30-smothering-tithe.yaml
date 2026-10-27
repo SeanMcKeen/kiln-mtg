@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "T30: Smothering Tithe makes a Treasure for each draw the drawing opponent doesn't pay {2} for"
 cr: ["603.2", "608.2d", "111.10a"]
 verifies: [Smothering Tithe]

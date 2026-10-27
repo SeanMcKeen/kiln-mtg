@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Null Rod and Collector Ouphe: activated abilities of artifacts, mana abilities included, can't be activated"
 cr: ["101.2", "605.1a"]
 verifies: [Null Rod, Collector Ouphe]

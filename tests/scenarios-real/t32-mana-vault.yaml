@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Mana Vault: doesn't untap in the untap step; unable to pay {4}, it stays tapped and deals 1 damage in the draw step"
 cr: ["502.3", "603.4", "118.12"]
 verifies: [Mana Vault]

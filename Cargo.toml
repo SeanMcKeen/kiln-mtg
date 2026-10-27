@@ -11,14 +11,14 @@ publish = false
 
 [workspace.dependencies]
 # Internal crates
-mtg-core = { path = "crates/mtg-core" }
-mtg-cards = { path = "crates/mtg-cards" }
-mtg-data = { path = "crates/mtg-data" }
-mtg-engine = { path = "crates/mtg-engine" }
-mtg-policy = { path = "crates/mtg-policy" }
-mtg-sim = { path = "crates/mtg-sim" }
-mtg-protocol = { path = "crates/mtg-protocol" }
-mtg-testkit = { path = "crates/mtg-testkit" }
+kiln-types = { path = "crates/kiln-types" }
+kiln-cards = { path = "crates/kiln-cards" }
+kiln-data = { path = "crates/kiln-data" }
+kiln-engine = { path = "crates/kiln-engine" }
+kiln-policy = { path = "crates/kiln-policy" }
+kiln-sim = { path = "crates/kiln-sim" }
+kiln-protocol = { path = "crates/kiln-protocol" }
+kiln-testkit = { path = "crates/kiln-testkit" }
 
 # External
 anyhow = "1"

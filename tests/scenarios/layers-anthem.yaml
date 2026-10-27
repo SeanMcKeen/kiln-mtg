@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: Layer 7c adds static bonuses, until-end-of-turn pumps and counters together
 cr: ["613.4c", "611.3a", "611.2c"]
 players:

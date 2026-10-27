@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Pestermite: you may tap or untap target permanent, choosing which as it resolves"
 cr: ["608.2d", "701.26a", "701.26b"]
 verifies: [Pestermite]

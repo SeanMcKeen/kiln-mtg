@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Anguished Unmaking exiles a nonland permanent; its caster loses 3 life"
 cr: ["406.1", "119.3"]
 verifies: [Anguished Unmaking]

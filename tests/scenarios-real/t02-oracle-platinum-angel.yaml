@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "T02: Thassa's Oracle's win does nothing while an opponent controls Platinum Angel"
 cr: ["104.2b", "101.2", "104.3a"]
 verifies: [Platinum Angel]

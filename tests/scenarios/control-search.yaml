@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: A player controlling an opponent's search chooses the card; it's exiled, and they may cast it with mana of any color
 cr: ["723.2", "723.5", "607.2a"]
 players:

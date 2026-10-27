@@ -661,6 +661,148 @@ dependencies = [
 ]
 
 [[package]]
+name = "kiln-cards"
+version = "0.1.0"
+dependencies = [
+ "kiln-types",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "yaml_serde",
+]
+
+[[package]]
+name = "kiln-data"
+version = "0.1.0"
+dependencies = [
+ "flate2",
+ "insta",
+ "kiln-cards",
+ "kiln-types",
+ "postcard",
+ "serde",
+ "serde_json",
+ "sha2",
+ "smallvec",
+ "strsim",
+ "thiserror",
+ "unicode-normalization",
+ "ureq",
+]
+
+[[package]]
+name = "kiln-engine"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "kiln-cards",
+ "kiln-data",
+ "kiln-types",
+ "proptest",
+ "rand_chacha",
+ "rand_core",
+ "serde",
+ "serde_json",
+ "smallvec",
+ "thiserror",
+]
+
+[[package]]
+name = "kiln-mcp"
+version = "0.1.0"
+
+[[package]]
+name = "kiln-mtg"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "kiln-cards",
+ "kiln-data",
+ "kiln-engine",
+ "kiln-policy",
+ "kiln-sim",
+ "kiln-testkit",
+ "kiln-types",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "kiln-playbook"
+version = "0.1.0"
+
+[[package]]
+name = "kiln-policy"
+version = "0.1.0"
+dependencies = [
+ "kiln-engine",
+ "kiln-types",
+]
+
+[[package]]
+name = "kiln-protocol"
+version = "0.1.0"
+
+[[package]]
+name = "kiln-py"
+version = "0.1.0"
+
+[[package]]
+name = "kiln-search"
+version = "0.1.0"
+
+[[package]]
+name = "kiln-sim"
+version = "0.1.0"
+dependencies = [
+ "csv",
+ "insta",
+ "kiln-cards",
+ "kiln-data",
+ "kiln-engine",
+ "kiln-policy",
+ "kiln-types",
+ "rayon",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
+]
+
+[[package]]
+name = "kiln-testkit"
+version = "0.1.0"
+dependencies = [
+ "kiln-cards",
+ "kiln-data",
+ "kiln-engine",
+ "kiln-types",
+ "regex",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "yaml_serde",
+]
+
+[[package]]
+name = "kiln-types"
+version = "0.1.0"
+dependencies = [
+ "postcard",
+ "proptest",
+ "serde",
+ "serde_json",
+ "smallvec",
+ "thiserror",
+ "uuid",
+]
+
+[[package]]
+name = "kiln-wasm"
+version = "0.1.0"
+
+[[package]]
 name = "libc"
 version = "0.2.191"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -699,148 +841,6 @@ dependencies = [
  "adler2",
  "simd-adler32",
 ]
-
-[[package]]
-name = "mtg-cards"
-version = "0.1.0"
-dependencies = [
- "mtg-core",
- "serde",
- "serde_json",
- "thiserror",
- "yaml_serde",
-]
-
-[[package]]
-name = "mtg-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "mtg-cards",
- "mtg-core",
- "mtg-data",
- "mtg-engine",
- "mtg-policy",
- "mtg-sim",
- "mtg-testkit",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "mtg-core"
-version = "0.1.0"
-dependencies = [
- "postcard",
- "proptest",
- "serde",
- "serde_json",
- "smallvec",
- "thiserror",
- "uuid",
-]
-
-[[package]]
-name = "mtg-data"
-version = "0.1.0"
-dependencies = [
- "flate2",
- "insta",
- "mtg-cards",
- "mtg-core",
- "postcard",
- "serde",
- "serde_json",
- "sha2",
- "smallvec",
- "strsim",
- "thiserror",
- "unicode-normalization",
- "ureq",
-]
-
-[[package]]
-name = "mtg-engine"
-version = "0.1.0"
-dependencies = [
- "criterion",
- "mtg-cards",
- "mtg-core",
- "mtg-data",
- "proptest",
- "rand_chacha",
- "rand_core",
- "serde",
- "serde_json",
- "smallvec",
- "thiserror",
-]
-
-[[package]]
-name = "mtg-mcp"
-version = "0.1.0"
-
-[[package]]
-name = "mtg-playbook"
-version = "0.1.0"
-
-[[package]]
-name = "mtg-policy"
-version = "0.1.0"
-dependencies = [
- "mtg-core",
- "mtg-engine",
-]
-
-[[package]]
-name = "mtg-protocol"
-version = "0.1.0"
-
-[[package]]
-name = "mtg-py"
-version = "0.1.0"
-
-[[package]]
-name = "mtg-search"
-version = "0.1.0"
-
-[[package]]
-name = "mtg-sim"
-version = "0.1.0"
-dependencies = [
- "csv",
- "insta",
- "mtg-cards",
- "mtg-core",
- "mtg-data",
- "mtg-engine",
- "mtg-policy",
- "rayon",
- "serde",
- "serde_json",
- "sha2",
- "thiserror",
-]
-
-[[package]]
-name = "mtg-testkit"
-version = "0.1.0"
-dependencies = [
- "mtg-cards",
- "mtg-core",
- "mtg-data",
- "mtg-engine",
- "regex",
- "serde",
- "serde_json",
- "thiserror",
- "yaml_serde",
-]
-
-[[package]]
-name = "mtg-wasm"
-version = "0.1.0"
 
 [[package]]
 name = "num-traits"

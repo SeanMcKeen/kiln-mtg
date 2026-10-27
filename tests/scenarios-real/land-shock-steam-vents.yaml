@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Steam Vents: as it enters, pay 2 life or not; unpaid, it enters tapped"
 cr: ["614.12", "614.1a", "305.1"]
 verifies: ["Steam Vents"]

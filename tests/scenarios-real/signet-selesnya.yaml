@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Selesnya Signet: pay {1} and tap for {G}{W}"
 cr: ["605.3a", "602.2b"]
 verifies: [Selesnya Signet]

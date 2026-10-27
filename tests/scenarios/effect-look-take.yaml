@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: Look at the top cards, take up to one creature, the rest go to the bottom in a random order
 cr: ["701.20e", "608.2d"]
 players:

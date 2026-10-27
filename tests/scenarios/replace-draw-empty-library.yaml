@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: A draw replacement applies even when the library is empty
 cr: ["614.11", "121.6a"]
 players:

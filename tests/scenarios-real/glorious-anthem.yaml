@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Glorious Anthem: creatures you control get +1/+1 (layer 7c); opponents' don't"
 cr: ["613.4c", "611.3a"]
 verifies: [Glorious Anthem]

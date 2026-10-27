@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Spirit Guides: exile this card from your hand to add mana (an ability that works from the hand)"
 cr: ["113.6b", "113.6m", "605.1a"]
 verifies: [Simian Spirit Guide, Elvish Spirit Guide]

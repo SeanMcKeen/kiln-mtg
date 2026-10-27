@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Partners: Rograkh (no mana cost symbols, {0}; a red color indicator) is cast from the command zone, and the pair's identity is combined"
 cr: ["903.8", "702.124c", "903.4", "204.2"]
 verifies: ["Rograkh, Son of Rohgahh"]

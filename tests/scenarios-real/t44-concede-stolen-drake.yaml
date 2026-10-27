@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "T44: a player concedes with a spell on the stack after a Gilded Drake exchange; their cards leave, control returns"
 cr: ["800.4a", "104.3a", "613.1b"]
 verifies: [Gilded Drake]

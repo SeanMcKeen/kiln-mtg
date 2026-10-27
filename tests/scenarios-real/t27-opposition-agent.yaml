@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "T27: Opposition Agent's controller makes an opponent's Demonic Tutor search, the found card is exiled, and they may cast it spending mana as any color"
 cr: ["723.2", "723.5", "607.2a", "701.23a"]
 verifies: [Opposition Agent]

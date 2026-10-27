@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "T05: Underworld Breach lets Brain Freeze be cast from the graveyard for its mana cost plus exiling three other cards; storm counts every spell"
 cr: ["702.138a", "702.40a", "601.2"]
 verifies: [Underworld Breach]

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "T08: Kiki-Jiki copies Zealous Conscripts; each token untaps Kiki-Jiki, so it can activate again (arbitrarily many hasty tokens)"
 cr: ["707.9a", "613.1b", "603.6a"]
 verifies: ["Kiki-Jiki, Mirror Breaker", Zealous Conscripts]

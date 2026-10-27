@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: A type-changing effect that removes another's ability applies first, whatever the timestamps (dependency)
 cr: ["613.8a", "613.8b", "305.7", "305.6"]
 players:

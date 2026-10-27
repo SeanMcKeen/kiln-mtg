@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Mana of any color in your commander's color identity: a green commander gives only {G}"
 cr: ["903.4", "903.4f"]
 players:

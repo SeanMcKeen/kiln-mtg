@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "T55: Teferi's Protection: P1's permanents phase out, P1 can't be targeted and takes no damage until their next turn; then everything phases back in"
 cr: ["702.26b", "702.26d", "702.16j", "502.1", "611.2a"]
 verifies: ["Teferi's Protection"]

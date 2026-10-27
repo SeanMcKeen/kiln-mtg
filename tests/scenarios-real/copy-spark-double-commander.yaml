@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "T45: Spark Double copying a commander isn't legendary, gets a +1/+1 counter, and isn't a commander"
 cr: ["707.9b", "707.9", "903.3", "704.5j"]
 verifies: [Spark Double]

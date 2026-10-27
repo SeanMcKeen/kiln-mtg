@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "A commander that would go to its owner's hand may go to the command zone instead (T41)"
 cr: ["903.9b", "614.1a"]
 players:

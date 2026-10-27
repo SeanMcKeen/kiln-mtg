@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Fierce Guardianship is free while its caster controls a commander (T43)"
 cr: ["903.3d", "118.9", "701.6a"]
 verifies: [Fierce Guardianship]

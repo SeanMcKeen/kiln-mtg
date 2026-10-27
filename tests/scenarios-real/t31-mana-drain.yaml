@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Mana Drain: the delayed trigger adds {C} equal to the countered spell's mana value at its controller's next main phase"
 cr: ["603.7a", "603.7c", "608.2h", "701.6a"]
 verifies: [Mana Drain]

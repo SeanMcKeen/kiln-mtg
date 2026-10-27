@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: Double strike deals damage in both steps; lifelink gains life
 cr: ["702.4b", "510.4", "702.15b", "510.1b"]
 players:

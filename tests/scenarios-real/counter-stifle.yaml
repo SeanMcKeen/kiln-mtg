@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Stifle counters an activated ability on the stack"
 cr: ["701.6b", "115.1", "605.3b"]
 verifies: [Stifle]

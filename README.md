@@ -16,20 +16,20 @@ Crate and packages: `kiln-mtg` (crates.io, PyPI, npm). CLI binary: `kiln`.
 ```bash
 cargo build --release
 # Card data is downloaded, never bundled (Scryfall bulk data; cached ≥ 24 h)
-./target/release/mtg data fetch
-./target/release/mtg data build
+./target/release/kiln data fetch
+./target/release/kiln data build
 # Validate a Commander deck: legality and per-card engine coverage
-./target/release/mtg deck check tests/fixtures/decks/kinnan.txt
-./target/release/mtg deck check my-deck.txt --commander "Kinnan, Bonder Prodigy" --json
+./target/release/kiln deck check tests/fixtures/decks/kinnan.txt
+./target/release/kiln deck check my-deck.txt --commander "Kinnan, Bonder Prodigy" --json
 ```
 
 Every card currently reports `unsupported` coverage, because card behaviour arrives in M3. The engine refuses to pretend otherwise.
 
 ```bash
 # Play 10,000 random 4-player games with every invariant checked
-./target/release/mtg dev fuzz --games 10000 --invariants --views --replay-every 100
+./target/release/kiln dev fuzz --games 10000 --invariants --views --replay-every 100
 # The same with real vanilla creatures and basic lands from the card DB
-./target/release/mtg dev fuzz --games 10000 --real
+./target/release/kiln dev fuzz --games 10000 --real
 ```
 
 ## What this is

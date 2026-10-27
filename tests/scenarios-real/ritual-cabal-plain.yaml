@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Cabal Ritual without threshold adds {B}{B}{B}"
 cr: ["106.4", "608.2h"]
 verifies: [Cabal Ritual]

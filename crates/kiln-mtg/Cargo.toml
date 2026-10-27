@@ -1,0 +1,32 @@
+[package]
+name = "kiln-mtg"
+description = "The `kiln` command-line interface."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "kiln"
+path = "src/main.rs"
+
+[features]
+default = ["fetch"]
+fetch = ["kiln-data/fetch"]
+
+[dependencies]
+kiln-cards.workspace = true
+kiln-types.workspace = true
+kiln-data = { workspace = true, default-features = false }
+kiln-engine.workspace = true
+kiln-policy.workspace = true
+kiln-sim.workspace = true
+kiln-testkit.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

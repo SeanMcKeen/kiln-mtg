@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: Trample assigns lethal to the blocker, the rest to the player
 cr: ["702.19b", "510.1c", "510.2"]
 players:

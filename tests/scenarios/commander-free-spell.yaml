@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "\"If you control a commander, you may cast this spell without paying its mana cost\" (T43)"
 cr: ["903.3d", "118.9"]
 players:

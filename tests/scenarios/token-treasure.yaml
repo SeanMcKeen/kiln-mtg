@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: Treasure tokens make mana; a sacrificed token ceases to exist
 cr: ["111.10a", "111.2", "704.5d", "605.3b"]
 players:

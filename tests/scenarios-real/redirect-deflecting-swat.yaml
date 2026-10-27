@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Deflecting Swat: free with a commander; its controller chooses new targets for target spell"
 cr: ["115.7d", "903.3d", "118.9"]
 verifies: [Deflecting Swat]

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: A repeated state is detected as a loop; its controller proposes a shortcut and the opponent accepts
 cr: ["732.2a", "732.2b", "732.2c"]
 players:

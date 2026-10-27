@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Demonic Consultation: name a card, exile six, reveal until it"
 cr: ["201.4", "701.20a"]
 verifies: [Demonic Consultation]

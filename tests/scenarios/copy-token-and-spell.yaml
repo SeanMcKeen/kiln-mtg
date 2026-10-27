@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: A copied spell isn't cast and may get a new target; its token copy has haste and is a token
 cr: ["707.10", "707.10c", "707.9a", "111.10", "704.5d"]
 players:

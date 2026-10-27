@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: '"During your turn, opponents can''t cast spells or activate abilities of artifacts, creatures or enchantments"'
 cr: ["613.11", "605.1a", "611.3a"]
 players:

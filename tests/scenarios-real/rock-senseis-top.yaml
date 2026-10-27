@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Sensei's Divining Top: {1}: rearrange the top three; {T}: draw, then put it on top of its owner's library"
 cr: ["602.2", "121.1"]
 verifies: ["Sensei's Divining Top"]

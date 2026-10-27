@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Consider: surveil 1, then draw"
 cr: ["701.25a", "121.1"]
 verifies: [Consider]

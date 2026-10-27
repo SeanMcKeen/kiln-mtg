@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "+3/+3 until end of turn lets a creature survive 3 damage"
 cr: ["613.4c", "611.2a", "704.5g"]
 players:

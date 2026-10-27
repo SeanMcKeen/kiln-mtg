@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Timetwister: each player shuffles hand and graveyard into their library, then draws seven"
 cr: ["701.24a", "121.2", "608.2n"]
 verifies: [Timetwister]

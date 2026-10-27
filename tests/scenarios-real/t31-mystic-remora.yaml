@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Mystic Remora: cumulative upkeep adds an age counter, then asks for {1} per age counter"
 cr: ["702.24a", "118.12", "122.1"]
 verifies: [Mystic Remora]

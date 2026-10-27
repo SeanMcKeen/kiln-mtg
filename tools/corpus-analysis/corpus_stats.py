@@ -48,7 +48,7 @@ def ability_lines(card):
     """Per face: split on newlines, replace the card's own name with ~, strip reminder text.
 
     With --short-names, a legendary short name ("Kinnan" for "Kinnan, Bonder Prodigy")
-    is replaced too, as `mtg-data` does for its `self_ref_text` field.
+    is replaced too, as `kiln-data` does for its `self_ref_text` field.
     """
     out = []
     for face in faces(card):

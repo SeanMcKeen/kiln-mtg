@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Destroy target creature: Murder, Terminate, Infernal Grasp; Go for the Throat can't hit artifact creatures"
 cr: ["701.8a", "115.1"]
 verifies: [Terminate, Infernal Grasp, Go for the Throat]

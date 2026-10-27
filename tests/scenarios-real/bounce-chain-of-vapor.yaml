@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Chain of Vapor: the bounced permanent's controller may sacrifice a land to copy it, choosing a new target"
 cr: ["707.10", "707.10c", "608.2c"]
 verifies: [Chain of Vapor]

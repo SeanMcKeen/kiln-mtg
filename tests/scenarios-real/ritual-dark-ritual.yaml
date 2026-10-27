@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Dark Ritual adds {B}{B}{B}, which pays for Murder"
 cr: ["106.4", "601.2h", "701.8a"]
 verifies: [Dark Ritual, Murder, Grizzly Bears]

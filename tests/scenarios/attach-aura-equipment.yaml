@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: When the enchanted and equipped creature dies, the Aura goes to the graveyard and the Equipment stays, unattached
 cr: ["303.4a", "303.4f", "702.6a", "704.5m", "704.5n"]
 players:

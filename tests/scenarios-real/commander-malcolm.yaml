@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Malcolm: a chorus counter, then loot; at four counters, cast the discarded card free"
 cr: ["122.1", "608.2g", "701.9a"]
 verifies: ["Malcolm, Alluring Scoundrel"]

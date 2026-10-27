@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Brain Freeze: storm copies it for each spell cast before it this turn"
 cr: ["702.40a", "707.10", "701.13a"]
 verifies: [Brain Freeze, Dark Ritual]

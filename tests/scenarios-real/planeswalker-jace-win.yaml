@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Jace: drawing from an empty library wins instead"
 cr: ["614.11", "121.6a", "104.2b"]
 verifies: ["Jace, Wielder of Mysteries"]

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: A spell cast for its alternative cost (pay 1 life, exile a blue card from hand)
 cr: ["118.9", "118.9a", "601.2b", "601.2h", "119.4"]
 players:

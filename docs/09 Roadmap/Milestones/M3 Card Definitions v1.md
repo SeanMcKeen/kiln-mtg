@@ -13,7 +13,7 @@ updated: 2026-10-21
 ## Checklist
 - [x] Run the [[Card Definition Spike Plan]] → [[Card Definition Spike Results]]. **Accepting [[ADR-0007 Card Definition Approach]] is the user's call** (D recommended)
 - [x] IR v1: effects, filters, costs, triggers, statics, replacements (the shape; the engine executes everything except triggers, statics other than "can't be countered", and replacements, which arrive in M4/M5)
-- [x] Chosen front-end(s) implemented: card library (`mtg-sim::library`) with YAML overrides, the Oracle-text parser and an escape registry (Phase C)
+- [x] Chosen front-end(s) implemented: card library (`kiln-sim::library`) with YAML overrides, the Oracle-text parser and an escape registry (Phase C)
 - [x] IR → text renderer lint, mandatory for parser output (a line counts only if its rendering matches)
 - [x] Targeting & legality ([[Targeting & Legality]]): target slots, "up to N", spells as targets, hexproof, shroud, CR 608.2b rechecks
 - [x] Evergreen keywords ([[Keywords & Keyword Actions]]): M2's set plus flash, hexproof, shroud, indestructible. **Ward and protection moved to M4** (B-D11)
@@ -32,7 +32,7 @@ M3 has two phases with a decision between them. The card-definition approach is 
 ### Phase A: card-definition spike (→ ADR-0007 recommendation)
 | # | Work | Output |
 |---|---|---|
-| A1 | **IR v1 draft** in `mtg-cards::ir`: abilities (spell, activated, triggered, static, replacement, mana, keyword) plus effect, filter, quantity, cost, condition, duration and target algebras. Serde-serializable, so the IR's YAML form *is* the DSL candidate. | Rust types plus docs |
+| A1 | **IR v1 draft** in `kiln-cards::ir`: abilities (spell, activated, triggered, static, replacement, mana, keyword) plus effect, filter, quantity, cost, condition, duration and target algebras. Serde-serializable, so the IR's YAML form *is* the DSL candidate. | Rust types plus docs |
 | A2 | **Expressiveness:** hand-author about 40 curated-pool cards as IR YAML (20 easy, 20 of the hardest: Thassa's Oracle, Necropotence, Opposition Agent, Mox Diamond, Food Chain, Underworld Breach…). Count escape hatches. | `cards/defs/*.yaml`, expressiveness score |
 | A3 | **Parser prototype** (`winnow`) for the most common phrase families (keywords, mana abilities, "deal N damage to target …", draw, destroy/exile target, ETB and "whenever" triggers, activated-ability costs). Measure the parse rate per line and per card on the curated pool and on a seeded 1,000-card Commander-legal sample. | Coverage numbers |
 | A4 | **IR → English renderer:** diff rendered text against Oracle for every parsed card, and measure how many **injected mis-parses** the lint catches (silent mis-parses are the main risk). | Lint catch rate |
@@ -42,18 +42,18 @@ M3 has two phases with a decision between them. The card-definition approach is 
 ### Phase C: the ADR-0007 front-end (plan, 2026-10-21, after acceptance)
 | # | Work | Done when |
 |---|---|---|
-| C1 | **Card library** (`mtg-sim::library`): per card, by ADR-0007's precedence: a YAML override from `cards/defs/` wins; otherwise the Oracle-text parser, accepted only if every line parses, the renderer lint matches each line, and the engine supports the result; otherwise `unsupported`, with each reason (unparsed line, lint mismatch, missing engine feature). Records provenance (`override`/`parser`) and coverage (`verified` from the real-card scenarios, else `parsed`). | Unit tests; counts reported |
-| C2 | **Escape registry** (`mtg-engine`): named Rust implementations, looked up by `Escape::function`. It starts empty; an unknown name keeps the card `unsupported`. | Tests that unknown names fail loudly |
-| C3 | `mtg data coverage` and `mtg deck check` report real per-card coverage from the library. | Kinnan list reports per-card status |
+| C1 | **Card library** (`kiln-sim::library`): per card, by ADR-0007's precedence: a YAML override from `cards/defs/` wins; otherwise the Oracle-text parser, accepted only if every line parses, the renderer lint matches each line, and the engine supports the result; otherwise `unsupported`, with each reason (unparsed line, lint mismatch, missing engine feature). Records provenance (`override`/`parser`) and coverage (`verified` from the real-card scenarios, else `parsed`). | Unit tests; counts reported |
+| C2 | **Escape registry** (`kiln-engine`): named Rust implementations, looked up by `Escape::function`. It starts empty; an unknown name keeps the card `unsupported`. | Tests that unknown names fail loudly |
+| C3 | `kiln data coverage` and `kiln deck check` report real per-card coverage from the library. | Kinnan list reports per-card status |
 | C4 | Low-power fuzz over decks that include parser-produced cards. | Fuzz clean |
 
 ### Phase B: the engine executes the IR (plan, 2026-10-21)
-ADR-0007 is still open, but its fixed constraint is that **every option compiles to the same typed IR** (`mtg_cards::ir`). So Phase B teaches the engine to execute that IR, and none of it depends on which front-end you choose. Front-end work (a production parser, a DSL loader, an escape registry) waits for your decision.
+ADR-0007 is still open, but its fixed constraint is that **every option compiles to the same typed IR** (`kiln_cards::ir`). So Phase B teaches the engine to execute that IR, and none of it depends on which front-end you choose. Front-end work (a production parser, a DSL loader, an escape registry) waits for your decision.
 
 #### Design decisions
 | # | Decision | Why |
 |---|---|---|
-| B-D1 | **The engine consumes only `mtg_cards::ir`.** Verified cards are defined in `cards/defs/*.yaml`, the IR's serialized form, which every ADR-0007 option produces in some way. Characteristics (cost, type line, colors, P/T) come from the local card DB and are never committed. | Front-end neutral. Legally clean. |
+| B-D1 | **The engine consumes only `kiln_cards::ir`.** Verified cards are defined in `cards/defs/*.yaml`, the IR's serialized form, which every ADR-0007 option produces in some way. Characteristics (cost, type line, colors, P/T) come from the local card DB and are never committed. | Front-end neutral. Legally clean. |
 | B-D2 | **Support check at load time.** Building a `CardDef` walks the IR and rejects any node the engine can't execute yet, naming what's missing ("triggered abilities arrive in M4"). There are no partially working cards. | Fail loudly (M2 lesson 4). Feeds the coverage report. |
 | B-D3 | **Resumable effect interpreter.** `Task::Effect` holds a context: controller, source, targets and whether each is still legal, X, chosen modes, the bound "each" player, remembered objects, variables and last-known information. It also holds a stack of *paths* into the immutable IR (definition, ability, child indices). | Clones stay cheap and the IR stays in the shared pool (ADR-0004). |
 | B-D4 | **Every choice stays one-of-N** (M2 D1). Searches, scry, look-at-top, discards, sacrifices, modes, targets and colors are all factored this way. Targets are chosen one at a time per slot, with a "done" option for "up to" slots. Ordering cards means picking the next card to place. | Same contract for every client. |
@@ -70,14 +70,14 @@ ADR-0007 is still open, but its fixed constraint is that **every option compiles
 #### Phases
 | # | Work | CR | Done when |
 |---|---|---|---|
-| B1 | `mtg-engine` depends on `mtg-cards`. `CardDef` = characteristics plus `Vec<ir::Ability>`; keyword bitset and mana-ability index derived. Intrinsic land abilities as IR (305.6). Support check (B-D2). Synthetic test set re-expressed in IR. | 305.6, 605.1a | All M2 tests pass and golden replays are **unchanged** (behaviour preserved) |
+| B1 | `kiln-engine` depends on `kiln-cards`. `CardDef` = characteristics plus `Vec<ir::Ability>`; keyword bitset and mana-ability index derived. Intrinsic land abilities as IR (305.6). Support check (B-D2). Synthetic test set re-expressed in IR. | 305.6, 605.1a | All M2 tests pass and golden replays are **unchanged** (behaviour preserved) |
 | B2 | Effect interpreter (B-D3) for every IR effect that needs no triggers or replacements: damage, destroy, exile, move, counter, draw, discard, life, mana, search, shuffle, scry, look-at-top, move-cards, tap/untap, tokens, sacrifice, pump, may, if, if-does, unless, pay, for-each-player, choose, reveal-until, win. Quantities and conditions with LKI. | 608.2, 608.2b–c, 608.2h, 609.3, 701.6, 701.8, 701.13, 701.21–24 | Synthetic-card scenario per effect |
 | B3 | Casting rework (B-D6): modes, alternative and additional costs, X, hybrid and Phyrexian, multi-slot and "up to" targets, spell targets, target legality with hexproof and shroud, resolution with partial target legality. | 601.2a–i, 115, 118.9, 107.3, 107.4e–f, 700.2 | Castability property test: every offered option completes |
 | B4 | Activated abilities on the stack, with costs ({T} with summoning sickness, sacrifice, life, discard, exile) and timing and once-per-turn restrictions. Generalized mana abilities (B-D8). | 602, 605, 302.6, 602.5b, 113.7a | Mana-rock and fetch-land scenarios |
 | B5 | Keywords flash, hexproof, shroud, indestructible; "can't be countered". | 702.8, 702.11, 702.18, 702.12 | Keyword scenarios |
 | B6 | Counters, P/T effects, tokens, and SBAs 704.5d and 704.5q. | 122, 613.4c, 111.10, 704.5d, 704.5q | Scenarios |
-| B7 | Greedy policy in `mtg-policy`. | — | It beats random in a 1,000-game batch |
-| B8 | Verification harness (real-DB scenarios, coverage `verified`) and **100 verified cards**: removal, counterspells, card draw, tutors, mana rocks and dorks, fetch lands. | per card | `mtg data coverage --verified` lists 100 |
+| B7 | Greedy policy in `kiln-policy`. | — | It beats random in a 1,000-game batch |
+| B8 | Verification harness (real-DB scenarios, coverage `verified`) and **100 verified cards**: removal, counterspells, card draw, tutors, mana rocks and dorks, fetch lands. | per card | `kiln data coverage --verified` lists 100 |
 | B9 | Low-power fuzz over decks of verified cards (2 threads, tracked tasks) and over synthetic IR cards in CI. Re-bless goldens with reasons. | — | Fuzz clean |
 
 #### Out of scope for M3 (cards needing these stay `unsupported` with a named reason)
@@ -100,19 +100,19 @@ ADR-0007 is still open, but its fixed constraint is that **every option compiles
 
 | B6 | ✅ 2026-10-21 | Counters (CR 122) in a sorted side table, dropped on zone change (122.2), in P/T as layer 7c; IR `put_counters`/`remove_counters`, a remove-counters cost and a counters quantity. Tokens (CR 111): predefined Treasure, Food and Clue (111.10a/b/f) and creature tokens get pool definitions when a card that creates them is added; tokens are owned by their creator (111.2), excluded from deck conservation and from card names (201.4). SBAs 704.5d and 704.5q. Views show effective P/T, counters and tokens. 6 synthetic cards, 5 scenarios. |
 
-| B7 | ✅ 2026-10-21 | `GreedyPolicy` (`mtg-policy`, spec `greedy`): one-ply heuristics over the `PlayerView`; classifies effects as harmful or helpful from the IR. **Beats random 850–150 in 1,000 two-player games** on the synthetic M3 cards (seats alternated, invariants checked every decision, no draws or aborts); CI runs 200. |
+| B7 | ✅ 2026-10-21 | `GreedyPolicy` (`kiln-policy`, spec `greedy`): one-ply heuristics over the `PlayerView`; classifies effects as harmful or helpful from the IR. **Beats random 850–150 in 1,000 two-player games** on the synthetic M3 cards (seats alternated, invariants checked every decision, no draws or aborts); CI runs 200. |
 
-| B8 | ✅ 2026-10-21 | **123 real cards verified.** Harness (`mtg-testkit::real`, `mtg dev verify-cards`): characteristics from the local card DB plus IR from `cards/defs/` (143 definitions, no Oracle text), 109 CR-cited scenarios in `tests/scenarios-real/` with `verifies:` lists. Families: 45 mana rocks, rituals, dorks and lands (10 Talismans, 10 Signets, 10 fetch lands, Ancient Tomb, Strip Mine, Wasteland…), 23 removal, 19 counterspells, 13 card draw, 22 tutors. 20 definitions are rejected with the feature they need (triggers, statics, replacements, commander). Real scenarios run where a DB exists; their CR citations are checked in CI (Q25). IR gained `min_mana_value`/`max_mana_value` filters (X counted on the stack, CR 202.3e). |
+| B8 | ✅ 2026-10-21 | **123 real cards verified.** Harness (`kiln-testkit::real`, `kiln dev verify-cards`): characteristics from the local card DB plus IR from `cards/defs/` (143 definitions, no Oracle text), 109 CR-cited scenarios in `tests/scenarios-real/` with `verifies:` lists. Families: 45 mana rocks, rituals, dorks and lands (10 Talismans, 10 Signets, 10 fetch lands, Ancient Tomb, Strip Mine, Wasteland…), 23 removal, 19 counterspells, 13 card draw, 22 tutors. 20 definitions are rejected with the feature they need (triggers, statics, replacements, commander). Real scenarios run where a DB exists; their CR citations are checked in CI (Q25). IR gained `min_mana_value`/`max_mana_value` filters (X counted on the stack, CR 202.3e). |
 
-| B9 | ✅ 2026-10-21 | `mtg dev fuzz --verified`: random two-color decks of verified cards and DB lands, random policy, 2 threads. **65,000 games clean:** 50,000 four-player (~105 M decisions), 10,000 two-player, 5,000 six-player; invariants after every decision, view audits, every 100th game replayed (650/650 identical), 0 violations, 0 panics, 0 turn-limit aborts. 475 games/s with all checks on 2 threads. |
+| B9 | ✅ 2026-10-21 | `kiln dev fuzz --verified`: random two-color decks of verified cards and DB lands, random policy, 2 threads. **65,000 games clean:** 50,000 four-player (~105 M decisions), 10,000 two-player, 5,000 six-player; invariants after every decision, view audits, every 100th game replayed (650/650 identical), 0 violations, 0 panics, 0 turn-limit aborts. 475 games/s with all checks on 2 threads. |
 
 ## Progress (Phase C)
 | Phase | Status | Evidence |
 |---|---|---|
-| C1 | ✅ 2026-10-21 | `mtg-sim::library`: override → linted parser → unsupported, with provenance and coverage per card. Over 32,199 Commander-legal cards: **123 verified, 2,053 parsed (from the parser), 30,023 unsupported**. Top reasons: lines with no parser template (44,496 lines), multi-face layouts (847 cards), triggers (462), lint mismatches (291 lines), replacements (201). |
-| C2 | ✅ 2026-10-21 | `mtg-engine::escapes`: a sorted name → function table, empty; unregistered names keep a card unsupported. |
-| C3 | ✅ 2026-10-21 | `mtg data coverage` (with top reasons) and `mtg deck check` use the library. The Kinnan test list: 34 verified, 4 parsed, 62 unsupported. |
-| C4 | ✅ 2026-10-21 | `mtg dev fuzz --library`: 20,000 four-player games over all 2,221 supported cards and tokens, 2 threads, all checks on: 0 violations, 200/200 replays identical, 0 panics. |
+| C1 | ✅ 2026-10-21 | `kiln-sim::library`: override → linted parser → unsupported, with provenance and coverage per card. Over 32,199 Commander-legal cards: **123 verified, 2,053 parsed (from the parser), 30,023 unsupported**. Top reasons: lines with no parser template (44,496 lines), multi-face layouts (847 cards), triggers (462), lint mismatches (291 lines), replacements (201). |
+| C2 | ✅ 2026-10-21 | `kiln-engine::escapes`: a sorted name → function table, empty; unregistered names keep a card unsupported. |
+| C3 | ✅ 2026-10-21 | `kiln data coverage` (with top reasons) and `kiln deck check` use the library. The Kinnan test list: 34 verified, 4 parsed, 62 unsupported. |
+| C4 | ✅ 2026-10-21 | `kiln dev fuzz --library`: 20,000 four-player games over all 2,221 supported cards and tokens, 2 threads, all checks on: 0 violations, 200/200 replays identical, 0 panics. |
 
 Semantics fixed while building B2 (documented in `ir.rs`):
 - A search for "a card" must find one if possible (701.23d); a filter states a quality, so finding nothing is allowed (701.23b).

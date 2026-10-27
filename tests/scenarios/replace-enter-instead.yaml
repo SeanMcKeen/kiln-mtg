@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: '"If this would enter, ... instead": the replacement''s effect happens and the original event doesn''t'
 cr: ["614.1a", "614.6", "614.5"]
 players:

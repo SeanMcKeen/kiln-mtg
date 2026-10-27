@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: Ward also counters an opponent's activated ability that targets it; its own controller's abilities don't trigger it
 cr: ["702.21a", "701.6a"]
 players:

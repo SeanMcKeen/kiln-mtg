@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Cursed Totem: activated abilities of creatures can't be activated"
 cr: ["101.2", "605.1a"]
 verifies: [Cursed Totem]

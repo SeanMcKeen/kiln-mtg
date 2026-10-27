@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: Defender, summoning sickness and haste decide who may attack; vigilance doesn't tap
 cr: ["508.1a", "302.6", "702.3b", "702.10b", "702.20b", "508.1f"]
 players:

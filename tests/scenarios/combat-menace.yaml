@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: Menace needs two blockers; a lone blocker isn't offered, and a second blocker becomes mandatory
 cr: ["702.111b", "509.1b"]
 players:

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Declining puts the commander on top of the library; drawing it asks again (the replacement can apply more than once)"
 cr: ["903.9b", "121.1"]
 players:

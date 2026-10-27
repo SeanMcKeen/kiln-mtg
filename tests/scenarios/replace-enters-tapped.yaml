@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: '"Enters tapped" modifies how a permanent enters: its own, and another permanent''s for opponents'' creatures'
 cr: ["614.1c", "614.1d", "614.12"]
 players:

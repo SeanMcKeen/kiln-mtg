@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: A spell adds mana to its controller's pool, which pays for the next spell
 cr: ["106.4", "601.2h"]
 players:

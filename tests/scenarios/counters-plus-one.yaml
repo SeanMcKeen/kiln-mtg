@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: +1/+1 counters raise power and toughness (layer 7c)
 cr: ["122.1", "613.4c", "704.5g"]
 players:

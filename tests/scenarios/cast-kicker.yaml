@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Kicker: an optional additional cost, offered when the total can be paid; \"if this spell was kicked\""
 cr: ["702.33a", "702.33d", "601.2b"]
 players:

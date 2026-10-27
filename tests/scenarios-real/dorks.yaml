@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Mana creatures tap for mana once their controller has controlled them since the turn began"
 cr: ["605.1a", "302.6"]
 verifies: [Birds of Paradise, Llanowar Elves, Elvish Mystic, Fyndhorn Elves, Avacyn's Pilgrim, Boreal Druid]

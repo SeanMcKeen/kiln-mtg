@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Fellwar Stone and Exotic Orchard: a color a land an opponent controls could produce; another Orchard defines none"
 cr: ["106.7", "605.1a"]
 verifies: [Fellwar Stone, Exotic Orchard]

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Attacking a planeswalker: combat damage removes loyalty counters; at 0 loyalty it goes to the graveyard"
 cr: ["508.1b", "120.3c", "704.5i"]
 verifies: ["Jace, Wielder of Mysteries"]

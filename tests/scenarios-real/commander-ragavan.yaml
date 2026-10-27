@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Ragavan: dashed it has haste and returns at the next end step; combat damage makes a Treasure and exiles a card it may cast this turn"
 cr: ["702.109a", "603.7", "111.10a"]
 verifies: ["Ragavan, Nimble Pilferer"]

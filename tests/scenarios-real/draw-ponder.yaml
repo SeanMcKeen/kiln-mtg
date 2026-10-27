@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Ponder: reorder the top three, may shuffle, draw"
 cr: ["701.20e", "608.2d"]
 verifies: [Ponder]

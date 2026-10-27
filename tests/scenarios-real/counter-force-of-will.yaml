@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Force of Will cast for its alternative cost"
 cr: ["118.9", "601.2b", "701.6a"]
 verifies: [Force of Will]

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: The legend rule lets the controller choose which legendary permanent to keep
 cr: ["704.5j", "608.3a"]
 players:

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Kinnan: tapping a nonland permanent for mana adds one more of a type it produced; lands don't trigger it"
 cr: ["605.1b", "605.4a", "106.12"]
 verifies: ["Kinnan, Bonder Prodigy"]

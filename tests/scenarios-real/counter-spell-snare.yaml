@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Spell Snare counters a spell with mana value 2"
 cr: ["202.3", "701.6a"]
 verifies: [Spell Snare]

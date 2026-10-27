@@ -29,7 +29,7 @@ Each question has an owner note and a target milestone. Move a question to **Res
 | # | Question | Owner note | Target |
 |---|---|---|---|
 | Q23 | "Spell commander" (5 cards) isn't in the 2026-06-19 CR. M1 treats it as CR 903.3a "can be your commander" text. Revisit when the CR adds it. | [[Commander]], [[CR Update Process]] | next CR |
-| Q25 | **Where do real-card scenarios run?** Verified-card scenarios need characteristics (cost, type line, P/T) from the card DB, which isn't committed. M3 runs them only when `data/cache/current` or `MTG_CARD_DB` exists, so CI covers synthetic cards plus the real scenarios' CR citations (109 scenarios, 123 cards pass locally). Option: a CI job that downloads Scryfall bulk data at CI time, like the CR check does (nothing committed, but it adds network use and Scryfall's terms apply). **Recommendation:** do that once a repository with CI exists (Q3), caching the download per day. Until then, local runs only. | [[M3 Card Definitions v1]], [[Card Data Sources]] | with Q3 |
+| Q25 | **Where do real-card scenarios run?** Verified-card scenarios need characteristics (cost, type line, P/T) from the card DB, which isn't committed. M3 runs them only when `data/cache/current` or `KILN_CARD_DB` exists, so CI covers synthetic cards plus the real scenarios' CR citations (109 scenarios, 123 cards pass locally). Option: a CI job that downloads Scryfall bulk data at CI time, like the CR check does (nothing committed, but it adds network use and Scryfall's terms apply). **Recommendation:** do that once a repository with CI exists (Q3), caching the download per day. Until then, local runs only. | [[M3 Card Definitions v1]], [[Card Data Sources]] | with Q3 |
 
 ## Simulation & policies
 | # | Question | Owner note | Target |
@@ -45,7 +45,7 @@ Each question has an owner note and a target milestone. Move a question to **Res
 ## Resolved
 | # | Question | Resolution |
 |---|---|---|
-| Q26 | Loops that move cards between zones | M6 6.7d: loop identity hashes object ids by arena slot (`mtg_core::hash_ids_by_slot`, CR 400.7), without object timestamps or attachments of departed objects. Worldgorger Dragon + Animate Dead is detected as a mandatory loop and drawn (T12, CR 104.4b). |
+| Q26 | Loops that move cards between zones | M6 6.7d: loop identity hashes object ids by arena slot (`kiln_types::hash_ids_by_slot`, CR 400.7), without object timestamps or attachments of departed objects. Worldgorger Dragon + Animate Dead is detected as a mandatory loop and drawn (T12, CR 104.4b). |
 | Q27 | An Aura entering without being cast chooses its host | M6 6.7d: it chooses as it enters (CR 303.4f; a `choose_card` decision with purpose `Enchant`, automatic with one legal object) and stays in its zone with none (303.4g). |
 | R1 | Language | Rust ([[ADR-0001 Rust as Engine Language]]) |
 | R2 | Who plays simulated games? | All four policy kinds, composable ([[ADR-0006 Pluggable Decision-Makers]]) |
@@ -67,4 +67,4 @@ Each question has an owner note and a target milestone. Move a question to **Res
 | R19 | Last-known information (Q17) | `ZoneChange` events carry controller, power and toughness. Effects record LKI as they move objects; triggers snapshot it (M4 4.1) |
 | R16 | phase.rs coverage as a differential oracle (Q24) | Yes, for flagging disagreements only; it never marks a card supported ([[phase.rs Evaluation]], accepted with ADR-0007) |
 | R20 | Project name (was Q1) | Kiln; crate `kiln-mtg`, binary `kiln` ([[ADR-0013 Project Name]]) |
-| R21 | GitHub repo (was Q3) | Public: [SeanMcKeen/kiln](https://github.com/SeanMcKeen/kiln) ([[M0 Groundwork]]) |
+| R21 | GitHub repo (was Q3) | Public: [SeanMcKeen/kiln-mtg](https://github.com/SeanMcKeen/kiln-mtg) ([[M0 Groundwork]]) |

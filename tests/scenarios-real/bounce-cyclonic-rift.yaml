@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Cyclonic Rift overloaded: no targets, every nonland permanent you don't control returns"
 cr: ["702.96a", "702.96b", "118.9"]
 verifies: [Cyclonic Rift]

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: Gaining a basic land type gives the land that type's mana ability too
 cr: ["305.6", "613.1d"]
 players:

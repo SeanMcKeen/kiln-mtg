@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "T50: Blood Moon makes Urborg a Mountain without abilities, so no land is a Swamp (Urborg depends on Blood Moon)"
 cr: ["613.8a", "613.8b", "305.7", "305.6"]
 verifies: [Blood Moon, "Urborg, Tomb of Yawgmoth"]

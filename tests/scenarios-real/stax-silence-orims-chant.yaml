@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "T21: Silence stops opponents' spells this turn; kicked Orim's Chant also stops creatures attacking"
 cr: ["101.2", "702.33d", "508.1a"]
 verifies: [Silence, "Orim's Chant"]

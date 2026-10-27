@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Animate Dead returning a creature with an \"as this enters, choose\" asks before it enters"
 cr: ["614.12", "303.4f"]
 verifies: [Animate Dead, "Talion, the Kindly Lord"]

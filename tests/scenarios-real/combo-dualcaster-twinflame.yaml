@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "T07: Dualcaster Mage copies Twinflame targeting itself; each hasty token copy copies Twinflame again"
 cr: ["707.10", "707.10c", "707.9a"]
 verifies: [Twinflame, Dualcaster Mage]

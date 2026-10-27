@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "T09: Walking Ballista with lifelink from Heliod: each ping gains a life, which puts the counter back (a loop shortcut to the opponent's death)"
 cr: ["614.1c", "613.4c", "613.1f", "702.15b", "732.2a"]
 verifies: [Walking Ballista, "Heliod, Sun-Crowned"]

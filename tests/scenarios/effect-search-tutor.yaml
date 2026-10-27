@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: Searching for "a card" must find one if possible; the library is then shuffled
 cr: ["701.23a", "701.23d", "701.24a"]
 players:

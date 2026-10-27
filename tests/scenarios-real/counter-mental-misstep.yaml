@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Mental Misstep counters a spell with mana value 1, paid with life"
 cr: ["202.3", "107.4f", "701.6a"]
 verifies: [Mental Misstep]

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Mana Leak: the controller pays {3}"
 cr: ["118.12", "701.6a"]
 verifies: [Mana Leak]

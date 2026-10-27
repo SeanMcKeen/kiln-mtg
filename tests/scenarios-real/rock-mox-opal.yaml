@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Mox Opal: metalcraft, activate only with three or more artifacts"
 cr: ["602.5b", "605.1a"]
 verifies: [Mox Opal]

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: Declining cumulative upkeep sacrifices the permanent
 cr: ["702.24a", "701.21a"]
 players:

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Dual lands: two basic land types give both mana abilities (CR 305.6)"
 cr: ["305.6", "106.1"]
 verifies: [Underground Sea, Volcanic Island, Tropical Island, Bayou, Badlands, Taiga, Savannah, Scrubland, Tundra, Plateau]

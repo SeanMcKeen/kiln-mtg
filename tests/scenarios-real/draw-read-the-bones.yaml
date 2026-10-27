@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Read the Bones: scry 2, draw two, lose 2 life"
 cr: ["701.22a", "121.1", "119.3"]
 verifies: [Read the Bones]

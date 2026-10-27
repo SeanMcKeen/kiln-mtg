@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "\"Counter target noncreature spell unless its controller pays {2}\""
 cr: ["118.12", "701.6a"]
 players:

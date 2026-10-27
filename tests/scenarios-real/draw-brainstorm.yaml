@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Brainstorm: draw three, put back two in a chosen order"
 cr: ["121.1", "608.2c"]
 verifies: [Brainstorm]

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: Hexproof stops opponents' targeting; shroud stops all targeting
 cr: ["702.11b", "702.18a"]
 players:

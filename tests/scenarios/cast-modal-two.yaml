@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Choose two: distinct modes, each mode's targets, effects in printed order"
 cr: ["700.2a", "700.2d", "601.2c"]
 players:

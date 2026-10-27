@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: Putting cards from hand on top of the library in a chosen order
 cr: ["608.2c", "121.1"]
 players:

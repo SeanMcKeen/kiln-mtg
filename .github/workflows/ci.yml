@@ -38,11 +38,11 @@ jobs:
         with:
           toolchain: "1.99.1"
       - uses: Swatinem/rust-cache@v2
-      - run: cargo build --release -p mtg-cli
+      - run: cargo build --release -p kiln-mtg
       # Synthetic cards (no card DB in CI). Every seat's view is audited for
       # leaks after every decision; any violation fails the job.
-      - run: ./target/release/mtg dev fuzz --games 500 --invariants --views --replay-every 25
-      - run: ./target/release/mtg dev fuzz --commander --concede 1 --games 500 --invariants --views --replay-every 25
+      - run: ./target/release/kiln dev fuzz --games 500 --invariants --views --replay-every 25
+      - run: ./target/release/kiln dev fuzz --commander --concede 1 --games 500 --invariants --views --replay-every 25
 
   cr-citations:
     name: CR citation check
@@ -59,4 +59,4 @@ jobs:
           mkdir -p docs/_external
           curl -sSL -o docs/_external/cr.txt "https://media.wizards.com/2026/downloads/MagicCompRules%2020260619.txt"
           tr -d '\r' < docs/_external/cr.txt | sed 's/^\xEF\xBB\xBF//' > docs/_external/cr-lf.txt
-      - run: cargo run --release -p mtg-cli -- dev cr-check --require
+      - run: cargo run --release -p kiln-mtg -- dev cr-check --require

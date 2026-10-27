@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Tormod's Crypt: tap and sacrifice it to exile target player's graveyard"
 cr: ["602.2", "406.1"]
 verifies: ["Tormod's Crypt"]

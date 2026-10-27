@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "An Offer You Can't Refuse: its controller gets two Treasures"
 cr: ["701.6a", "111.10a"]
 verifies: [An Offer You Can't Refuse]

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Clone entering as a copy of a creature with an ETB: the copy's ETB triggers (it enters already a copy)"
 cr: ["707.2", "614.1c", "614.12a", "603.6a"]
 verifies: [Clone]

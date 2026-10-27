@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Boseiju: channel destroys an opponent's nonbasic land; that player may search for a land with a basic land type"
 cr: ["113.6b", "701.23a", "608.2c"]
 verifies: ["Boseiju, Who Endures"]

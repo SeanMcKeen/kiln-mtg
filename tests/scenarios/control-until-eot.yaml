@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: Gaining control until end of turn; the permanent returns to its previous controller in cleanup
 cr: ["613.1b", "302.6", "514.2"]
 players:

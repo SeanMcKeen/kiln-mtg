@@ -33,7 +33,7 @@ The project is **Kiln**. The bare `kiln` name is taken on crates.io, PyPI and np
 All of these names were confirmed free on 2026-10-22. Nothing has been published to reserve them.
 
 ## Consequences
-- The GitHub repo is `SeanMcKeen/kiln` (public). The local folder is still named `mtg rules engine`, which is harmless.
+- The GitHub repo is `SeanMcKeen/kiln-mtg` (public). The local folder is still named `mtg rules engine`, which is harmless.
 - Publish placeholder `kiln-mtg` crate, wheel and npm packages early if squatting becomes a concern.
 - The `kiln-*` workspace crate names other than `kiln-mtg` aren't reserved, so check them again before the first publish.
 

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Dovin's Veto counters a noncreature spell"
 cr: ["701.6a"]
 verifies: [Dovin's Veto]

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Marsh Flats fetches a Plains or Swamp card, including a dual land with those types"
 cr: ["602.2", "701.23b", "305.7"]
 verifies: [Marsh Flats]

@@ -42,7 +42,7 @@ updated: 2026-10-22
 - Opponent shortens a shortcut to respond mid-loop (732.2b).
 
 ## Implementation (M4 4.7)
-`crates/mtg-engine/src/loops.rs` implements options A and C:
+`crates/kiln-engine/src/loops.rs` implements options A and C:
 - **Detection.** At each priority decision, once the step has had 16 or more, the state is hashed without life, poison, mana pools and counter counts. A repeat with the same priority holder is a loop. The difference in those quantities is one iteration's delta.
 - **Proposed shortcut** (CR 732.2a). If only the priority holder made choices since the repeat, they get `ProposeShortcut`: play on, or repeat it 10, 100, 1,000, 10⁶ or 10⁹ times. The loop's resources can cap this (shrinking pools or counters), and so can the iteration where a player loses. Each other player, in turn order, gets `RespondShortcut`: accept, or shorten to where they'll act (CR 732.2b). The agreed delta × N is applied, then SBAs are checked.
 - **Mandatory loop** (CR 732.4, 104.4b). If nobody made a choice (one-option decisions don't count), each player in APNAP order may let it continue or stop it (CR 732.5). An endless one is a draw. One that drains a player runs to that iteration (Sanguine Bond plus Exquisite Blood wins).

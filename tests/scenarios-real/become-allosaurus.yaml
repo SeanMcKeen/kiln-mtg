@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Allosaurus Shepherd: until end of turn, each Elf you control has base power and toughness 5/5"
 cr: ["613.4b", "611.2c"]
 verifies: [Allosaurus Shepherd]

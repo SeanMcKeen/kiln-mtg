@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: A triggered mana ability resolves immediately and adds a type the tapped permanent produced
 cr: ["605.1b", "605.4a", "106.12"]
 players:

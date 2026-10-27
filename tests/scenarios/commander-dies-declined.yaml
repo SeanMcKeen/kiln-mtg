@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "A commander left in the graveyard isn't offered again at the next check"
 cr: ["903.9a"]
 players:

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Najeela: an attacking Warrior makes a 1/1 Warrior tapped and attacking; its controller chooses which defending player it attacks"
 cr: ["508.4", "802.2", "506.3b", "508.3a"]
 verifies: ["Najeela, the Blade-Blossom"]

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Leyline of the Void: begin the game with it; opponents' cards that would go to a graveyard are exiled"
 cr: ["103.6a", "614.1a"]
 verifies: [Leyline of the Void]

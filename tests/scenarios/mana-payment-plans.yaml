@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: Payment offers outcome-distinct plans plus manual payment
 cr: ["601.2g", "601.2h", "605.3a", "106.4"]
 players:

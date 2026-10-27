@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Beast Within destroys a permanent and its controller gets a 3/3 token"
 cr: ["701.8a", "111.2", "608.2h"]
 verifies: [Beast Within]

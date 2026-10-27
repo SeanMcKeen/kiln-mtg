@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Nature's Claim destroys an artifact; its controller gains 4 life"
 cr: ["701.8a", "608.2h"]
 verifies: [Nature's Claim]

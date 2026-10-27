@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Najeela: untap attackers, they gain lifelink, and an additional combat phase follows this one"
 cr: ["500.8", "506.1", "702.15b"]
 verifies: ["Najeela, the Blade-Blossom"]

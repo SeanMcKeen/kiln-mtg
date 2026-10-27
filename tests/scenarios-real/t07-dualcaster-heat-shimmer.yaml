@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "T07: Dualcaster Mage copies Heat Shimmer; the copy retargets the Mage, making a hasty token Mage whose ETB copies it again"
 cr: ["707.10", "707.10c", "707.9a", "111.10"]
 verifies: [Dualcaster Mage, Heat Shimmer]

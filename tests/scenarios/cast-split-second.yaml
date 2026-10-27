@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Split second: while it's on the stack, players can't cast spells or activate non-mana abilities"
 cr: ["702.61a", "702.61b"]
 players:

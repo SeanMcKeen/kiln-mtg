@@ -24,7 +24,7 @@ See [[Card Data Sources]] and [[Ingestion Pipeline]].
 **Accept by:** M1.
 
 ## M1 evidence (2026-10-20)
-`mtg-data` now ingests Scryfall `oracle_cards` end to end (`mtg data fetch|build`), and the evidence supports the proposal:
+`kiln-data` now ingests Scryfall `oracle_cards` end to end (`kiln data fetch|build`), and the evidence supports the proposal:
 - **Oracle ID works as the key.** 38,940 objects, all with an Oracle ID. The DB is content-hashed and rebuilds byte-identically.
 - **Legality data is enough for deck validation.** The four Commander bans (Mana Crypt, Dockside Extortionist, Jeweled Lotus, Hullbreacher) are rejected from data alone, with nothing hard-coded.
 - **Name resolution needs care beyond what this ADR says.** 16 full names map to several deck-eligible objects (mostly Un-card variants). Separately, prepare-card spell faces reuse real card names ("Brainstorm"). A legality → paper → non-joke tie-break plus a two-tier name index handles both ([[Ingestion Pipeline]]).

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "\"Up to two targets\": targets are chosen one at a time, never the same one twice"
 cr: ["601.2c", "115.3"]
 players:

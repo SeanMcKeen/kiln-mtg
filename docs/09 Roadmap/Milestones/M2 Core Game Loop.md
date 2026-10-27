@@ -23,7 +23,7 @@ updated: 2026-10-22
 - [x] Seeded RNG, replay log, determinism tests → accept ADR-0005 ([[Determinism & Replay]])
 - [x] PlayerView v1 with knowledge tracking basics ([[Hidden Information & Player Views]])
 - [x] Event system v1 ([[Event System]])
-- [x] `mtg-policy`: the Policy trait, random, passive, scripted
+- [x] `kiln-policy`: the Policy trait, random, passive, scripted
 - [x] Sim skeleton: run N random games in parallel. Invariant checks ([[Invariants & Property Tests]])
 - [x] Benchmarks: clone cost, games/sec → decide the persistent vs. arena state strategy ([[Performance & Cheap Cloning]])
 - [x] Scenario file loader v1 ([[Scenario File Format]])
@@ -32,7 +32,7 @@ updated: 2026-10-22
 1M random 4-player games with vanilla decks: no panics, no invariant violations, 100% replay determinism. Benchmarks recorded. ✅ **Met on 2026-10-21.**
 
 ## Results
-**Fuzz:** 1,000,000 random 4-player games on the synthetic test set (`mtg dev fuzz`, seeds 2026–2035, 100k per seed).
+**Fuzz:** 1,000,000 random 4-player games on the synthetic test set (`kiln dev fuzz`, seeds 2026–2035, 100k per seed).
 
 | Measure | Result |
 |---|---|
@@ -45,7 +45,7 @@ updated: 2026-10-22
 - Results are identical on 1 thread and 18 threads.
 - Three golden replays (2, 4 and 6 players) are committed in `tests/golden/`.
 
-**Benchmarks** (`cargo bench -p mtg-engine`, one core, Apple Silicon):
+**Benchmarks** (`cargo bench -p kiln-engine`, one core, Apple Silicon):
 
 | Benchmark | Result | Target |
 |---|---|---|
@@ -79,7 +79,7 @@ ADR-0012 was accepted as E3 (clean-room core), so this plan stands. It builds in
 | D2 | **Option 0 is the "decline" option** wherever one exists (pass, keep, don't attack, don't block). | Gives a trivial passive policy and a stable convention for scripted tests. |
 | D3 | **Continuations are a task stack.** `GameState` holds a `Vec<Task>` of small enums (begin step, priority, cast step, combat step…). The engine loop pops and runs tasks until one needs a decision. `apply(choice)` feeds the choice to the task on top. Q11 is resolved for M2 as hand-written enums in a stack; revisit at M4. | Cloneable and serializable mid-procedure (ADR-0004), with no async. |
 | D4 | **State uses plain `Vec` arenas** (strategy A/C). Objects hold a `DefId` into an `Arc<CardPool>` shared by every clone, plus small `Copy` fields. They have no heap allocations, so a clone is mostly a memcpy. Zones are `Vec<ObjectId>`. A zone change allocates a new id (CR 400.7). | Targets NFR-P2 (≤ 10 µs clone). `im` is tried only if benchmarks miss the target (Q10). |
-| D5 | **Temporary M2 card IR** (`mtg_engine::card`): P/T, a keyword bitset (flying, reach, first strike, double strike, deathtouch, lifelink, trample, vigilance, haste, defender, menace), `{T}: Add {X}` mana abilities including intrinsic basic-land abilities (CR 305.6), and spell effects (deal N damage to any target, draw N, gain N life, destroy target creature). Definitions come from a synthetic test set, or from `mtg-data` records that are vanilla, French-vanilla or basic lands. Anything else is a loud error. | Lets M2 play real vanilla decks without pre-empting ADR-0007. M3 replaces it. |
+| D5 | **Temporary M2 card IR** (`kiln_engine::card`): P/T, a keyword bitset (flying, reach, first strike, double strike, deathtouch, lifelink, trample, vigilance, haste, defender, menace), `{T}: Add {X}` mana abilities including intrinsic basic-land abilities (CR 305.6), and spell effects (deal N damage to any target, draw N, gain N life, destroy target creature). Definitions come from a synthetic test set, or from `kiln-data` records that are vanilla, French-vanilla or basic lands. Anything else is a loud error. | Lets M2 play real vanilla decks without pre-empting ADR-0007. M3 replaces it. |
 | D6 | **Mana payment** offers enumerated payment plans: assignments of pool mana and untapped mana sources to the cost, de-duplicated when they leave identical outcomes (identical sources are interchangeable), capped at 32. A "pay manually" option steps through single mana-ability activations, offering only steps that keep payment completable. | Both are legal CR behaviour (R2, Q13). Plans make random and LLM play sensible. |
 | D7 | **Castability is checked exactly before offering.** M2 costs are mana-only and targets don't depend on payment, so "castable" means a target exists for every slot and at least one plan exists. CR 601.2e still runs as an assertion. | Legality by construction, with no rewind needed (Q14 is deferred to M3, where non-mana costs appear). |
 | D8 | **Blocks are constraint-aware.** For menace, an option is offered only if a matching (remaining candidates → attackers that still need blockers) can still satisfy every pending constraint. | A first answer to Q12 that generalizes to requirements later. |
@@ -97,14 +97,14 @@ ADR-0012 was accepted as E3 (clean-room core), so this plan stands. It builds in
 | 2.4 | Mana (pools, abilities, plan enumeration, manual payment) and casting 601.2a–i for permanents and the M2 spell effects; targets with recheck on resolution | 106, 305.6, 601, 605, 608.2b | Property: every offered plan pays |
 | 2.5 | Combat: factored attacks (multiple defending players), blocks (APNAP across defenders; flying/reach/menace constraints), first/double strike steps, per-point damage division with trample and deathtouch, lifelink | 506–511, 702.2, .4, .7, .9, .15, .17, .19, .20, .111 | Combat scenarios |
 | 2.6 | SBAs 704.5a–j with the legend rule as a decision; losing and leaving the game; game end and draws | 704, 104, 800.4a | SBA scenarios |
-| 2.7 | `PlayerView`, a redaction snapshot plus an auditor test; `mtg-policy` (`Policy` trait, random with pass bias, passive, scripted) | 400.2 | The auditor finds no hidden identities |
+| 2.7 | `PlayerView`, a redaction snapshot plus an auditor test; `kiln-policy` (`Policy` trait, random with pass bias, passive, scripted) | 400.2 | The auditor finds no hidden identities |
 | 2.8 | Replay log and replay runner (first-divergence report); invariant checker (9 invariants); the "every option applies" property test | — | Determinism tests → accept ADR-0004/0005 |
-| 2.9 | `mtg-sim` runner (rayon, per-game seeds, stats) and `mtg dev fuzz`; synthetic vanilla decks plus real vanilla decks from the card DB | — | **1M 4-player games**, exit criterion |
+| 2.9 | `kiln-sim` runner (rayon, per-game seeds, stats) and `kiln dev fuzz`; synthetic vanilla decks plus real vanilla decks from the card DB | — | **1M 4-player games**, exit criterion |
 | 2.10 | criterion benchmarks: clone, random game, priority enumeration; record results in [[Non-Functional Requirements]] | — | Numbers recorded, Q10 decided |
 | 2.11 | Scenario loader v1 (YAML) plus CR-cited scenario tests for each phase | — | Scenarios run from files |
 
 ### Verification at the end of M2
 - `cargo nextest run`, clippy and fmt are clean.
-- `mtg dev cr-check` passes.
-- `mtg dev fuzz --games 1000000 --players 4 --invariants --replay-every 1000` shows zero panics, zero violations and zero replay divergences.
+- `kiln dev cr-check` passes.
+- `kiln dev fuzz --games 1000000 --players 4 --invariants --replay-every 1000` shows zero panics, zero violations and zero replay divergences.
 - Benchmark numbers are recorded.

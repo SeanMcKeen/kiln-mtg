@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Kiki-Jiki: a hasty token copy whose ETB triggers; it's sacrificed at the beginning of the next end step"
 cr: ["707.9a", "603.6a", "603.7a", "111.10"]
 verifies: ["Kiki-Jiki, Mirror Breaker"]

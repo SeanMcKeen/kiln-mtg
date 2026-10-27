@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: A card with flash can be cast any time its controller could cast an instant
 cr: ["702.8a", "117.1a"]
 players:

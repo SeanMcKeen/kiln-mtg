@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: Two draw replacements apply; the affected player chooses one, then the other applies to the modified event
 cr: ["616.1", "616.1e", "616.1f", "614.5", "614.11a"]
 players:

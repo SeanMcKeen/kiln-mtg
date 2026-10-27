@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: '"Enters with X counters" uses the spell''s X; removing a counter is a cost'
 cr: ["614.1c", "107.3a", "118.3"]
 players:

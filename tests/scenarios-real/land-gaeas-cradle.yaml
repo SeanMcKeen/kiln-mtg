@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Gaea's Cradle adds {G} for each creature you control"
 cr: ["106.1", "605.1a"]
 verifies: ["Gaea's Cradle"]

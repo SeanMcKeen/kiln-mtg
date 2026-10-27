@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: A mandatory loop that drains a player runs to the iteration where they lose
 cr: ["732.4", "732.2c", "704.5a"]
 players:

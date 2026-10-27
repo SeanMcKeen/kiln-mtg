@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Mystic Remora: with a third age counter, cumulative upkeep {1} costs {3}"
 cr: ["702.24a", "118.12"]
 verifies: [Mystic Remora]

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Two multi-layer statics: with the 1/1 setter older, the mana-value setter applies last in 7b"
 cr: ["613.6", "613.7", "613.4b", "613.1f"]
 players:

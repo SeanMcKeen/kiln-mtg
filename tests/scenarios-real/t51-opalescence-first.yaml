@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "T51: Opalescence older than Humility: the animated enchantments end 1/1 and lose their abilities"
 cr: ["613.6", "613.7", "613.4b"]
 verifies: [Humility, Opalescence, Glorious Anthem]

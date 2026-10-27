@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Seething Song and Pyretic Ritual add red mana"
 cr: ["106.4"]
 verifies: [Seething Song, Pyretic Ritual]

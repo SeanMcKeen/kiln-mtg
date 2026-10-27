@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Thrasios: scry 1, then reveal the top card; a land is put onto the battlefield tapped"
 cr: ["701.22a", "701.20a", "110.5b"]
 verifies: ["Thrasios, Triton Hero"]

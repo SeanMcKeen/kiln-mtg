@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: A spell whose only target became illegal doesn't resolve (LIFO stack)
 cr: ["608.2b", "117.4", "405.5", "601.2c", "608.2n", "701.8a"]
 players:

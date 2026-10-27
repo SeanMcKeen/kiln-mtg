@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: Entering as a copy takes the copiable values plus the exceptions; the copy's ETB triggers
 cr: ["707.2", "707.9a", "707.9b", "614.12a", "603.6a"]
 players:

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Twinflame: strive adds {2}{R} per extra target; hasty token copies are exiled at the next end step"
 cr: ["601.2f", "707.9a", "603.7"]
 verifies: [Twinflame]

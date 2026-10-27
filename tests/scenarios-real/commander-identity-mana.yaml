@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Command Tower and Arcane Signet add only colors in the commander's color identity"
 cr: ["903.4", "903.4f", "106.1"]
 verifies: [Command Tower, Arcane Signet]

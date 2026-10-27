@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "\"You may discard a card. If you do, draw two cards.\""
 cr: ["608.2d", "701.9a"]
 players:

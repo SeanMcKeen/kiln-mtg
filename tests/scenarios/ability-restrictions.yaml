@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "\"Activate only as a sorcery\" and \"Activate only once each turn\""
 cr: ["602.5b", "602.5d"]
 players:

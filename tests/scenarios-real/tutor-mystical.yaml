@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Mystical Tutor finds a card"
 cr: ["701.23b", "701.24b", "701.20a"]
 verifies: [Mystical Tutor]

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: The targeted player chooses the cards they discard
 cr: ["701.9a", "115.1"]
 players:

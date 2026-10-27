@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Deceiver Exarch: with no permanent an opponent controls, only the untap mode can be chosen"
 cr: ["700.2b", "603.3c"]
 verifies: [Deceiver Exarch]

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "T13: Ad Nauseam repeats as a choice each time; Angel's Grace stops the loss at 0 life (and split second stops responses)"
 cr: ["104.3b", "702.61a", "101.2", "704.5a"]
 verifies: [Ad Nauseam, "Angel's Grace"]

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: One land per turn, as a special action that keeps priority
 cr: ["305.2", "305.2a", "116.2a", "117.3c"]
 players:

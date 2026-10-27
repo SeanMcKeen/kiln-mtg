@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: A spell can target a spell on the stack and counter it
 cr: ["701.6a", "115.1", "117.3c"]
 players:

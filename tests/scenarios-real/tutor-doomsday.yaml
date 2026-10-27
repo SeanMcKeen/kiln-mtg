@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Doomsday: five cards from library and graveyard stay on top in any order, the rest are exiled; lose half your life rounded up"
 cr: ["701.23a", "107.1a"]
 verifies: [Doomsday]

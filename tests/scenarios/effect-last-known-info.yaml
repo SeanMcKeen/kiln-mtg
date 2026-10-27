@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: An exiled creature's controller gains life equal to its last known power
 cr: ["608.2h", "400.7"]
 players:

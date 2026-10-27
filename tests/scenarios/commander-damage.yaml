@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "21 combat damage from one commander makes a player lose, whatever their life total"
 cr: ["903.10a", "704.6c"]
 players:

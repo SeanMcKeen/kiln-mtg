@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Mirror Gallery: the legend rule doesn't apply"
 cr: ["704.5j"]
 verifies: [Mirror Gallery]

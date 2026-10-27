@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Esper Sentinel: only an opponent's first noncreature spell each turn triggers; X is its power"
 cr: ["603.2", "118.12", "107.3"]
 verifies: [Esper Sentinel]

@@ -25,7 +25,7 @@ updated: 2026-10-20
   - **coverage status of every card**, as the gate for experiments
 
 ## Validation as built (M1)
-`mtg deck check <file> [--commander NAME]… [--json]` (in `mtg-sim::deck`) runs these checks, each tagged with its rule:
+`kiln deck check <file> [--commander NAME]… [--json]` (in `kiln-sim::deck`) runs these checks, each tagged with its rule:
 
 | Check | Rule |
 |---|---|

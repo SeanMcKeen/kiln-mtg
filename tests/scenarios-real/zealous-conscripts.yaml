@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Zealous Conscripts: gain control of a creature until end of turn; it's untapped and hasty, so it can attack; control returns in cleanup"
 cr: ["613.1b", "302.6", "514.2"]
 verifies: [Zealous Conscripts]

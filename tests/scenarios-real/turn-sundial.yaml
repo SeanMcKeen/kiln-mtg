@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Sundial of the Infinite: ending the turn exiles the stack, skips to cleanup, and nobody gets priority"
 cr: ["724.1b", "724.1d", "724.1f"]
 verifies: [Sundial of the Infinite]

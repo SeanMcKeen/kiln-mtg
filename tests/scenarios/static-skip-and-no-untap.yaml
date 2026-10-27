@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: '"Skip your draw step" skips the step; "doesn''t untap during your untap step" keeps a permanent tapped'
 cr: ["614.10", "502.3"]
 players:

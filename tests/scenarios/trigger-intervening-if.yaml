@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "\"At the beginning of your upkeep, if ...\" triggers only if the condition holds"
 cr: ["603.4", "603.2b", "503.1a"]
 players:

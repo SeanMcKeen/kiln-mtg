@@ -8,7 +8,7 @@ python3 -I tools/corpus-analysis/corpus_stats.py docs/_external/oracle-cards.jso
 python3 -I tools/corpus-analysis/corpus_stats.py docs/_external/oracle-cards.jsonl.gz --short-names --json
 ```
 
-The input can be JSONL or a JSON array, gzipped or not. `mtg data fetch` saves the file as `data/cache/oracle_cards.jsonl`.
+The input can be JSONL or a JSON array, gzipped or not. `kiln data fetch` saves the file as `data/cache/oracle_cards.jsonl`.
 
 ## What it reports
 - Pool sizes: all objects, objects without tokens/emblems/art series/planes/schemes/vanguards, and the legal count per format.

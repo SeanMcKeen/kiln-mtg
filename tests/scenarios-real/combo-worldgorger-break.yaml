@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "T12: with another creature card in a graveyard, the returning Animate Dead chooses what it enchants, so the loop can end"
 cr: ["303.4f", "104.4b", "607.2a"]
 verifies: [Worldgorger Dragon, Animate Dead]

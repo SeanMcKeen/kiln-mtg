@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: A search for a stated quality may find nothing; found lands enter under the searcher's control
 cr: ["701.23b", "110.2"]
 players:

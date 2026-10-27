@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Mox Amber: one mana of any color among legendary creatures and planeswalkers you control"
 cr: ["106.1", "605.1a"]
 verifies: [Mox Amber]

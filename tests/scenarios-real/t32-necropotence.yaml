@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Necropotence: skip the draw step; pay 1 life to exile the top card face down, returning it at the end step"
 cr: ["614.10", "406.3", "603.7a"]
 verifies: [Necropotence]

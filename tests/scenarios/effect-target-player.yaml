@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: Target player draws two cards and loses 2 life
 cr: ["115.1", "121.1", "119.3"]
 players:

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Kraum: whenever an opponent casts their second spell each turn, draw a card"
 cr: ["603.2", "601.2i"]
 verifies: ["Kraum, Ludevic's Opus"]

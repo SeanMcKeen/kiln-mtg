@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: Damage from a red source to a creature with protection from red is prevented
 cr: ["702.16e", "510.2"]
 players:

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Deadly Rollick is free while its caster controls a commander"
 cr: ["903.3d", "118.9"]
 verifies: [Deadly Rollick]

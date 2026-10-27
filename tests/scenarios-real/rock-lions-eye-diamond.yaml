@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Lion's Eye Diamond: discard your hand and sacrifice it for three mana of one color, only with priority"
 cr: ["605.1a", "602.5d", "118.3"]
 verifies: ["Lion's Eye Diamond"]

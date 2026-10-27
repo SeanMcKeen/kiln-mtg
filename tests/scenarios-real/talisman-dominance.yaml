@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Talisman of Dominance: {C} for free, or {U} or {B} for 1 damage"
 cr: ["605.3a", "605.3b", "120.3"]
 verifies: [Talisman of Dominance]

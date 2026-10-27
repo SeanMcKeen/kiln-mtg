@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "T14: Bolas's Citadel + Sensei's Divining Top: draw, Top goes on top, recast it for 1 life"
 cr: ["118.9", "119.4", "601.2h"]
 verifies: ["Bolas's Citadel", "Sensei's Divining Top"]

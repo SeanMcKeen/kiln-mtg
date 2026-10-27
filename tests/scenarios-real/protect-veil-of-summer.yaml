@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Veil of Summer: draw after an opponent's blue spell; your spells can't be countered and you have hexproof from blue and black this turn"
 cr: ["702.11d", "101.2", "611.2c"]
 verifies: [Veil of Summer]

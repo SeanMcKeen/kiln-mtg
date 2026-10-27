@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: A mana ability's other effects happen when it's activated during payment
 cr: ["605.3b", "120.3"]
 players:

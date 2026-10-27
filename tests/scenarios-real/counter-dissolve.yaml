@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Dissolve counters a spell, then scry 1"
 cr: ["701.6a", "701.22a"]
 verifies: [Dissolve]

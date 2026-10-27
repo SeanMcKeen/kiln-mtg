@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "T30: two players' Rhystic Studies trigger on one spell; APNAP order; the caster decides each payment"
 cr: ["603.3b", "101.4", "118.12"]
 verifies: [Rhystic Study]

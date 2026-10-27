@@ -56,12 +56,12 @@ All crates exist under `crates/`. The ones M1 doesn't implement are stubs whose 
 
 | Crate | M1 state | Dependencies chosen |
 |---|---|---|
-| `mtg-core` | ids, `Color`/`Colors`, `ManaSymbol`/`ManaCost`, `TypeLine`, `PrintedStat`, `CrRef` | `serde`, `smallvec`, `uuid`, `thiserror` |
-| `mtg-cards` | only the coverage model (`Coverage`, `Provenance`, `CardDefinition` without IR) | `serde` |
-| `mtg-data` | Scryfall fetch, normalization, binary DB, name index | **`postcard`** for the DB (bincode is unmaintained; rkyv deferred until load time matters, since ~210 ms already beats NFR-P6), **`ureq` 3** (blocking, behind the `fetch` feature), `flate2`, `sha2`, `strsim`, `unicode-normalization` |
-| `mtg-sim` | deck import and Commander validation only | `csv`, `sha2` |
-| `mtg-testkit` | CR rule tree and citation checker | `regex` |
-| `mtg-cli` | `mtg data …`, `mtg deck check`, `mtg dev cr-check` | `clap` (derive, env), `anyhow` |
+| `kiln-types` | ids, `Color`/`Colors`, `ManaSymbol`/`ManaCost`, `TypeLine`, `PrintedStat`, `CrRef` | `serde`, `smallvec`, `uuid`, `thiserror` |
+| `kiln-cards` | only the coverage model (`Coverage`, `Provenance`, `CardDefinition` without IR) | `serde` |
+| `kiln-data` | Scryfall fetch, normalization, binary DB, name index | **`postcard`** for the DB (bincode is unmaintained; rkyv deferred until load time matters, since ~210 ms already beats NFR-P6), **`ureq` 3** (blocking, behind the `fetch` feature), `flate2`, `sha2`, `strsim`, `unicode-normalization` |
+| `kiln-sim` | deck import and Commander validation only | `csv`, `sha2` |
+| `kiln-testkit` | CR rule tree and citation checker | `regex` |
+| `kiln-mtg` | `kiln data …`, `kiln deck check`, `kiln dev cr-check` | `clap` (derive, env), `anyhow` |
 
 Workspace conventions:
 - edition 2024, toolchain pinned in `rust-toolchain.toml`
@@ -70,13 +70,13 @@ Workspace conventions:
 ### M2 additions (2026-10-21)
 | Crate | M2 state | Dependencies chosen |
 |---|---|---|
-| `mtg-engine` | `Game` (task-stack decision state machine), M2 card IR, mana plans, casting, combat, SBAs, views, replays, invariants, scenario builder, synthetic test decks; criterion benches | **`rand_chacha` 0.10** (ChaCha8; sampling and shuffles are our own code), `smallvec`, `serde_json` (replay pool hash) |
-| `mtg-policy` | `Policy` trait; random (pass bias), passive, scripted | — |
-| `mtg-sim` | `runner` (rayon batch runner with checks), `vanilla` (real-card pools for M2) | **`rayon`** |
-| `mtg-testkit` | YAML scenario loader | **`yaml_serde`** (YAML organization's maintained serde_yaml) |
-| `mtg-cli` | `mtg dev fuzz` | — |
+| `kiln-engine` | `Game` (task-stack decision state machine), M2 card IR, mana plans, casting, combat, SBAs, views, replays, invariants, scenario builder, synthetic test decks; criterion benches | **`rand_chacha` 0.10** (ChaCha8; sampling and shuffles are our own code), `smallvec`, `serde_json` (replay pool hash) |
+| `kiln-policy` | `Policy` trait; random (pass bias), passive, scripted | — |
+| `kiln-sim` | `runner` (rayon batch runner with checks), `vanilla` (real-card pools for M2) | **`rayon`** |
+| `kiln-testkit` | YAML scenario loader | **`yaml_serde`** (YAML organization's maintained serde_yaml) |
+| `kiln-mtg` | `kiln dev fuzz` | — |
 
-Deck import landed in `mtg-sim` as this note says. If it stays CLI-only through M6, consider moving it to `mtg-data` so the CLI doesn't pull in simulation code.
+Deck import landed in `kiln-sim` as this note says. If it stays CLI-only through M6, consider moving it to `kiln-data` so the CLI doesn't pull in simulation code.
 
 ## Rules
 - **The engine doesn't know specific card names.** Card behaviour arrives only through the IR. The one exception is rules that name cards: the CR names a few, and some cards reference others by name, which goes through IR filters.

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: A permanent with protection from red can't be targeted by red spells
 cr: ["702.16a", "702.16b"]
 players:

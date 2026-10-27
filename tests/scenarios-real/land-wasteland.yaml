@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Wasteland can target only nonbasic lands"
 cr: ["602.2", "602.2b", "601.2c", "205.4a", "701.8a"]
 verifies: [Wasteland]

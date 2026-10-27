@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: A creature's {T} ability can't be activated until its controller has controlled it since their turn began
 cr: ["302.6"]
 players:

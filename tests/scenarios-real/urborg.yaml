@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Urborg: each land is a Swamp in addition, so it can tap for {B} as well"
 cr: ["305.6", "613.1d"]
 verifies: ["Urborg, Tomb of Yawgmoth"]

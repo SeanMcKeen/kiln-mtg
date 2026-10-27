@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: An activated ability resolves even if its source leaves the battlefield
 cr: ["113.7a", "608.2h", "302.6"]
 players:

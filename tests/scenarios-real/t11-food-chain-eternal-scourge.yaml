@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "T11: Food Chain exiles Eternal Scourge for 4 creature-only mana; Scourge is cast from exile with it, and again"
 cr: ["106.6", "113.6f", "732.1"]
 verifies: [Eternal Scourge]

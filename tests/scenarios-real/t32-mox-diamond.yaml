@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Mox Diamond: discard a land card instead of it entering; if you do, it enters"
 cr: ["614.1a", "614.6", "608.3a"]
 verifies: [Mox Diamond]

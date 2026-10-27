@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Negate and Spell Pierce can't target a creature spell"
 cr: ["115.1", "601.2c"]
 verifies: [Negate, Spell Pierce]

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Spark Double copying a planeswalker enters with its loyalty plus one"
 cr: ["306.5b", "707.9", "707.2"]
 verifies: [Spark Double]

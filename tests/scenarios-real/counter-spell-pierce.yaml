@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Spell Pierce: the controller can't pay {2}, so the spell is countered"
 cr: ["118.12", "701.6a"]
 verifies: [Spell Pierce]

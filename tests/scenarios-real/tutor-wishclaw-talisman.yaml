@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Wishclaw Talisman: three wish counters; search for a card, then an opponent of your choice gains control of it"
 cr: ["614.1c", "701.23a", "613.1b"]
 verifies: [Wishclaw Talisman]

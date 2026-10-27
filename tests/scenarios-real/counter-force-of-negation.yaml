@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Force of Negation: free on an opponent's turn by exiling a blue card; the countered spell is exiled"
 cr: ["118.9", "701.6a", "702.33a"]
 verifies: [Force of Negation]

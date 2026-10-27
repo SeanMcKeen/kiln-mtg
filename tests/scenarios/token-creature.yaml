@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: The controller of a destroyed permanent creates a creature token (last known information)
 cr: ["111.2", "111.4", "608.2h"]
 players:

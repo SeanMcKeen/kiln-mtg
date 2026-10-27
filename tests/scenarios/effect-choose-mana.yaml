@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: Mana of any color is chosen as the effect adds it
 cr: ["106.1b", "106.4"]
 players:

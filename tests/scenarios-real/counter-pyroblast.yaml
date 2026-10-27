@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Pyroblast targets any spell but counters it only if it's blue; Red Elemental Blast targets only blue"
 cr: ["700.2", "608.2b", "701.6a"]
 verifies: [Pyroblast, Red Elemental Blast]

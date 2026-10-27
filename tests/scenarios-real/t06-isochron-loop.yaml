@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "T06: Isochron Scepter with Dramatic Reversal and 3 mana from rocks is an optional loop netting mana; its controller may shortcut it"
 cr: ["732.2a", "707.12", "605.1a"]
 verifies: [Isochron Scepter, Dramatic Reversal, Talisman of Dominance]

@@ -12,19 +12,19 @@ updated: 2026-10-22
 
 ## Checklist
 - [x] Install the Rust toolchain (rustup stable, pinned to 1.99.1 in `rust-toolchain.toml`). Set up CI (fmt, clippy -D warnings, nextest, CR citation check): `.github/workflows/ci.yml`
-- [x] Create the workspace per [[Crate Layout]]: `mtg-core`, `mtg-data`, `mtg-testkit`, `mtg-cards` (coverage only), `mtg-sim` (deck import only), `mtg-cli`, plus stubs for the rest
+- [x] Create the workspace per [[Crate Layout]]: `kiln-types`, `kiln-data`, `kiln-testkit`, `kiln-cards` (coverage only), `kiln-sim` (deck import only), `kiln-mtg`, plus stubs for the rest
 - [x] **phase.rs evaluation** (time-boxed) → [[phase.rs Evaluation]]. Recommendation recorded in [[ADR-0012 Relationship to phase.rs]]. **The decision is the user's** (still open).
-- [x] CR parser: `cr-lf.txt` → rule tree (3,298 rules plus the glossary), plus a citation validator (`mtg dev cr-check`, CI job). All 438 citations in code and docs are valid.
-- [x] `mtg-core` types: IDs, colors, mana symbols and costs, type line, printed stats, CR refs
-- [x] `mtg-data`: Scryfall bulk fetch (polite UA, 24 h cache), normalization, `CardRecord`, versioned binary DB ([[Ingestion Pipeline]])
+- [x] CR parser: `cr-lf.txt` → rule tree (3,298 rules plus the glossary), plus a citation validator (`kiln dev cr-check`, CI job). All 438 citations in code and docs are valid.
+- [x] `kiln-types` types: IDs, colors, mana symbols and costs, type line, printed stats, CR refs
+- [x] `kiln-data`: Scryfall bulk fetch (polite UA, 24 h cache), normalization, `CardRecord`, versioned binary DB ([[Ingestion Pipeline]])
 - [x] Coverage model (`unsupported` for everything initially) ([[Card Data Model]])
 - [x] Deck import: text and CSV formats, fuzzy names, Commander validation (size, singleton, color identity, basic land types, partners, banlist) ([[Deck Import]])
-- [x] `mtg deck check` and `mtg data fetch|build|info|coverage` CLI
+- [x] `kiln deck check` and `kiln data fetch|build|info|coverage` CLI
 - [x] Commit the corpus-analysis scripts as `tools/corpus-analysis` (recreated; figures reproduced, see its README)
 - [ ] Decide ADR-0009 (data source of truth). Evidence added; **ready for the user to accept**.
 
 ## Exit criteria
-`mtg deck check kinnan.txt --json` reports legality and per-card coverage for a real cEDH list. ✅ Met on 2026-10-20: `tests/fixtures/decks/kinnan.txt` is LEGAL (100 cards, UG), and all 100 cards report `unsupported` with the reason "no card-definition front-end yet (M3)".
+`kiln deck check kinnan.txt --json` reports legality and per-card coverage for a real cEDH list. ✅ Met on 2026-10-20: `tests/fixtures/decks/kinnan.txt` is LEGAL (100 cards, UG), and all 100 cards report `unsupported` with the reason "no card-definition front-end yet (M3)".
 
 ## Results (2026-10-20 Scryfall data)
 | Measure | Value |
@@ -45,6 +45,6 @@ updated: 2026-10-22
 - **"Spell commander"** appears on 5 cards but isn't in the 2026-06-19 CR. It's handled through the CR 903.3a "can be your commander" text and logged in [[12 Open Questions]].
 
 ## Deferred (moved to later milestones)
-- `mtg data diff` (errata and legality diffs): M3, when coverage demotion on errata matters.
+- `kiln data diff` (errata and legality diffs): M3, when coverage demotion on errata matters.
 - Scryfall `oracle_tags` ingestion: M7 (per-card analytics).
 - MTGJSON cross-check: when ADR-0009 is accepted.

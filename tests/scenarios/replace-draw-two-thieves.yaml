@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: With a draw thief on each side of a two-player game, the original player still draws (Notion Thief ruling, 2018-03-16)
 cr: ["616.1f", "614.5"]
 players:

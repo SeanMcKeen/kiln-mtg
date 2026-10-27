@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Blood Crypt: as it enters, pay 2 life; it enters untapped"
 cr: ["614.12", "614.1a", "305.1"]
 verifies: ["Blood Crypt"]

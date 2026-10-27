@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "T40: a commander that would die with Rest in Peace out is exiled instead; then the owner may put it into the command zone"
 cr: ["614.1a", "903.9a", "704.3"]
 verifies: [Rest in Peace, Swords to Plowshares]

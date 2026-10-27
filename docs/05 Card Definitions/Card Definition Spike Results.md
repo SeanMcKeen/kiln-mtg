@@ -13,11 +13,11 @@ How should ~32,000 Commander-legal cards get behaviour? This note records the da
 ## What was built (branch `m3-card-definitions`)
 | Step | Artifact |
 |---|---|
-| A1 IR v1 draft | `crates/mtg-cards/src/ir.rs`. Abilities (keyword, spell, activated, triggered, static, replacement, escape); effect, filter, quantity, cost, condition, trigger, target and mana algebras; a closed set of named rule modifications; an explicit escape hatch. Serde-serializable, strict (`deny_unknown_fields` everywhere). |
-| A2 DSL prototype | `cards/defs/*.yaml`, the IR's YAML form (single-key maps, not YAML tags). 40 cards: 20 staples and 20 of the hardest cEDH cards. Loader and validator in `crates/mtg-cards/src/defs.rs`. Files hold no Oracle text. |
-| A3 Parser prototype | `crates/mtg-cards/src/parse.rs`, a hand-written compositional recursive-descent parser (~900 lines): sub-parsers for filters, targets, quantities, costs and mana composed into effect, trigger, keyword and static templates. Unparsed lines are reported, never approximated. |
-| A4 Renderer lint | `crates/mtg-cards/src/render.rs`: IR → canonical English, compared with the Oracle line using canonical tokens. |
-| A5 Comparison | `mtg dev card-spike --phase-coverage <coverage-data.json>` measures everything below in under a second on one core. |
+| A1 IR v1 draft | `crates/kiln-cards/src/ir.rs`. Abilities (keyword, spell, activated, triggered, static, replacement, escape); effect, filter, quantity, cost, condition, trigger, target and mana algebras; a closed set of named rule modifications; an explicit escape hatch. Serde-serializable, strict (`deny_unknown_fields` everywhere). |
+| A2 DSL prototype | `cards/defs/*.yaml`, the IR's YAML form (single-key maps, not YAML tags). 40 cards: 20 staples and 20 of the hardest cEDH cards. Loader and validator in `crates/kiln-cards/src/defs.rs`. Files hold no Oracle text. |
+| A3 Parser prototype | `crates/kiln-cards/src/parse.rs`, a hand-written compositional recursive-descent parser (~900 lines): sub-parsers for filters, targets, quantities, costs and mana composed into effect, trigger, keyword and static templates. Unparsed lines are reported, never approximated. |
+| A4 Renderer lint | `crates/kiln-cards/src/render.rs`: IR → canonical English, compared with the Oracle line using canonical tokens. |
+| A5 Comparison | `kiln dev card-spike --phase-coverage <coverage-data.json>` measures everything below in under a second on one core. |
 
 ## Findings
 
@@ -92,6 +92,6 @@ Why each option scored as it did:
 - Velocity per card can't be measured until the engine interprets the IR (Phase B).
 
 ## Sources
-- Spike code and data: `crates/mtg-cards/src/{ir,defs,parse,render}.rs`, `cards/defs/*.yaml`, `crates/mtg-cli/src/spike.rs`, and the curated pool list `tests/fixtures/spike/curated-pool.txt`. Run with `mtg dev card-spike` against card DB `scryfall-2026-10-20#b1903564`.
+- Spike code and data: `crates/kiln-cards/src/{ir,defs,parse,render}.rs`, `cards/defs/*.yaml`, `crates/kiln-mtg/src/spike.rs`, and the curated pool list `tests/fixtures/spike/curated-pool.txt`. Run with `kiln dev card-spike` against card DB `scryfall-2026-10-20#b1903564`.
 - phase.rs published coverage, generated 2026-10-19 (MTGJSON 5.3.0+20261019): https://data.phase-rs.dev/coverage-data.json
 - [[Oracle Text Corpus Analysis]], [[Evaluation Criteria]], [[phase.rs Evaluation]].

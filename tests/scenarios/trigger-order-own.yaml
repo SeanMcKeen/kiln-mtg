@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: A player orders their own simultaneous triggers; the last one put on the stack resolves first
 cr: ["603.3b"]
 players:

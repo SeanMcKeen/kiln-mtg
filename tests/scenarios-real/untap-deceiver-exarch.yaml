@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Deceiver Exarch: a modal enters trigger; the mode and its target are chosen as it goes on the stack"
 cr: ["700.2b", "603.3c", "601.2c"]
 verifies: [Deceiver Exarch]

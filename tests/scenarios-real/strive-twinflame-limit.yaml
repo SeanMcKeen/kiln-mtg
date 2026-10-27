@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Twinflame: a second target isn't offered when the extra {2}{R} can't be paid"
 cr: ["601.2f", "601.2c"]
 verifies: [Twinflame]

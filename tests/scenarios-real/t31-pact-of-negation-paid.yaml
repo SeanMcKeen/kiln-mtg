@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Pact of Negation: paying the upkeep cost keeps its controller in the game; the trigger happens once"
 cr: ["603.7a", "603.7c", "118.12"]
 verifies: [Pact of Negation]

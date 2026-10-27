@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: Deathtouch destroys a large blocker
 cr: ["702.2b", "704.5h", "704.5g"]
 players:

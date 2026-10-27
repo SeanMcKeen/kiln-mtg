@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "T03: Thassa's Oracle entering under Dress Down has no abilities, so its ETB doesn't trigger"
 cr: ["603.6a", "613.1f", "611.3a"]
 verifies: [Dress Down, "Thassa's Oracle"]

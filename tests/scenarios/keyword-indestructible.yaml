@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: Indestructible permanents aren't destroyed by effects or lethal damage
 cr: ["702.12b", "704.5g"]
 players:

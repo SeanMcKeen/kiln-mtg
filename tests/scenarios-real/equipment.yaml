@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Equipment: equip as a sorcery; the equipped creature has haste, shroud and hexproof, so an opponent can't target it, and it attacks the turn it arrived"
 cr: ["702.6a", "301.5a", "702.18a", "702.11b", "702.10a"]
 verifies: [Lightning Greaves, Swiftfoot Boots]

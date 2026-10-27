@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: If all remaining players lose simultaneously, the game is a draw
 cr: ["104.4a", "704.3", "704.5a"]
 players:

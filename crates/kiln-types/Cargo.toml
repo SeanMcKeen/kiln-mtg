@@ -1,0 +1,22 @@
+[package]
+name = "kiln-types"
+description = "Primitive MTG types: ids, colors, mana symbols and costs, type lines, printed stats, CR references."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde.workspace = true
+smallvec.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+serde_json.workspace = true
+postcard.workspace = true
+
+[lints]
+workspace = true

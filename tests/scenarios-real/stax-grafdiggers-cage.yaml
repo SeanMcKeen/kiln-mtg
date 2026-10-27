@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "T25: Grafdigger's Cage: no casting from graveyards (Underworld Breach), and creature cards can't enter from graveyards (Animate Dead)"
 cr: ["101.2", "702.138a", "303.4a"]
 verifies: ["Grafdigger's Cage"]

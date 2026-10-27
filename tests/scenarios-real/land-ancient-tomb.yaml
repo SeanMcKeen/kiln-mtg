@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Ancient Tomb makes {C}{C} and deals 2 damage to its controller"
 cr: ["605.3b", "120.3"]
 verifies: [Ancient Tomb]

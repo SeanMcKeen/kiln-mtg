@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "T26: under Aven Mindcensor an opponent's search sees only the top four cards; Archivist of Oghma triggers on the search"
 cr: ["701.23a", "614.1a", "603.2"]
 verifies: [Aven Mindcensor, Archivist of Oghma, Demonic Tutor]

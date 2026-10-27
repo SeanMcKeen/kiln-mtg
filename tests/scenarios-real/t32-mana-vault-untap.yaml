@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Mana Vault: paying {4} in upkeep untaps it, so the draw-step trigger's intervening if fails"
 cr: ["603.4", "118.12"]
 verifies: [Mana Vault]

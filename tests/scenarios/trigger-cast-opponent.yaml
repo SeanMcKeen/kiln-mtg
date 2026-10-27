@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: An opponent casting a spell triggers; the trigger goes on the stack above the spell and resolves first
 cr: ["603.2", "603.3", "117.5"]
 players:

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: Cleanup discards down to maximum hand size, one card at a time
 cr: ["514.1", "402.2"]
 players:

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Wild Growth: whenever the enchanted land is tapped for mana, its controller adds an additional {G}"
 cr: ["605.1b", "106.12a", "303.4a"]
 verifies: [Wild Growth]

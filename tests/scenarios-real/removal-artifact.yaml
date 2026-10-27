@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Naturalize, Disenchant and Smash to Smithereens destroy artifacts"
 cr: ["701.8a", "608.2h"]
 verifies: [Naturalize, Disenchant, Smash to Smithereens]

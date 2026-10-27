@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "T24: Thalia makes noncreature spells cost {1} more, alternative costs included (Force of Will)"
 cr: ["601.2f", "118.9"]
 verifies: ["Thalia, Guardian of Thraben"]

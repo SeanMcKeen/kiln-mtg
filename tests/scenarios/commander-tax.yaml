@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Commander tax: a commander cast once from the command zone costs {2} more the next time"
 cr: ["903.8", "601.2f"]
 players:

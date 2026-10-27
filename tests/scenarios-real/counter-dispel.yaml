@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Dispel counters an instant"
 cr: ["701.6a"]
 verifies: [Dispel]

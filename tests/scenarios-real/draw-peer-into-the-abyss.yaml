@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Peer into the Abyss: target player draws half their library and loses half their life, rounded up"
 cr: ["107.1a", "121.1"]
 verifies: [Peer into the Abyss]

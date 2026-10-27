@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: Amass creates a 0/0 Army token and puts counters on it; the next amass reuses the Army
 cr: ["701.47a", "111.4", "704.5f"]
 players:

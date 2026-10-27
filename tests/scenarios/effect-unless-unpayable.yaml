@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: A player who can't pay isn't asked; the effect happens
 cr: ["118.12", "119.3"]
 players:

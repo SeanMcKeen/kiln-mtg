@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Crop Rotation: sacrifice a land, put a land from the library onto the battlefield"
 cr: ["118.8", "701.21a", "701.23b"]
 verifies: [Crop Rotation]

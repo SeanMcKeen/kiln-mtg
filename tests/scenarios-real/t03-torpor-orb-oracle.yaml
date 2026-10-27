@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "T03: Torpor Orb stops a creature's own enters-the-battlefield trigger (Thassa's Oracle)"
 cr: ["603.6a", "613.11"]
 verifies: [Torpor Orb, "Thassa's Oracle"]

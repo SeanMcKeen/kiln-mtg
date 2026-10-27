@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Mana Confluence: tap and pay 1 life for any color"
 cr: ["605.3a", "119.4"]
 verifies: [Mana Confluence]

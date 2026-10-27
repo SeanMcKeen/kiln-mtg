@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Counterspell counters a spell"
 cr: ["701.6a"]
 verifies: [Counterspell, Lightning Bolt]

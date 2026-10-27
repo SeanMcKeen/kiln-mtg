@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Faerie Mastermind: whenever an opponent draws their second card each turn, you draw"
 cr: ["603.2", "121.1"]
 verifies: [Faerie Mastermind, Night's Whisper]

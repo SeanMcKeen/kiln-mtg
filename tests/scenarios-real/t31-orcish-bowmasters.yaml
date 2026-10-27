@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Orcish Bowmasters: enters and pings, amassing a 0/0 Army token; an opponent's extra draw triggers it again"
 cr: ["603.6a", "701.47a", "111.10"]
 verifies: [Orcish Bowmasters]

@@ -7,10 +7,10 @@ updated: 2026-10-22
 
 # Scenario File Format
 
-The same format serves **tests**, the **judge tool**, and **MCP `kiln_rules_scenario`**. Version 1 is implemented in M2 (`mtg-testkit::scenario`). The scenarios live in `tests/scenarios/*.yaml` and run in CI (`crates/mtg-testkit/tests/scenarios.rs`). YAML is parsed with `yaml_serde`, which is maintained by the YAML organization.
+The same format serves **tests**, the **judge tool**, and **MCP `kiln_rules_scenario`**. Version 1 is implemented in M2 (`kiln-testkit::scenario`). The scenarios live in `tests/scenarios/*.yaml` and run in CI (`crates/kiln-testkit/tests/scenarios.rs`). YAML is parsed with `yaml_serde`, which is maintained by the YAML organization.
 
 ```yaml
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: Trample assigns lethal to the blocker, the rest to the player
 cr: ["702.19b", "510.1c", "510.2"]       # must exist in the CR (checked by the test)
 players:
@@ -41,7 +41,7 @@ expect:
 - **An omitted `library` holds 20 filler lands ("Test Wastes")**, so draws don't end the game. `library: []` means an empty library.
 - `turn`: `number`, `active` (`P1`…), and `step`. The game begins at that step and performs its turn-based actions first. Combat scenarios start at `declare_attackers` and script the attacks.
 - Card names are resolved in the card pool. In M2 that's the synthetic test set (`CardPool::test_set`). An unknown name is an error.
-- Mulligans are skipped. Game-start rules (CR 103) are tested in Rust (`crates/mtg-engine/tests/setup_rules.rs`).
+- Mulligans are skipped. Game-start rules (CR 103) are tested in Rust (`crates/kiln-engine/tests/setup_rules.rs`).
 
 ## Script
 | Step | Meaning |

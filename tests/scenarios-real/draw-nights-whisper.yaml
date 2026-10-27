@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Night's Whisper: draw two, lose 2 life"
 cr: ["121.1", "119.3"]
 verifies: [Night's Whisper]

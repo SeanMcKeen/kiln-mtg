@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Careful Study: draw two, then discard two"
 cr: ["121.1", "701.9a"]
 verifies: [Careful Study]

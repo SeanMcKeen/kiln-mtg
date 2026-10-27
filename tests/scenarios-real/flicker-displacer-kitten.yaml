@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Displacer Kitten: casting a noncreature spell flickers a nonland permanent you control (it untaps as a new object)"
 cr: ["400.7", "603.2", "601.2c"]
 verifies: [Displacer Kitten]

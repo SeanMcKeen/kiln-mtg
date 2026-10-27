@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Natural Order: sacrifice a green creature, put a green creature onto the battlefield"
 cr: ["118.8", "701.21a", "701.23b"]
 verifies: [Natural Order]

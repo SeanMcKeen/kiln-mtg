@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: Phased-out permanents are treated as though they don't exist; a player with protection from everything can't be targeted or damaged
 cr: ["702.26b", "702.26d", "702.16j", "502.1"]
 players:

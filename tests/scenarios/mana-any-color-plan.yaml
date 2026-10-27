@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: A payment plan fixes the color an any-color source makes
 cr: ["605.3a", "601.2g", "302.6"]
 players:

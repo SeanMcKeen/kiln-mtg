@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Swords to Plowshares exiles a creature; its controller gains life equal to its power"
 cr: ["608.2h", "400.7"]
 verifies: [Swords to Plowshares]

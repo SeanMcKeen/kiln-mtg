@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: A delayed trigger's "pay or lose the game" with an unpayable cost makes its controller lose
 cr: ["603.7a", "104.3e", "800.4a"]
 players:

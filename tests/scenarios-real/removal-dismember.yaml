@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Dismember's Phyrexian symbols paid with life; -5/-5 until end of turn"
 cr: ["107.4f", "601.2b", "613.4c", "704.5f"]
 verifies: [Dismember]

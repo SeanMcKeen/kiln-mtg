@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: A hybrid symbol is paid with either color, announced while casting
 cr: ["107.4e", "601.2b"]
 players:

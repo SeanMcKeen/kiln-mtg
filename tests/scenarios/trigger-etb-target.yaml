@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: An enters-the-battlefield trigger chooses its target as it goes on the stack
 cr: ["603.6a", "603.3d", "601.2c"]
 players:

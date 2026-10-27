@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Grand Abolisher: during its controller's turn, opponents can't cast spells or activate abilities (even mana abilities) of artifacts, creatures or enchantments; lands still tap"
 cr: ["613.11", "605.1a", "117.1"]
 verifies: [Grand Abolisher]

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: A copy of a card that isn't cast ceases to exist
 cr: ["707.12", "704.5e"]
 players:

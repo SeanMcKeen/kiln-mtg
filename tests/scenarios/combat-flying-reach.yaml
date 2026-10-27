@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: Flying attackers can be blocked only by flying or reach
 cr: ["702.9b", "702.17b", "509.1a"]
 players:

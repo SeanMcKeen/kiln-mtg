@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Thrasios: a land scried to the bottom; the revealed nonland card is drawn instead"
 cr: ["701.22a", "701.20a", "121.1"]
 verifies: ["Thrasios, Triton Hero"]

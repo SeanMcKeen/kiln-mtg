@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Food Chain: exile a creature for X+1 mana of one color, spendable only on creature spells"
 cr: ["106.6", "605.1a", "118.3"]
 verifies: [Food Chain]

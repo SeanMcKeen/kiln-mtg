@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Assassin's Trophy: destroy an opponent's permanent; its controller may fetch a basic land"
 cr: ["701.8a", "701.23b", "608.2d"]
 verifies: [Assassin's Trophy]

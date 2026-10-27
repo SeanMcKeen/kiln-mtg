@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: A delayed trigger uses its creator's context; "that spell" is last known information after it left the stack
 cr: ["603.7a", "603.7c", "608.2h"]
 players:

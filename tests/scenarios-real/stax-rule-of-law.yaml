@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "T23: Rule of Law: each player can't cast more than one spell each turn"
 cr: ["101.2", "601.2i"]
 verifies: [Rule of Law]

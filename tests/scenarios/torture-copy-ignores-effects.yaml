@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Torture: a copy takes copiable values only (not counters or anthem bonuses) and then gets its own controller's effects"
 cr: ["707.2", "613.2a", "613.4c"]
 players:

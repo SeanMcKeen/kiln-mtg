@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Thran Dynamo makes three colorless mana; Divination draws two"
 cr: ["605.3a", "106.4", "121.1"]
 verifies: [Thran Dynamo, Divination]

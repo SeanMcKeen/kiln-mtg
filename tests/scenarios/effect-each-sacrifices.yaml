@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: Each player sacrifices a creature they choose, in APNAP order
 cr: ["701.21a", "101.4"]
 players:

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Bolas's Citadel: play a land from the top; a spell costing more life than you have can't be cast"
 cr: ["305.1", "119.4", "118.3"]
 verifies: ["Bolas's Citadel"]

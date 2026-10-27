@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Mindslaver: you make every decision for the target player during their next turn, with their resources"
 cr: ["723.1", "723.5", "723.5a", "723.4"]
 verifies: [Mindslaver]

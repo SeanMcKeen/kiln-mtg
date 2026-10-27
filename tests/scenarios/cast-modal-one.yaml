@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: A modal spell's mode is chosen while casting; an unchosen mode's target isn't required
 cr: ["700.2a", "601.2b", "601.2c"]
 players:

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Grim and Basalt Monolith tap for {C}{C}{C}, don't untap normally, and untap for a cost"
 cr: ["605.1a", "502.3", "602.2"]
 verifies: [Grim Monolith, Basalt Monolith]

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "\"Whenever an opponent draws a card except the first one they draw in each of their draw steps\""
 cr: ["603.2", "504.1", "121.1"]
 players:

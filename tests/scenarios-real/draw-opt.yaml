@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "Opt: scry 1, draw a card"
 cr: ["701.22a", "121.1"]
 verifies: [Opt]

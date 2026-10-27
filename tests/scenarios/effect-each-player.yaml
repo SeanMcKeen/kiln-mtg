@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: Each player discards their hand, then draws as many as the most discarded
 cr: ["101.4", "701.9a", "608.2h"]
 players:

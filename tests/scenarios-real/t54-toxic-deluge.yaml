@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "T54: Toxic Deluge X=3 gives the creatures present -3/-3 until end of turn; a creature that enters later is unaffected"
 cr: ["611.2c", "613.4c", "107.3a", "119.4"]
 verifies: [Toxic Deluge]

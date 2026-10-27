@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: A linked ability casts a copy of the imprinted card without paying its mana cost; the copy chooses its own targets
 cr: ["607.2a", "707.12", "608.2g", "118.9", "704.5e"]
 players:

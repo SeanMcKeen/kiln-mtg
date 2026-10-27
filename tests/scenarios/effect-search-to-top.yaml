@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: Search, shuffle, then put the found card on top
 cr: ["701.24b", "701.23a"]
 players:

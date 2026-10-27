@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "T10: Rings of Brighthearth copies Basalt Monolith's untap ability (not a mana ability)"
 cr: ["605.1a", "707.10", "602.2b"]
 verifies: [Rings of Brighthearth, Basalt Monolith]

@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: "T52: Dryad Arbor under Blood Moon is a Mountain (not a Forest) that taps for {R}, still a Dryad creature"
 cr: ["305.7", "613.1d"]
 verifies: [Blood Moon, Dryad Arbor]

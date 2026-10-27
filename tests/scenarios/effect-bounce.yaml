@@ -1,4 +1,4 @@
-scenario: mtg-scenario/1
+scenario: kiln-scenario/1
 name: Return target creature to its owner's hand
 cr: ["400.7", "608.2c"]
 players:
