@@ -1,0 +1,23 @@
+scenario: mtg-scenario/1
+name: "T01: Demonic Consultation naming an absent card exiles the library; Thassa's Oracle's trigger then wins"
+cr: ["104.2b", "608.2h", "701.20a"]
+verifies: ["Thassa's Oracle", Demonic Consultation]
+players:
+  - battlefield: [Island, Island, Swamp]
+    hand: ["Thassa's Oracle", Demonic Consultation]
+    library: [Opt, Ponder, Preordain, Brainstorm, Island, Island, Swamp, Swamp]
+  - {}
+script:
+  - choose: "Cast Thassa's Oracle"
+  - choose: "Pay with Island, Island"
+  - pass_all
+  # The Oracle's ETB trigger is on the stack; respond with Consultation.
+  - choose: Cast Demonic Consultation
+  - choose: Pay with Swamp
+  - pass_all
+  - choose: Name Sol Ring
+  - check:
+      zones: { P1.library: [] }
+  - pass_all
+expect:
+  result: win P1

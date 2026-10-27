@@ -546,6 +546,14 @@ impl<'g> PlayerView<'g> {
         &self.game.player(self.me).hand
     }
 
+    /// What visible object `id` is attached to (public, CR 701.3).
+    pub fn attached_to(&self, id: ObjectId) -> Option<Target> {
+        if !self.can_see(id) {
+            return None;
+        }
+        self.game.attached_to(id)
+    }
+
     pub fn battlefield(&self) -> &'g [ObjectId] {
         &self.game.battlefield
     }

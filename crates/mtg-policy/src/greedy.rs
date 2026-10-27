@@ -14,8 +14,15 @@ use mtg_engine::{Action, CardDef, DecisionKind, PendingDecision, PlayerView, Tar
 use crate::Policy;
 
 /// The greedy baseline policy. Deterministic: ties go to the lowest option index.
-#[derive(Debug, Clone, Copy, Default)]
-pub struct GreedyPolicy;
+///
+/// It activates each ability at most once per turn: repeating one rarely
+/// helps a baseline, and loops that change nothing (a free equip, Basalt
+/// Monolith paying for its own untap) would otherwise never end.
+#[derive(Debug, Clone, Default)]
+pub struct GreedyPolicy {
+    turn: u32,
+    activated: Vec<(ObjectId, u8)>,
+}
 
 /// Whether an effect hurts what it touches (damage, removal, countering…).
 fn harmful(e: &Effect) -> bool {
@@ -154,15 +161,21 @@ impl GreedyPolicy {
         if harmful(&x.effect) && !x.targets.iter().all(|t| Self::opponent_has(view, &t.what)) {
             return 0;
         }
+        // Moving attached Equipment around gains nothing (and a free equip
+        // would repeat forever).
+        if matches!(x.effect, Effect::Attach { .. }) && view.attached_to(source).is_some() {
+            return 0;
+        }
         50
     }
 
-    fn priority(view: &PlayerView<'_>, actions: &[Action]) -> usize {
+    fn priority(view: &PlayerView<'_>, actions: &[Action], activated: &[(ObjectId, u8)]) -> usize {
         let mut best = (0, 0i64);
         for (i, a) in actions.iter().enumerate() {
             let score = match *a {
                 Action::PlayLand(_) => 1000,
                 Action::Cast(id) => Self::cast_score(view, id),
+                Action::Activate { source, ability } if activated.contains(&(source, ability)) => 0,
                 Action::Activate { source, ability } => Self::activate_score(view, source, ability),
                 Action::Pass | Action::ActivateMana { .. } => 0,
             };
@@ -351,7 +364,18 @@ impl Policy for GreedyPolicy {
             DecisionKind::BottomCard { cards, .. } | DecisionKind::Discard { cards, .. } => {
                 argmax(cards.iter().map(|c| -Self::keep_value(view, *c)))
             }
-            DecisionKind::Priority { actions } => Self::priority(view, actions),
+            DecisionKind::Priority { actions } => {
+                let turn = view.turn().number;
+                if turn != self.turn {
+                    self.turn = turn;
+                    self.activated.clear();
+                }
+                let i = Self::priority(view, actions, &self.activated);
+                if let Some(Action::Activate { source, ability }) = actions.get(i) {
+                    self.activated.push((*source, *ability));
+                }
+                i
+            }
             DecisionKind::ChooseTarget { spell, targets, .. } => {
                 Self::choose_target(view, *spell, targets)
             }

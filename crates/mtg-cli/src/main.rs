@@ -217,6 +217,10 @@ struct FuzzArgs {
     /// Chance per mille, before each decision, that the deciding player concedes.
     #[arg(long, default_value_t = 0)]
     concede: u64,
+    /// Harness guard (not a rule): a game still running after this many
+    /// decisions is stopped and reported as a violation.
+    #[arg(long, default_value_t = 200_000)]
+    decision_limit: u64,
     /// Use real vanilla/French-vanilla cards and basic-type lands from the card DB
     /// instead of the synthetic test set.
     #[arg(long)]
@@ -229,6 +233,14 @@ struct FuzzArgs {
     /// in random two-color decks.
     #[arg(long, conflicts_with_all = ["real", "verified"])]
     library: bool,
+    /// Commander decklists (with `--verified`): in game g, seat i plays deck
+    /// (i + g) mod n with its commanders. Each must be legal and fully verified.
+    #[arg(long, num_args = 1.., requires = "verified")]
+    decks: Vec<PathBuf>,
+    /// Every seat's policy: `random`, `greedy`, or `mixed` (alternating seats,
+    /// random first).
+    #[arg(long, default_value = "random")]
+    policy: String,
     #[command(flatten)]
     db: DbArgs,
     #[arg(long)]
@@ -387,12 +399,16 @@ fn fuzz(a: &FuzzArgs) -> Result<ExitCode> {
     use std::sync::Arc;
 
     use mtg_engine::{CardPool, GameRules};
-    use mtg_policy::{Policy, RandomPolicy};
-    use mtg_sim::runner::{BatchConfig, Checks, run_batch};
+    use mtg_policy::{GreedyPolicy, Policy, RandomPolicy};
+    use mtg_sim::runner::{BatchConfig, Checks, SeatDeck, run_batch_seats};
 
     if a.players < 2 {
         bail!("--players must be at least 2");
     }
+    if !matches!(a.policy.as_str(), "random" | "greedy" | "mixed") {
+        bail!("--policy must be random, greedy or mixed");
+    }
+    let commander = a.commander || !a.decks.is_empty();
     let (pool, source) = if a.real {
         let (db, _) = a.db.load()?;
         let (pool, rejected) = mtg_sim::vanilla::vanilla_pool(&db);
@@ -429,11 +445,20 @@ fn fuzz(a: &FuzzArgs) -> Result<ExitCode> {
         (CardPool::test_set(), "synthetic M2 test set".to_owned())
     };
     let pool = Arc::new(pool);
+    let fixed: Vec<SeatDeck> = if a.decks.is_empty() {
+        Vec::new()
+    } else {
+        let (db, _) = a.db.load()?;
+        a.decks
+            .iter()
+            .map(|path| seat_deck(&db, &pool, path))
+            .collect::<Result<_>>()?
+    };
     let cfg = BatchConfig {
         games: a.games,
         seed: a.seed,
         rules: GameRules {
-            starting_life: a.life.unwrap_or(if a.commander { 40 } else { 20 }),
+            starting_life: a.life.unwrap_or(if commander { 40 } else { 20 }),
             turn_limit: Some(a.turn_limit),
             log_events: a.log_events,
             ..GameRules::default()
@@ -443,9 +468,10 @@ fn fuzz(a: &FuzzArgs) -> Result<ExitCode> {
             views: a.views,
             replay_every: a.replay_every,
             concede_per_mille: a.concede,
+            decision_limit: Some(a.decision_limit),
         },
         threads: a.threads,
-        commanders: a.commander,
+        commanders: commander,
     };
     let (players, deck_size, real, seed) = (
         a.players,
@@ -454,10 +480,14 @@ fn fuzz(a: &FuzzArgs) -> Result<ExitCode> {
         a.seed,
     );
     let pool_for_decks = Arc::clone(&pool);
-    let decks = move |index: u64| -> Vec<Vec<mtg_engine::DefId>> {
+    let decks = move |index: u64| -> Vec<SeatDeck> {
         (0..players)
             .map(|seat| {
-                if real {
+                if !fixed.is_empty() {
+                    let i = (seat + usize::try_from(index).unwrap_or(0)) % fixed.len();
+                    return fixed[i].clone();
+                }
+                let deck = if real {
                     let s = mtg_engine::rng::splitmix64(
                         mtg_engine::rng::game_seed(seed, index) ^ (seat as u64 + 1),
                     );
@@ -468,17 +498,27 @@ fn fuzz(a: &FuzzArgs) -> Result<ExitCode> {
                         seat + usize::try_from(index % 5).unwrap_or(0),
                         deck_size,
                     )
+                };
+                SeatDeck {
+                    deck,
+                    commanders: Vec::new(),
                 }
             })
             .collect()
     };
     let pass = a.pass;
+    let policy = a.policy.clone();
     let policies = move |_| -> Vec<Box<dyn Policy>> {
         (0..players)
-            .map(|_| Box::new(RandomPolicy::new(pass)) as Box<dyn Policy>)
+            .map(|seat| match (policy.as_str(), seat % 2) {
+                ("greedy", _) | ("mixed", 1) => {
+                    Box::new(GreedyPolicy::default()) as Box<dyn Policy>
+                }
+                _ => Box::new(RandomPolicy::new(pass)) as Box<dyn Policy>,
+            })
             .collect()
     };
-    let stats = run_batch(&pool, &cfg, decks, policies);
+    let stats = run_batch_seats(&pool, &cfg, decks, policies);
     if a.json {
         print_json(
             &serde_json::json!({ "source": source, "players": players, "config": cfg, "stats": stats }),
@@ -532,6 +572,44 @@ fn fuzz(a: &FuzzArgs) -> Result<ExitCode> {
     } else {
         ExitCode::from(1)
     })
+}
+
+/// A Commander decklist as one seat's deck: it must be legal and every card
+/// verified (FR-S8), and every card in `pool`.
+fn seat_deck(
+    db: &CardDb,
+    pool: &mtg_engine::CardPool,
+    path: &Path,
+) -> Result<mtg_sim::runner::SeatDeck> {
+    let report = check_file(db, path, "commander".to_owned(), Vec::new())?;
+    if !report.legal {
+        bail!(
+            "{} isn't a legal Commander deck: {:?}",
+            path.display(),
+            report.violations
+        );
+    }
+    if !report.coverage.experiment_ready {
+        bail!("{}: not every card is verified", path.display());
+    }
+    let mut seat = mtg_sim::runner::SeatDeck {
+        deck: Vec::new(),
+        commanders: Vec::new(),
+    };
+    for line in &report.cards {
+        let def = pool
+            .by_name(&line.name)
+            .with_context(|| format!("{}: {} isn't in the pool", path.display(), line.name))?;
+        let into = if line.commander {
+            &mut seat.commanders
+        } else {
+            &mut seat.deck
+        };
+        for _ in 0..line.qty {
+            into.push(def);
+        }
+    }
+    Ok(seat)
 }
 
 fn print_json<T: Serialize>(value: &T) -> Result<()> {

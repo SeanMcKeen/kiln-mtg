@@ -34,6 +34,10 @@ pub struct Checks {
     /// concedes (CR 104.3a), to exercise players leaving mid-game.
     #[serde(default)]
     pub concede_per_mille: u64,
+    /// Harness guard (not a rule): stop a game after this many decisions and
+    /// report it, so a loop nothing breaks can't run forever.
+    #[serde(default)]
+    pub decision_limit: Option<u64>,
 }
 
 /// One batch of games.
@@ -286,27 +290,27 @@ pub fn run_game(
             break;
         }
         outcome.decisions += 1;
+        if checks
+            .decision_limit
+            .is_some_and(|cap| outcome.decisions >= cap)
+        {
+            outcome.violation = Some(format!(
+                "harness decision limit: {} decisions, turn {}, step {:?}{}",
+                outcome.decisions,
+                game.turn().number,
+                game.turn().step,
+                last_events(&game)
+            ));
+            break;
+        }
         if checks.invariants
             && let Err(e) = game.check_invariants(&sizes)
         {
-            // With event logging on, the last events help find the cause.
-            let tail: Vec<String> = game
-                .events()
-                .iter()
-                .rev()
-                .take(12)
-                .rev()
-                .map(|ev| format!("{ev:?}"))
-                .collect();
-            outcome.violation = Some(if tail.is_empty() {
-                format!("after decision {}: {e}", outcome.decisions)
-            } else {
-                format!(
-                    "after decision {}: {e}\n      last events: {}",
-                    outcome.decisions,
-                    tail.join("\n        ")
-                )
-            });
+            outcome.violation = Some(format!(
+                "after decision {}: {e}{}",
+                outcome.decisions,
+                last_events(&game)
+            ));
             break;
         }
         // View audits serialize every seat's snapshot, so they are sampled: every
@@ -333,11 +337,63 @@ pub fn run_game(
     (outcome, replay)
 }
 
+/// One seat's deck and commanders (CR 903.3). With no commanders and
+/// [`BatchConfig::commanders`], one is picked to fit the deck.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SeatDeck {
+    pub deck: Vec<DefId>,
+    pub commanders: Vec<DefId>,
+}
+
+/// With event logging on, the last events (they help find a violation's cause).
+fn last_events(game: &Game) -> String {
+    let tail: Vec<String> = game
+        .events()
+        .iter()
+        .rev()
+        .take(12)
+        .rev()
+        .map(|ev| format!("{ev:?}"))
+        .collect();
+    if tail.is_empty() {
+        String::new()
+    } else {
+        format!("\n      last events: {}", tail.join("\n        "))
+    }
+}
+
 /// Runs a batch. `decks(game_index)` supplies each game's decks (one per seat)
 /// and `policies(game_index)` its policies.
 pub fn run_batch<D, P>(pool: &Arc<CardPool>, cfg: &BatchConfig, decks: D, policies: P) -> BatchStats
 where
     D: Fn(u64) -> Vec<Vec<DefId>> + Sync,
+    P: Fn(u64) -> Vec<Box<dyn Policy>> + Sync,
+{
+    run_batch_seats(
+        pool,
+        cfg,
+        |index| {
+            decks(index)
+                .into_iter()
+                .map(|deck| SeatDeck {
+                    deck,
+                    commanders: Vec::new(),
+                })
+                .collect()
+        },
+        policies,
+    )
+}
+
+/// [`run_batch`] with each seat's commanders given (decklists).
+pub fn run_batch_seats<D, P>(
+    pool: &Arc<CardPool>,
+    cfg: &BatchConfig,
+    decks: D,
+    policies: P,
+) -> BatchStats
+where
+    D: Fn(u64) -> Vec<SeatDeck> + Sync,
     P: Fn(u64) -> Vec<Box<dyn Policy>> + Sync,
 {
     let start = Instant::now();
@@ -346,19 +402,27 @@ where
             .into_par_iter()
             .map(|index| {
                 let seed = game_seed(cfg.seed, index);
-                let decks = decks(index);
-                let commanders = if cfg.commanders {
-                    decks
+                let seats = decks(index);
+                let commanders = if cfg.commanders || seats.iter().any(|s| !s.commanders.is_empty())
+                {
+                    seats
                         .iter()
                         .enumerate()
-                        .map(|(seat, d)| {
-                            let s = splitmix64(seed ^ (0xC0_33A4D3 + seat as u64));
-                            pick_commander(pool, d, s).into_iter().collect()
+                        .map(|(seat, s)| {
+                            if !s.commanders.is_empty() {
+                                s.commanders.clone()
+                            } else if cfg.commanders {
+                                let k = splitmix64(seed ^ (0xC0_33A4D3 + seat as u64));
+                                pick_commander(pool, &s.deck, k).into_iter().collect()
+                            } else {
+                                Vec::new()
+                            }
                         })
                         .collect()
                 } else {
                     Vec::new()
                 };
+                let decks: Vec<Vec<DefId>> = seats.into_iter().map(|s| s.deck).collect();
                 let setup = GameSetup {
                     rules: cfg.rules.clone(),
                     decks,

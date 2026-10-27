@@ -133,7 +133,7 @@ pub fn from_spec(spec: &str) -> Result<Box<dyn Policy>, String> {
             .map(|p| Box::new(RandomPolicy::new(p)) as Box<dyn Policy>)
             .map_err(|_| format!("bad pass bias {arg:?}; use e.g. random:500")),
         "passive" => Ok(Box::new(PassivePolicy)),
-        "greedy" => Ok(Box::new(GreedyPolicy)),
+        "greedy" => Ok(Box::new(GreedyPolicy::default())),
         other => Err(format!(
             "unknown policy {other:?}; known: random, random:<pass‰>, passive, greedy"
         )),

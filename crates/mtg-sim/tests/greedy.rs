@@ -19,6 +19,7 @@ fn greedy_beats_random() {
         views: false,
         replay_every: None,
         concede_per_mille: 0,
+        decision_limit: None,
     };
     // MTG_GREEDY_GAMES overrides the count (the M3 record used 1,000).
     let games: u64 = std::env::var("MTG_GREEDY_GAMES")
@@ -43,7 +44,7 @@ fn greedy_beats_random() {
         let mut policies: Vec<Box<dyn Policy>> = (0..2)
             .map(|s| {
                 if s == greedy_seat {
-                    Box::new(GreedyPolicy) as Box<dyn Policy>
+                    Box::new(GreedyPolicy::default()) as Box<dyn Policy>
                 } else {
                     Box::new(RandomPolicy::default())
                 }

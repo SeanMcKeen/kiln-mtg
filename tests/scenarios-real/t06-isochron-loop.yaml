@@ -1,0 +1,42 @@
+scenario: mtg-scenario/1
+name: "T06: Isochron Scepter with Dramatic Reversal and 3 mana from rocks is an optional loop netting mana; its controller may shortcut it"
+cr: ["732.2a", "707.12", "605.1a"]
+verifies: [Isochron Scepter, Dramatic Reversal, Talisman of Dominance]
+players:
+  - battlefield: [Sol Ring, Talisman of Dominance, Island, Island]
+    hand: [Isochron Scepter, Dramatic Reversal]
+  - {}
+script:
+  - choose: Cast Isochron Scepter
+  - choose: Pay with Island, Island
+  - pass_all
+  - pass_all
+  - choose: "Yes"
+  - choose: "Tap Sol Ring for {C}{C}"
+  - choose: "Tap Talisman of Dominance for {C}"
+  - choose: Activate Isochron Scepter ability 2
+  - choose: Pay with 2 from pool
+  - pass_all
+  - choose: "Yes"
+  - choose: "Yes"
+  - pass_all
+  - choose: "Tap Sol Ring for {C}{C}"
+  - choose: "Tap Talisman of Dominance for {C}"
+  - choose: Activate Isochron Scepter ability 2
+  - choose: Pay with 2 from pool
+  - pass_all
+  - choose: "Yes"
+  - choose: "Yes"
+  - pass_all
+  - choose: "Tap Sol Ring for {C}{C}"
+  - choose: "Tap Talisman of Dominance for {C}"
+  - choose: Activate Isochron Scepter ability 2
+  - choose: Pay with 2 from pool
+  # The state repeats with one more {C}: a loop only P1 makes choices in.
+  - check:
+      decision: { player: P1, kind: propose_shortcut }
+  - choose: Repeat the loop 10 times
+  # CR 732.2b: the other player accepts (or could shorten it).
+  - { player: P2, choose: Accept 10 iterations }
+expect:
+  pool: { P1: "{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}{C}" }

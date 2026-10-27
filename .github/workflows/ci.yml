@@ -29,6 +29,21 @@ jobs:
       - run: cargo nextest run --workspace
       - run: cargo test --workspace --doc
 
+  fuzz-views:
+    name: fuzz with the hidden-information auditor
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.99.1"
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release -p mtg-cli
+      # Synthetic cards (no card DB in CI). Every seat's view is audited for
+      # leaks after every decision; any violation fails the job.
+      - run: ./target/release/mtg dev fuzz --games 500 --invariants --views --replay-every 25
+      - run: ./target/release/mtg dev fuzz --commander --concede 1 --games 500 --invariants --views --replay-every 25
+
   cr-citations:
     name: CR citation check
     runs-on: ubuntu-latest
