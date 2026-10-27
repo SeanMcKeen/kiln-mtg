@@ -18,5 +18,9 @@ serde_json.workspace = true
 thiserror.workspace = true
 yaml_serde.workspace = true
 
+[dev-dependencies]
+kiln-sim.workspace = true
+kiln-protocol.workspace = true
+
 [lints]
 workspace = true

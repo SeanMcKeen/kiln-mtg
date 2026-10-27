@@ -2,7 +2,7 @@
 type: roadmap
 status: living
 tags: [roadmap]
-updated: 2026-10-22
+updated: 2026-10-27
 ---
 
 # Roadmap
@@ -34,7 +34,7 @@ M0 Groundwork ─► M1 Foundations & Data ─► M2 Core Game Loop ─► M3 Ca
 | M4 | [[M4 Triggers & Replacement]] | Triggers, replacements, full SBAs, loops and shortcuts | Tricky catalog T30–T37 pass (T12 moved to M5); **in review** |
 | M5 | [[M5 Layers & Copy]] | Layers, dependencies, copy effects, control change | T50–T55 and T07–T08 pass (T12 deferred, Q26/Q27); **in review** |
 | M6 | [[M6 Commander & cEDH Core Pool]] | Commander rules, multiplayer, the ~200-card cEDH pool verified | Four real-ish cEDH decks play full games with random and greedy policies; **in review** |
-| M7 | [[M7 Simulation Lab v1]] | Specs, runner, metrics with flags, reports, CLI JSON | US-2 and US-4 work. US-1 runs (with baseline-quality caveats) |
+| M7 | [[M7 Simulation Lab v1]] | Specs, runner, metrics with flags, reports, CLI JSON | US-2 and US-4 work. US-1 runs (with baseline-quality caveats); **in review** |
 | M8 | [[M8 Agent Integration & Playbooks]] | MCP server, agent docs, playbook policy | An agent completes US-1 end to end via MCP |
 | M9 | [[M9 Search AI]] | ISMCTS player, playbook-guided search, play-quality suite | Meets the [[Measuring Play Quality]] v1 bar |
 | M10 | [[M10 LLM Bridge & Judge]] | Live LLM policy, judge REPL with explanations | US-5 and US-6 work |

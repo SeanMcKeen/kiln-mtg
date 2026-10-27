@@ -2,7 +2,7 @@
 type: design
 status: proposed
 tags: [simulation, metrics, headline]
-updated: 2026-10-20
+updated: 2026-10-27
 ---
 
 # Metrics Catalog
@@ -75,6 +75,16 @@ Full replay logs, kept as `none | all | sample:N | interesting`. "Interesting" m
 
 ## `raw_events` *(default: off; huge)*
 The full event stream per game, as Parquet or JSONL, for custom analysis.
+
+## Definitions as implemented (M7)
+- **Win turn and loss turn** count the deck's own turns (its Nth turn), not the game's turn number. Game length is reported in game turns and in rounds.
+- **Win type**: an effect win while opponents remain is `alt_win`. Otherwise it's how the last opponent left: `life`, `commander_damage`, `decking`, `poison`, `concession` or `effect_loss`.
+- **Finishing positions**: index 0 is the first player out; the winner is last. Players still in when an effect win or draw ends the game share the next position.
+- **Seen**: the card was in the opening hand (turn 0) or reached its owner's hand later (draws, tutors, returns). Commanders and tokens aren't tracked. **Cast** includes playing a land.
+- **IWD** is the win rate in games seen minus the rate in games not seen. Its q-value is Benjamini–Hochberg over the deck's cards with at least `min_samples` games seen.
+- **Interaction**: counterspells cast (spells with a counter effect), its own spells countered, and times its spells and abilities targeted a permanent another player controlled.
+- **Mana**: lands played and mana units produced per game, and the share of its first five turns with no land played.
+- **Timing** uses wall-clock time and is labelled non-deterministic; every other number is a pure function of the game records.
 
 ## Related
 [[Output Formats & Report Schema]] · [[Statistics for Multiplayer Simulation]] · [[Validity & Caveats]]

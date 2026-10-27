@@ -26,6 +26,7 @@ criterion = { version = "0.8", default-features = false, features = ["cargo_benc
 rand_chacha = { version = "0.10", default-features = false }
 rand_core = { version = "0.10", default-features = false }
 rayon = "1"
+schemars = "1"
 yaml_serde = "0.10"
 clap = { version = "4", features = ["derive", "env"] }
 csv = "1"

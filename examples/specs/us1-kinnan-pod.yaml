@@ -1,0 +1,18 @@
+# US-1 (headline): "Evaluate my Kinnan list against three other decks over
+# 5,000 games." The M6 test decks stand in for real lists (M11 brings
+# competitive lists), and greedy pilots stand in for search AI (M9).
+# Run: kiln sim run examples/specs/us1-kinnan-pod.yaml --threads 2
+spec: kiln-spec/1
+name: us1-kinnan-pod
+games: 5000
+seed: 20261020
+seating: balanced_rotation
+decks:
+  - { id: kinnan, source: { file: ../../tests/fixtures/decks/kinnan-verified.txt } }
+  - { id: thrasios_tymna, source: { file: ../../tests/fixtures/decks/thrasios-tymna.txt } }
+  - { id: najeela, source: { file: ../../tests/fixtures/decks/najeela.txt } }
+  - { id: rograkh_silas, source: { file: ../../tests/fixtures/decks/rograkh-silas.txt } }
+policies:
+  default: { kind: greedy }
+limits:
+  max_turns: 100

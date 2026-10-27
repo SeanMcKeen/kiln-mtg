@@ -2,7 +2,7 @@
 type: design
 status: proposed
 tags: [simulation, report, schema, agents]
-updated: 2026-10-22
+updated: 2026-10-27
 ---
 
 # Output Formats & Report Schema
@@ -51,6 +51,21 @@ The full `report.json` holds every enabled metric section, paginated when served
 ## Tables
 - **games:** `game_index, seed, seating[], winner, win_type, turns, capped, mulligans[], first_out, …, policy_time_ms[]`
 - **cards:** `deck, oracle_id, name, seen, cast, gih_wr, gih_ci_lo, gih_ci_hi, oh_wr, iwd, dead_rate, tutor_rate, …`
+
+## As implemented (M7)
+```
+runs/<run-id>/
+  spec.resolved.yaml        # defaults filled in; its hash is in run.json and the report
+  run.json                  # manifest: status, games done/total, versions, warnings, spec directory
+  games.jsonl               # one GameRecord per game (the checkpoint; resume skips these)
+  progress.jsonl            # {"done", "total"} per checkpoint
+  report.json               # kiln-report/1, detailed
+  report.md                 # human summary
+  games.csv                 # with outputs.tables: csv
+  replays/<config>-<index>.json   # kiln-replay/1, regenerated after the run
+  events/<config>-<index>.jsonl   # with metrics.raw_events
+```
+Per-card statistics are in `report.json` (there's no separate cards table yet). Parquet is deferred (Q38): DuckDB reads `games.jsonl` directly. `kiln sim report <dir>` rebuilds every report file from `games.jsonl`.
 
 ## Schema governance
 JSON Schemas are generated from `kiln-protocol` (`schemars`). Versions bump on breaking changes. Readers accept older minor versions.

@@ -2,7 +2,7 @@
 type: design
 status: draft
 tags: [interfaces, cli]
-updated: 2026-10-22
+updated: 2026-10-27
 ---
 
 # CLI & REPL
@@ -23,6 +23,12 @@ kiln judge <scenario.yaml> [--step] [--explain]    # interactive REPL with --ste
 kiln playbook check <deck> <playbook>
 kiln mcp serve [--stdio | --http :8080]            # MCP server ([[MCP Server Tool Catalog]])
 ```
+
+## Implemented (M7)
+- `kiln sim run <spec> [--threads N] [--dir D] [--json]`: runs or resumes, writes the run directory, prints the markdown summary (or the concise report with `--json`).
+- `kiln sim status <dir>`, `kiln sim report <dir> [--format concise|detailed|markdown]`, `kiln sim compare <dir-a> <dir-b>` (per-deck differences, a two-proportion test and an interval-overlap flag; independent runs, so causal card questions belong in `mode: ab`).
+- `kiln game replay <file>`: re-runs a `kiln-replay/1` file and checks it reproduces exactly (exit 5 if not). `kiln game inspect <dir> <index> [--config C] [--events N]`: plays a game of a run again with the event log and prints each seat's fate and the last events with card names.
+- Not yet: `--detach` (with M8's MCP async pattern), `--to-turn` and `--annotate` for replays, the judge REPL (M10), playbooks (M8), MCP (M8).
 
 ## Judge REPL (interactive)
 ```

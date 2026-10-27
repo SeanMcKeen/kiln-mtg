@@ -1,0 +1,291 @@
+{
+  "$defs": {
+    "AbComparison": {
+      "additionalProperties": false,
+      "properties": {
+        "base": {
+          "$ref": "#/$defs/Rate"
+        },
+        "base_deck": {
+          "type": "string"
+        },
+        "difference": {
+          "description": "Variant minus base win rate, with a 95% paired-bootstrap interval.",
+          "format": "double",
+          "type": "number"
+        },
+        "difference_ci95": {
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "paired_games": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "variant": {
+          "type": "string"
+        },
+        "variant_rate": {
+          "$ref": "#/$defs/Rate"
+        }
+      },
+      "required": [
+        "variant",
+        "base_deck",
+        "paired_games",
+        "base",
+        "variant_rate",
+        "difference",
+        "difference_ci95"
+      ],
+      "type": "object"
+    },
+    "ConciseWinRate": {
+      "additionalProperties": false,
+      "properties": {
+        "by_seat": {
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "ci95": {
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "deck": {
+          "type": "string"
+        },
+        "win_rate": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "deck",
+        "win_rate",
+        "ci95",
+        "by_seat"
+      ],
+      "type": "object"
+    },
+    "OpeningHandStats": {
+      "additionalProperties": false,
+      "properties": {
+        "deck": {
+          "type": "string"
+        },
+        "features": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Rate"
+          },
+          "description": "Feature name → share of kept hands with at least one of its cards.",
+          "type": "object"
+        },
+        "hands": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "kept_at": {
+          "description": "Share of hands kept at 7, 6, 5, …",
+          "items": {
+            "$ref": "#/$defs/Rate"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "deck",
+        "hands",
+        "kept_at",
+        "features"
+      ],
+      "type": "object"
+    },
+    "Rate": {
+      "additionalProperties": false,
+      "description": "A rate with its 95% Wilson interval.",
+      "properties": {
+        "ci95": {
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "k": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "n": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "rate": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "n",
+        "k",
+        "rate",
+        "ci95"
+      ],
+      "type": "object"
+    },
+    "Versions": {
+      "additionalProperties": false,
+      "properties": {
+        "card_db": {
+          "type": "string"
+        },
+        "cr": {
+          "type": "string"
+        },
+        "engine": {
+          "type": "string"
+        },
+        "spec_hash": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "engine",
+        "card_db",
+        "cr",
+        "spec_hash"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "The agent-facing summary.",
+  "properties": {
+    "ab": {
+      "items": {
+        "$ref": "#/$defs/AbComparison"
+      },
+      "type": "array"
+    },
+    "capped": {
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "games": {
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "keep_at_7": {
+      "additionalProperties": {
+        "format": "double",
+        "type": "number"
+      },
+      "type": "object"
+    },
+    "median_win_turn": {
+      "additionalProperties": {
+        "additionalProperties": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "type": "object"
+      },
+      "type": "object"
+    },
+    "mode": {
+      "type": "string"
+    },
+    "next": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "notable": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "opening_hands": {
+      "items": {
+        "$ref": "#/$defs/OpeningHandStats"
+      },
+      "type": "array"
+    },
+    "report": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "versions": {
+      "$ref": "#/$defs/Versions"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "win_rates": {
+      "additionalProperties": {
+        "items": {
+          "$ref": "#/$defs/ConciseWinRate"
+        },
+        "type": "array"
+      },
+      "description": "Per configuration: deck → win rate, interval and by-seat rates.",
+      "type": "object"
+    },
+    "win_types": {
+      "additionalProperties": {
+        "additionalProperties": {
+          "additionalProperties": {
+            "format": "double",
+            "type": "number"
+          },
+          "type": "object"
+        },
+        "type": "object"
+      },
+      "type": "object"
+    }
+  },
+  "required": [
+    "report",
+    "run_id",
+    "mode",
+    "games",
+    "capped",
+    "versions",
+    "warnings",
+    "win_rates",
+    "notable",
+    "next"
+  ],
+  "title": "ConciseReport",
+  "type": "object"
+}

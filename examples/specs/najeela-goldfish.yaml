@@ -1,0 +1,13 @@
+# US-2: how fast does the deck win with no interaction?
+# Run: kiln sim run examples/specs/najeela-goldfish.yaml --threads 2
+spec: kiln-spec/1
+name: najeela-goldfish
+mode: goldfish
+games: 400
+seed: 2
+decks:
+  - { id: najeela, source: { file: ../../tests/fixtures/decks/najeela.txt } }
+policies:
+  default: { kind: greedy }
+goldfish: { opponents: 3 }
+limits: { max_turns: 60 }
