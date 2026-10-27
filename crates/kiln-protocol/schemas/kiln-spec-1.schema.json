@@ -1,0 +1,663 @@
+{
+  "$defs": {
+    "CoverageGate": {
+      "description": "What to do about cards that aren't `verified` (FR-S8).",
+      "oneOf": [
+        {
+          "const": "require_verified",
+          "description": "Refuse to run.",
+          "type": "string"
+        },
+        {
+          "const": "warn",
+          "description": "Run, with a warning listing them.",
+          "type": "string"
+        },
+        {
+          "const": "allow",
+          "description": "Run.",
+          "type": "string"
+        }
+      ]
+    },
+    "DeckSource": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "A decklist file, relative to the spec's directory.",
+          "properties": {
+            "file": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A decklist pasted inline.",
+          "properties": {
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A Moxfield text export (the same text format).",
+          "properties": {
+            "moxfield_export": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "moxfield_export"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "DeckSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/DeckSource"
+        }
+      },
+      "required": [
+        "id",
+        "source"
+      ],
+      "type": "object"
+    },
+    "Goldfish": {
+      "additionalProperties": false,
+      "properties": {
+        "life": {
+          "description": "Starting life for everyone; the format's default if omitted.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "opponents": {
+          "default": 3,
+          "description": "Passive opponents (each with a deck of basic lands).",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "opponents_behavior": {
+          "$ref": "#/$defs/OpponentsBehavior",
+          "default": "passive"
+        }
+      },
+      "type": "object"
+    },
+    "Limits": {
+      "additionalProperties": false,
+      "properties": {
+        "coverage": {
+          "$ref": "#/$defs/CoverageGate",
+          "default": "require_verified"
+        },
+        "max_decisions": {
+          "default": 200000,
+          "description": "Games past this many decisions end as capped (not a rule).",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "max_turns": {
+          "default": 100,
+          "description": "Games past this turn end as capped (not a rule).",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "max_wall_ms": {
+          "description": "Wall-clock cap per game. Off by default: with it, results can depend\non the machine (ADR-0005), and the report warns.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "Metrics": {
+      "additionalProperties": false,
+      "description": "Metric categories, each an independent flag (`docs/13 Simulation/Metrics Catalog.md`).",
+      "properties": {
+        "decision_stats": {
+          "default": false,
+          "type": "boolean"
+        },
+        "game_shape": {
+          "default": true,
+          "type": "boolean"
+        },
+        "interaction": {
+          "default": false,
+          "type": "boolean"
+        },
+        "mana": {
+          "default": false,
+          "type": "boolean"
+        },
+        "mulligans": {
+          "default": true,
+          "type": "boolean"
+        },
+        "per_card": {
+          "$ref": "#/$defs/PerCard",
+          "default": {
+            "decks": [],
+            "enabled": false,
+            "min_samples": 200
+          }
+        },
+        "raw_events": {
+          "default": false,
+          "description": "Every game's full event stream (large).",
+          "type": "boolean"
+        },
+        "timing": {
+          "default": false,
+          "description": "Wall-clock engine and policy time: not deterministic, so reported apart.",
+          "type": "boolean"
+        },
+        "win_rates": {
+          "default": true,
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "Mode": {
+      "oneOf": [
+        {
+          "const": "pod",
+          "description": "Every deck in one pod, one seat each.",
+          "type": "string"
+        },
+        {
+          "const": "goldfish",
+          "description": "One deck against passive opponents: how fast does it win?",
+          "type": "string"
+        },
+        {
+          "const": "ab",
+          "description": "Variants of a deck against the same field, with paired seeds.",
+          "type": "string"
+        },
+        {
+          "const": "opening_hands",
+          "description": "Deal and mulligan only; no game is played.",
+          "type": "string"
+        }
+      ]
+    },
+    "OpeningHands": {
+      "additionalProperties": false,
+      "properties": {
+        "features": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "default": {},
+          "description": "Named card groups to look for in kept hands (\"fast_mana: [Sol Ring, …]\").",
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "OpponentsBehavior": {
+      "enum": [
+        "passive"
+      ],
+      "type": "string"
+    },
+    "Outputs": {
+      "additionalProperties": false,
+      "properties": {
+        "dir": {
+          "description": "The run directory; `runs/<name>` if omitted.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "replays": {
+          "$ref": "#/$defs/Replays",
+          "default": {
+            "keep": "interesting",
+            "max": 50
+          }
+        },
+        "summary": {
+          "$ref": "#/$defs/SummaryFormat",
+          "default": "json"
+        },
+        "tables": {
+          "$ref": "#/$defs/TableFormat",
+          "default": "jsonl"
+        }
+      },
+      "type": "object"
+    },
+    "PerCard": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/PerCardFull"
+        }
+      ],
+      "description": "Per-card statistics (heavy). `true`/`false`, or the full form."
+    },
+    "PerCardFull": {
+      "additionalProperties": false,
+      "properties": {
+        "decks": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "enabled": {
+          "default": true,
+          "type": "boolean"
+        },
+        "min_samples": {
+          "default": 200,
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "PolicySpec": {
+      "description": "Who makes a deck's decisions (`docs/14 Players & Policies/Policy Composition.md`).",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Uniform over legal options, passing priority with this chance per mille.",
+          "properties": {
+            "kind": {
+              "const": "random",
+              "type": "string"
+            },
+            "pass": {
+              "default": 500,
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "The greedy baseline (the default).",
+          "properties": {
+            "kind": {
+              "const": "greedy",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Always passes and declines (goldfish opponents).",
+          "properties": {
+            "kind": {
+              "const": "passive",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A deck playbook (M8).",
+          "properties": {
+            "fallback": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/PolicySpec"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "kind": {
+              "const": "playbook",
+              "type": "string"
+            },
+            "playbook": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "playbook"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Search AI (M9).",
+          "properties": {
+            "budget": true,
+            "kind": {
+              "const": "search",
+              "type": "string"
+            },
+            "playbook": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "playbook_hints": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A language model (M10).",
+          "properties": {
+            "kind": {
+              "const": "llm",
+              "type": "string"
+            },
+            "model": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "Replays": {
+      "additionalProperties": false,
+      "properties": {
+        "keep": {
+          "default": "interesting",
+          "description": "`none`, `all`, `interesting`, or `sample:N` (every N-th game).",
+          "type": "string"
+        },
+        "max": {
+          "default": 50,
+          "description": "At most this many replays.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "Seating": {
+      "oneOf": [
+        {
+          "const": "fixed",
+          "description": "Deck i in seat i every game.",
+          "type": "string"
+        },
+        {
+          "const": "random",
+          "description": "A seeded shuffle per game.",
+          "type": "string"
+        },
+        {
+          "const": "balanced_rotation",
+          "description": "The N cyclic rotations, each equally often (the default: seat order\nmatters a lot in cEDH).",
+          "type": "string"
+        },
+        {
+          "const": "all_permutations",
+          "description": "All N! orders, each equally often (also balances neighbours).",
+          "type": "string"
+        }
+      ]
+    },
+    "SummaryFormat": {
+      "enum": [
+        "json",
+        "markdown"
+      ],
+      "type": "string"
+    },
+    "Swap": {
+      "additionalProperties": false,
+      "properties": {
+        "in": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "out": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "TableFormat": {
+      "description": "Bulk tables. Parquet is deferred (open question Q38): DuckDB, polars and\npandas read JSONL directly.",
+      "enum": [
+        "jsonl",
+        "csv",
+        "none"
+      ],
+      "type": "string"
+    },
+    "Variant": {
+      "additionalProperties": false,
+      "description": "An A/B variant: a deck with some cards swapped.",
+      "properties": {
+        "base": {
+          "description": "The deck id it changes.",
+          "type": "string"
+        },
+        "swap": {
+          "$ref": "#/$defs/Swap",
+          "default": {
+            "in": [],
+            "out": []
+          }
+        }
+      },
+      "required": [
+        "base"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "decks": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/DeckSpec"
+      },
+      "type": "array"
+    },
+    "format": {
+      "default": "commander",
+      "description": "Rules variant and deck validation. Only `commander` for now.",
+      "type": "string"
+    },
+    "games": {
+      "default": 1000,
+      "description": "Games to play (rounded up for balanced seating).",
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "goldfish": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Goldfish"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "`mode: goldfish` settings."
+    },
+    "limits": {
+      "$ref": "#/$defs/Limits",
+      "default": {
+        "coverage": "require_verified",
+        "max_decisions": 200000,
+        "max_turns": 100
+      }
+    },
+    "metrics": {
+      "$ref": "#/$defs/Metrics",
+      "default": {
+        "decision_stats": false,
+        "game_shape": true,
+        "interaction": false,
+        "mana": false,
+        "mulligans": true,
+        "per_card": {
+          "decks": [],
+          "enabled": false,
+          "min_samples": 200
+        },
+        "raw_events": false,
+        "timing": false,
+        "win_rates": true
+      }
+    },
+    "mode": {
+      "$ref": "#/$defs/Mode",
+      "default": "pod"
+    },
+    "name": {
+      "description": "The run's name; also the default run directory.",
+      "type": "string"
+    },
+    "open_decklists": {
+      "default": false,
+      "description": "Whether policies may assume opponents' lists are known (reported; no\ncurrent policy uses it).",
+      "type": "boolean"
+    },
+    "opening_hands": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/OpeningHands"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "`mode: opening_hands` settings."
+    },
+    "outputs": {
+      "$ref": "#/$defs/Outputs",
+      "default": {
+        "replays": {
+          "keep": "interesting",
+          "max": 50
+        },
+        "summary": "json",
+        "tables": "jsonl"
+      }
+    },
+    "paired": {
+      "default": true,
+      "description": "`mode: ab`: the same seeds for every variant (common random numbers).",
+      "type": "boolean"
+    },
+    "policies": {
+      "additionalProperties": {
+        "$ref": "#/$defs/PolicySpec"
+      },
+      "default": {},
+      "description": "Policies by deck id, plus `default` for every other deck.",
+      "type": "object"
+    },
+    "seating": {
+      "$ref": "#/$defs/Seating",
+      "default": "balanced_rotation"
+    },
+    "seed": {
+      "default": 0,
+      "description": "The experiment seed; each game's seed is derived from it and the game index.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "spec": {
+      "description": "Always `kiln-spec/1`.",
+      "type": "string"
+    },
+    "variants": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Variant"
+      },
+      "description": "`mode: ab`: named variants of decks.",
+      "type": "object"
+    }
+  },
+  "required": [
+    "spec",
+    "name"
+  ],
+  "title": "Spec",
+  "type": "object"
+}

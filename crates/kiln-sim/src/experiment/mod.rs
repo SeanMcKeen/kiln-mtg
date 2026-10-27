@@ -1,0 +1,36 @@
+//! Experiments (M7): a `kiln-spec/1` spec resolved into decks, played by the
+//! batch runner, and summarised into a `kiln-report/1` report.
+//! Design: `docs/09 Roadmap/Milestones/M7 Simulation Lab v1.md` (plan S1–S14).
+
+pub mod decks;
+
+pub use decks::{ResolvedDeck, resolve_decks};
+
+/// Why an experiment can't run. [`ExperimentError::exit_code`] follows
+/// `docs/07 Interfaces/CLI & REPL.md`.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum ExperimentError {
+    #[error(transparent)]
+    Spec(#[from] kiln_protocol::SpecError),
+    #[error("deck '{id}': {message}")]
+    Deck { id: String, message: String },
+    #[error("deck '{id}': {gate}: {}", cards.join(", "))]
+    Coverage {
+        id: String,
+        cards: Vec<String>,
+        gate: String,
+    },
+    #[error("run failed: {0}")]
+    Run(String),
+}
+
+impl ExperimentError {
+    /// 2 invalid input, 3 coverage gate, 4 run failed.
+    pub fn exit_code(&self) -> u8 {
+        match self {
+            Self::Spec(_) | Self::Deck { .. } => 2,
+            Self::Coverage { .. } => 3,
+            Self::Run(_) => 4,
+        }
+    }
+}
