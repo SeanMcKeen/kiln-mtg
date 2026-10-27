@@ -86,6 +86,30 @@ fn pod_runs_are_deterministic_across_threads_and_resume() {
     std::fs::write(c.join("games.jsonl"), first3).unwrap_or_else(|e| panic!("{e}"));
     let resumed = play(POD, &c, 2).unwrap_or_else(|e| panic!("{e}"));
     assert_eq!(resumed, one, "a resumed run matches an uninterrupted one");
+    // Reports are bit-identical for the same inputs (ADR-0005).
+    let ra = experiment::write_report(&a).unwrap_or_else(|e| panic!("{e}"));
+    experiment::write_report(&b).unwrap_or_else(|e| panic!("{e}"));
+    let read = |d: &Path, f: &str| std::fs::read_to_string(d.join(f)).unwrap_or_default();
+    assert_eq!(read(&a, "report.json"), read(&b, "report.json"));
+    assert_eq!(read(&a, "report.md"), read(&b, "report.md"));
+    let base = &ra.configs[0];
+    assert_eq!(base.games, 8);
+    let wr = base
+        .win_rates
+        .as_ref()
+        .unwrap_or_else(|| panic!("win rates are on by default"));
+    assert_eq!(wr.decks.len(), 4);
+    assert_eq!(wr.by_seat.len(), 4);
+    for d in &wr.decks {
+        assert!(
+            d.win.ci95[0] <= d.win.rate && d.win.rate <= d.win.ci95[1],
+            "{d:?}"
+        );
+        assert_eq!(d.finish.iter().sum::<u64>(), d.win.n);
+    }
+    assert!(ra.warnings.iter().any(|w| w.contains("few games")));
+    let concise = kiln_sim::experiment::report::concise(&ra);
+    assert!(serde_json::to_string(&concise).unwrap_or_default().len() < 8000);
     for d in [a, b, c] {
         let _ = std::fs::remove_dir_all(d);
     }

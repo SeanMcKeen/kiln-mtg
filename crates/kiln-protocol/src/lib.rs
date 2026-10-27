@@ -7,10 +7,12 @@
 
 pub mod parse;
 pub mod record;
+pub mod report;
 pub mod spec;
 
 pub use parse::{ResolvedSpec, SpecError, load_spec, parse_spec, validate};
 pub use record::{GameRecord, Outcome, RunManifest, RunStatus};
+pub use report::{ConciseReport, Report};
 pub use spec::Spec;
 
 /// JSON Schemas for the wire formats, by file name.
@@ -23,6 +25,14 @@ pub fn schemas() -> Vec<(&'static str, serde_json::Value)> {
         (
             "kiln-game-record-1.schema.json",
             serde_json::to_value(schemars::schema_for!(record::GameRecord)).unwrap_or_default(),
+        ),
+        (
+            "kiln-report-1.schema.json",
+            serde_json::to_value(schemars::schema_for!(report::Report)).unwrap_or_default(),
+        ),
+        (
+            "kiln-report-concise-1.schema.json",
+            serde_json::to_value(schemars::schema_for!(report::ConciseReport)).unwrap_or_default(),
         ),
         (
             "kiln-run-manifest-1.schema.json",

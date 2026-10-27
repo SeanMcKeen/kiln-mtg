@@ -4,10 +4,13 @@
 
 pub mod decks;
 pub mod play;
+pub mod report;
+pub mod stats;
 pub mod store;
 
 pub use decks::{ResolvedDeck, resolve_decks};
 pub use play::{Config, Experiment, OPPONENT};
+pub use report::write_report;
 pub use store::{Progress, RunOptions, read_manifest, read_records, run};
 
 /// Why an experiment can't run. [`ExperimentError::exit_code`] follows

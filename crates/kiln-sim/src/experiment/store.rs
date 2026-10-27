@@ -104,7 +104,9 @@ pub fn run(
         )));
     }
     let spec_path = dir.join(SPEC);
-    let yaml = yaml_serde::to_string(spec).map_err(|e| io(&spec_path, e))?;
+    // Through a JSON value, so enums are plain maps that read back.
+    let value = serde_json::to_value(spec).map_err(|e| io(&spec_path, e))?;
+    let yaml = yaml_serde::to_string(&value).map_err(|e| io(&spec_path, e))?;
     std::fs::write(&spec_path, yaml).map_err(|e| io(&spec_path, e))?;
 
     let done: BTreeSet<(String, u64)> = read_records(dir)?

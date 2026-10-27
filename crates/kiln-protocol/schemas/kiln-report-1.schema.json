@@ -1,0 +1,766 @@
+{
+  "$defs": {
+    "AbComparison": {
+      "additionalProperties": false,
+      "properties": {
+        "base": {
+          "$ref": "#/$defs/Rate"
+        },
+        "base_deck": {
+          "type": "string"
+        },
+        "difference": {
+          "description": "Variant minus base win rate, with a 95% paired-bootstrap interval.",
+          "format": "double",
+          "type": "number"
+        },
+        "difference_ci95": {
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "paired_games": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "variant": {
+          "type": "string"
+        },
+        "variant_rate": {
+          "$ref": "#/$defs/Rate"
+        }
+      },
+      "required": [
+        "variant",
+        "base_deck",
+        "paired_games",
+        "base",
+        "variant_rate",
+        "difference",
+        "difference_ci95"
+      ],
+      "type": "object"
+    },
+    "CardStats": {
+      "additionalProperties": false,
+      "properties": {
+        "cast": {
+          "$ref": "#/$defs/Rate",
+          "description": "Of games seen, the share it was cast or played."
+        },
+        "cast_wr": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Rate"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dead": {
+          "$ref": "#/$defs/Rate",
+          "description": "Seen but never cast or played."
+        },
+        "first_cast_turn": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Dist"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "gih_wr": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Rate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Games-in-hand win rate."
+        },
+        "iwd": {
+          "description": "GIH WR minus the win rate when not seen (confounded).",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "iwd_q": {
+          "description": "Benjamini–Hochberg q-value for IWD ≠ 0 across the deck's cards.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "oh_wr": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Rate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Opening-hand win rate."
+        },
+        "seen": {
+          "$ref": "#/$defs/Rate",
+          "description": "Games it was in the opening hand or drawn."
+        }
+      },
+      "required": [
+        "name",
+        "seen",
+        "cast",
+        "dead"
+      ],
+      "type": "object"
+    },
+    "ConfigReport": {
+      "additionalProperties": false,
+      "properties": {
+        "capped": {
+          "$ref": "#/$defs/Rate",
+          "description": "Games stopped by a limit; not in win-rate denominators."
+        },
+        "config": {
+          "type": "string"
+        },
+        "decision_stats": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DecisionStats"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "draws": {
+          "$ref": "#/$defs/Rate"
+        },
+        "game_shape": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GameShape"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "games": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "interaction": {
+          "additionalProperties": {
+            "$ref": "#/$defs/InteractionStats"
+          },
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "mana": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ManaStats"
+          },
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "mulligans": {
+          "items": {
+            "$ref": "#/$defs/DeckMulligans"
+          },
+          "type": "array"
+        },
+        "per_card": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PerCardReport"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "timing": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TimingStats"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Wall-clock time: not deterministic (left out of bit-identical comparisons)."
+        },
+        "win_rates": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WinRates"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "config",
+        "games",
+        "capped",
+        "draws"
+      ],
+      "type": "object"
+    },
+    "DecisionStats": {
+      "additionalProperties": false,
+      "properties": {
+        "by_kind": {
+          "additionalProperties": {
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "description": "Decision kind → total over all games.",
+          "type": "object"
+        },
+        "decisions_per_game": {
+          "$ref": "#/$defs/Dist"
+        }
+      },
+      "required": [
+        "decisions_per_game",
+        "by_kind"
+      ],
+      "type": "object"
+    },
+    "DeckCards": {
+      "additionalProperties": false,
+      "properties": {
+        "cards": {
+          "items": {
+            "$ref": "#/$defs/CardStats"
+          },
+          "type": "array"
+        },
+        "deck": {
+          "type": "string"
+        },
+        "games": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "deck",
+        "games",
+        "cards"
+      ],
+      "type": "object"
+    },
+    "DeckMulligans": {
+      "additionalProperties": false,
+      "properties": {
+        "deck": {
+          "type": "string"
+        },
+        "kept_at": {
+          "description": "Share of games kept at 7, 6, 5, … cards (index = mulligans taken).",
+          "items": {
+            "$ref": "#/$defs/Rate"
+          },
+          "type": "array"
+        },
+        "win_rate_by_mulligans": {
+          "description": "Win rate by mulligans taken.",
+          "items": {
+            "$ref": "#/$defs/Rate"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "deck",
+        "kept_at",
+        "win_rate_by_mulligans"
+      ],
+      "type": "object"
+    },
+    "DeckShape": {
+      "additionalProperties": false,
+      "properties": {
+        "deck": {
+          "type": "string"
+        },
+        "loss_turn": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Dist"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The turn it left games it lost."
+        },
+        "win_turn": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Dist"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The turn of its wins."
+        },
+        "win_types": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Rate"
+          },
+          "description": "Win type → share of its wins.",
+          "type": "object"
+        }
+      },
+      "required": [
+        "deck",
+        "win_types"
+      ],
+      "type": "object"
+    },
+    "DeckWinRate": {
+      "additionalProperties": false,
+      "properties": {
+        "by_seat": {
+          "description": "The deck's win rate in each seat.",
+          "items": {
+            "$ref": "#/$defs/Rate"
+          },
+          "type": "array"
+        },
+        "deck": {
+          "type": "string"
+        },
+        "finish": {
+          "description": "Finishing position counts: [first out, second out, …, winner].",
+          "items": {
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "vs_baseline": {
+          "description": "Win rate minus 1/N (the even share in an N-player pod).",
+          "format": "double",
+          "type": "number"
+        },
+        "win": {
+          "$ref": "#/$defs/Rate"
+        }
+      },
+      "required": [
+        "deck",
+        "win",
+        "vs_baseline",
+        "by_seat",
+        "finish"
+      ],
+      "type": "object"
+    },
+    "Dist": {
+      "additionalProperties": false,
+      "description": "A distribution of whole numbers (turns).",
+      "properties": {
+        "mean": {
+          "format": "double",
+          "type": "number"
+        },
+        "median": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "median_ci95": {
+          "description": "95% bootstrap interval for the median.",
+          "items": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "n": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "p10": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "p90": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "n",
+        "mean",
+        "median",
+        "median_ci95",
+        "p10",
+        "p90"
+      ],
+      "type": "object"
+    },
+    "GameShape": {
+      "additionalProperties": false,
+      "properties": {
+        "decks": {
+          "items": {
+            "$ref": "#/$defs/DeckShape"
+          },
+          "type": "array"
+        },
+        "rounds": {
+          "$ref": "#/$defs/Dist",
+          "description": "Rounds (turns ÷ players, rounded up)."
+        },
+        "turns": {
+          "$ref": "#/$defs/Dist"
+        }
+      },
+      "required": [
+        "turns",
+        "rounds",
+        "decks"
+      ],
+      "type": "object"
+    },
+    "InteractionStats": {
+      "additionalProperties": false,
+      "properties": {
+        "counterspells_cast_per_game": {
+          "format": "double",
+          "type": "number"
+        },
+        "removal_targets_per_game": {
+          "format": "double",
+          "type": "number"
+        },
+        "spells_countered_per_game": {
+          "description": "Its spells countered, per game.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "counterspells_cast_per_game",
+        "spells_countered_per_game",
+        "removal_targets_per_game"
+      ],
+      "type": "object"
+    },
+    "ManaStats": {
+      "additionalProperties": false,
+      "properties": {
+        "lands_played_per_game": {
+          "description": "Lands played per game it was in.",
+          "format": "double",
+          "type": "number"
+        },
+        "mana_produced_per_game": {
+          "description": "Mana produced per game (all sources).",
+          "format": "double",
+          "type": "number"
+        },
+        "missed_land_drops": {
+          "$ref": "#/$defs/Rate",
+          "description": "Share of its turns with no land played, through turn 5."
+        }
+      },
+      "required": [
+        "lands_played_per_game",
+        "mana_produced_per_game",
+        "missed_land_drops"
+      ],
+      "type": "object"
+    },
+    "OpeningHandStats": {
+      "additionalProperties": false,
+      "properties": {
+        "deck": {
+          "type": "string"
+        },
+        "features": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Rate"
+          },
+          "description": "Feature name → share of kept hands with at least one of its cards.",
+          "type": "object"
+        },
+        "hands": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "kept_at": {
+          "description": "Share of hands kept at 7, 6, 5, …",
+          "items": {
+            "$ref": "#/$defs/Rate"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "deck",
+        "hands",
+        "kept_at",
+        "features"
+      ],
+      "type": "object"
+    },
+    "PerCardReport": {
+      "additionalProperties": false,
+      "description": "Per-card statistics (correlational; Metrics Catalog `per_card`).",
+      "properties": {
+        "decks": {
+          "items": {
+            "$ref": "#/$defs/DeckCards"
+          },
+          "type": "array"
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "note",
+        "decks"
+      ],
+      "type": "object"
+    },
+    "Rate": {
+      "additionalProperties": false,
+      "description": "A rate with its 95% Wilson interval.",
+      "properties": {
+        "ci95": {
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "k": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "n": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "rate": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "n",
+        "k",
+        "rate",
+        "ci95"
+      ],
+      "type": "object"
+    },
+    "TimingStats": {
+      "additionalProperties": false,
+      "properties": {
+        "games_per_second_per_core": {
+          "format": "double",
+          "type": "number"
+        },
+        "mean_game_ms": {
+          "format": "double",
+          "type": "number"
+        },
+        "note": {
+          "type": "string"
+        },
+        "policy_share_by_seat": {
+          "description": "Mean share of time spent in policies, per seat.",
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "note",
+        "games_per_second_per_core",
+        "mean_game_ms",
+        "policy_share_by_seat"
+      ],
+      "type": "object"
+    },
+    "Versions": {
+      "additionalProperties": false,
+      "properties": {
+        "card_db": {
+          "type": "string"
+        },
+        "cr": {
+          "type": "string"
+        },
+        "engine": {
+          "type": "string"
+        },
+        "spec_hash": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "engine",
+        "card_db",
+        "cr",
+        "spec_hash"
+      ],
+      "type": "object"
+    },
+    "WinRates": {
+      "additionalProperties": false,
+      "properties": {
+        "by_seat": {
+          "description": "Pooled over decks: the win rate of each seat in turn order.",
+          "items": {
+            "$ref": "#/$defs/Rate"
+          },
+          "type": "array"
+        },
+        "decks": {
+          "items": {
+            "$ref": "#/$defs/DeckWinRate"
+          },
+          "type": "array"
+        },
+        "head_to_head": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "description": "loser deck → winner deck → games (\"who won when X lost\").",
+          "type": "object"
+        }
+      },
+      "required": [
+        "decks",
+        "by_seat",
+        "head_to_head"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "ab": {
+      "description": "A/B differences from the base configuration (mode: ab).",
+      "items": {
+        "$ref": "#/$defs/AbComparison"
+      },
+      "type": "array"
+    },
+    "configs": {
+      "items": {
+        "$ref": "#/$defs/ConfigReport"
+      },
+      "type": "array"
+    },
+    "mode": {
+      "type": "string"
+    },
+    "next": {
+      "description": "Suggested follow-up commands.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "notable": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "opening_hands": {
+      "description": "Opening-hand statistics (mode: opening_hands).",
+      "items": {
+        "$ref": "#/$defs/OpeningHandStats"
+      },
+      "type": "array"
+    },
+    "report": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "versions": {
+      "$ref": "#/$defs/Versions"
+    },
+    "warnings": {
+      "description": "Threats to validity, most important first (Validity & Caveats).",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "report",
+    "run_id",
+    "mode",
+    "versions",
+    "warnings",
+    "configs",
+    "notable",
+    "next"
+  ],
+  "title": "Report",
+  "type": "object"
+}
