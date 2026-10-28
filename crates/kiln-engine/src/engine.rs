@@ -767,6 +767,30 @@ impl Game {
         o.control_since >= self.player(o.controller).last_turn
     }
 
+    /// CR 302.6: whether a creature can't use its {T} or {Q} abilities yet: it
+    /// hasn't been under its controller's control since their turn began, it
+    /// lacks haste, and nothing lets it activate as though it had haste
+    /// (Thousand-Year Elixir).
+    pub(crate) fn tap_sick(&self, id: ObjectId) -> bool {
+        if !self.is_creature(id) || !self.is_summoning_sick(id) {
+            return false;
+        }
+        if self.keywords(id).has(crate::card::Keywords::HASTE) {
+            return false;
+        }
+        let Some(controller) = self.obj(id).map(|o| o.controller) else {
+            return true;
+        };
+        !(self.pool.has_rule_statics()
+            && self.active_rule_statics().iter().any(|(_, c, e)| {
+                *c == controller
+                    && matches!(
+                        e,
+                        ir::StaticEffect::Rule(ir::RuleMod::AbilitiesAsThoughHaste)
+                    )
+            }))
+    }
+
     // ---- mutation primitives ----------------------------------------------
 
     pub(crate) fn log(&mut self, e: Event) {

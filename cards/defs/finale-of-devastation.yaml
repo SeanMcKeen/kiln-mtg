@@ -1,0 +1,17 @@
+card: Finale of Devastation
+faces:
+  - abilities:
+      - spell:
+          effect:
+            seq:
+              # "your library and/or graveyard": one search over both. The
+              # library is always shuffled after, a simplification when the card
+              # came from the graveyard (the order was unknown either way).
+              - search: { who: you, filter: { types: [creature] }, max_mana_value: x, count: 1, to: battlefield, reveal: false, graveyard: true }
+              - shuffle: you
+              - if:
+                  condition: { at_least: [x, 10] }
+                  then:
+                    seq:
+                      - pump: { what: { all: { types: [creature], controller: you } }, power: x, toughness: x }
+                      - gain_keyword: { what: { all: { types: [creature], controller: you } }, keyword: haste }

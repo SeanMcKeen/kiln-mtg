@@ -461,6 +461,9 @@ pub enum RuleMod {
     PlayFromTopPayingLife,
     /// "The 'legend rule' doesn't apply" (Mirror Gallery; CR 704.5j).
     NoLegendRule,
+    /// "You may activate abilities of creatures you control as though those
+    /// creatures had haste" (Thousand-Year Elixir; CR 302.6).
+    AbilitiesAsThoughHaste,
 }
 
 /// The exceptions to a copy effect (CR 707.9). They become part of the
@@ -682,6 +685,13 @@ pub enum Effect {
         count: Quantity,
         to: Destination,
         reveal: bool,
+        /// "with mana value X or less": an amount worked out as the search
+        /// happens (Green Sun's Zenith).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max_mana_value: Option<Quantity>,
+        /// "Search your library and/or graveyard" (Finale of Devastation).
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        graveyard: bool,
     },
     Shuffle(PlayerRef),
     /// CR 701.22
@@ -1030,6 +1040,8 @@ pub enum ManaSpec {
     Times { mana: String, times: Quantity },
     /// One mana of the color chosen as the source entered (Utopia Sprawl).
     ChosenColor(String),
+    /// One mana of each color among [objects] (Bloom Tender's vivid).
+    EachColorAmong(ObjectFilter),
 }
 
 // ---- references, filters, quantities ----------------------------------------

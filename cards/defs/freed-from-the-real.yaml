@@ -1,0 +1,10 @@
+card: Freed from the Real
+faces:
+  - abilities:
+      - keyword: { enchant: { object: { types: [creature] } } }
+      - activated:
+          cost: [{ mana: "{U}" }]
+          effect: { tap: { one: attached_to } }
+      - activated:
+          cost: [{ mana: "{U}" }]
+          effect: { untap: { one: attached_to } }

@@ -1,0 +1,12 @@
+card: Green Sun's Zenith
+faces:
+  - abilities:
+      - spell:
+          effect:
+            seq:
+              - search: { who: you, filter: { types: [creature], color: G }, max_mana_value: x, count: 1, to: battlefield, reveal: false }
+              - shuffle: you
+              # "Shuffle Green Sun's Zenith into its owner's library" (CR 608.2n:
+              # it leaves the stack as part of resolving, not to the graveyard).
+              - move: { what: { one: this }, to: top_of_library }
+              - shuffle: you

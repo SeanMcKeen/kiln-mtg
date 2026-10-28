@@ -1,0 +1,8 @@
+card: Snapback
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { object: { types: [creature] } } }]
+          effect: { move: { what: { one: { target: 0 } }, to: hand } }
+          alternative_costs:
+            - cost: [{ exile_from_hand: { color: U, other: true } }]

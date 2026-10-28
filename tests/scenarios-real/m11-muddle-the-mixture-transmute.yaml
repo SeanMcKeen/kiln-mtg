@@ -1,0 +1,18 @@
+scenario: kiln-scenario/1
+name: "Muddle the Mixture: transmute finds a card with mana value 2, as a sorcery from the hand"
+cr: ["702.53a"]
+verifies: [Muddle the Mixture]
+players:
+  - battlefield: [Island, Island, Island]
+    hand: [Muddle the Mixture]
+    library: [Sol Ring, Counterspell, Island, Thassa's Oracle]
+  - {}
+script:
+  - choose: Activate Muddle the Mixture ability 2
+  - choose: "Pay with Island, Island, Island"
+  - pass_all
+  - choose: Find Counterspell
+expect:
+  zones:
+    P1.hand: [Counterspell]
+    P1.graveyard: [Muddle the Mixture]

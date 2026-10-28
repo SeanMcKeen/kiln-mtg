@@ -1,0 +1,7 @@
+card: Priest of Titania
+faces:
+  - abilities:
+      # Every Elf on the battlefield, whoever controls it.
+      - activated:
+          cost: [tap]
+          effect: { add_mana: { mana: { times: { mana: "{G}", times: { count: { subtypes: [Elf] } } } } } }

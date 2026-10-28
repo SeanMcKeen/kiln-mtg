@@ -300,6 +300,7 @@ pub(crate) fn is_rule_static(e: &StaticEffect) -> bool {
                     | kiln_cards::ir::RuleMod::OpponentsSearchTopFour
                     | kiln_cards::ir::RuleMod::PlayFromTopPayingLife
                     | kiln_cards::ir::RuleMod::NoLegendRule
+                    | kiln_cards::ir::RuleMod::AbilitiesAsThoughHaste
             )
     )
 }

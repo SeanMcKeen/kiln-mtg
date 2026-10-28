@@ -471,10 +471,16 @@ impl CardDef {
                         mode_slots.extend(modes.iter().map(target_slots));
                     }
                 }
-                Ability::Triggered(t) => {
-                    if let ir::Effect::Modal { modes, .. } = &t.effect
-                        && let Ok(i) = u8::try_from(i)
-                    {
+                // Modal triggered and activated abilities (CR 700.2a-b), by ability index.
+                Ability::Triggered(ir::TriggeredAbility {
+                    effect: ir::Effect::Modal { modes, .. },
+                    ..
+                })
+                | Ability::Activated(ir::ActivatedAbility {
+                    effect: ir::Effect::Modal { modes, .. },
+                    ..
+                }) => {
+                    if let Ok(i) = u8::try_from(i) {
                         trigger_mode_slots.push((i, modes.iter().map(target_slots).collect()));
                     }
                 }
@@ -696,6 +702,7 @@ pub(crate) fn is_dynamic_spec(spec: &ManaSpec) -> bool {
         ManaSpec::CommanderIdentity
         | ManaSpec::ColorOf(_)
         | ManaSpec::ColorsAmong(_)
+        | ManaSpec::EachColorAmong(_)
         | ManaSpec::OpponentLandColors
         | ManaSpec::ChosenColor(_)
         | ManaSpec::Times { .. } => true,
@@ -767,6 +774,7 @@ pub(crate) fn mana_output(spec: &ManaSpec) -> Result<ManaAlternatives, String> {
         ManaSpec::CommanderIdentity
         | ManaSpec::ColorOf(_)
         | ManaSpec::ColorsAmong(_)
+        | ManaSpec::EachColorAmong(_)
         | ManaSpec::OpponentLandColors
         | ManaSpec::ChosenColor(_)
         | ManaSpec::Times { .. } => unreachable!("dynamic specs return above"),

@@ -1,0 +1,15 @@
+scenario: kiln-scenario/1
+name: "Tireless Provisioner: landfall makes a Food or a Treasure, chosen as the trigger goes on the stack"
+cr: ["603.2", "603.3c"]
+verifies: [Tireless Provisioner]
+players:
+  - battlefield: [Tireless Provisioner]
+    hand: [Forest]
+  - {}
+script:
+  - choose: Play Forest
+  - choose: Mode 2
+  - pass_all
+expect:
+  zones:
+    P1.battlefield: [Tireless Provisioner, Forest, Treasure]

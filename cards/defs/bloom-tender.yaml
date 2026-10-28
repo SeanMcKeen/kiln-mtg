@@ -1,0 +1,7 @@
+card: Bloom Tender
+faces:
+  - abilities:
+      # Vivid: one mana of each color among permanents you control.
+      - activated:
+          cost: [tap]
+          effect: { add_mana: { mana: { each_color_among: { controller: you } } } }

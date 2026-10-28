@@ -1,0 +1,16 @@
+scenario: kiln-scenario/1
+name: "Snapback cast by exiling a blue card from hand returns a creature to its owner's hand"
+cr: ["118.9"]
+verifies: [Snapback]
+players:
+  - hand: [Snapback, Brainstorm]
+  - battlefield: [Grizzly Bears]
+script:
+  - choose: Cast Snapback
+  - choose: Target Grizzly Bears (P2)
+  - pass_all
+expect:
+  zones:
+    P2.hand: [Grizzly Bears]
+    exile: [Brainstorm]
+    P1.graveyard: [Snapback]

@@ -1,0 +1,19 @@
+scenario: kiln-scenario/1
+name: "A creature with haste uses its {T} abilities the turn it arrives (Lightning Greaves)"
+cr: ["302.6", "702.10b"]
+verifies: [Lightning Greaves]
+players:
+  - battlefield: [Lightning Greaves, Forest]
+    hand: [Llanowar Elves]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Llanowar Elves
+  - choose: Pay with Forest
+  - pass_all
+  - choose: Activate Lightning Greaves ability 4
+  - choose: Target Llanowar Elves (P1)
+  - pass_all
+  - choose: "Tap Llanowar Elves for {G}"
+expect:
+  pool: { P1: "{G}" }

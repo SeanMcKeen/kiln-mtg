@@ -1,0 +1,11 @@
+scenario: kiln-scenario/1
+name: "Priest of Titania adds {G} for each Elf on the battlefield, any controller's"
+cr: ["605.1a"]
+verifies: [Priest of Titania]
+players:
+  - battlefield: [Priest of Titania, Llanowar Elves]
+  - battlefield: [Elvish Mystic]
+script:
+  - choose: "Tap Priest of Titania for {G}{G}{G}"
+expect:
+  pool: { P1: "{G}{G}{G}" }

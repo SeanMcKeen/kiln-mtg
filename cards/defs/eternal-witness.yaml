@@ -1,0 +1,7 @@
+card: Eternal Witness
+faces:
+  - abilities:
+      - triggered:
+          trigger: { enters: { this: true } }
+          targets: [{ what: { object: { zone: graveyard, owner: you } } }]
+          effect: { may: { move: { what: { one: { target: 0 } }, to: hand } } }

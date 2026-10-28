@@ -604,10 +604,7 @@ impl Game {
             return false;
         }
         // CR 302.6: a creature's {T}/{Q} abilities need it under control since the turn began.
-        if taps_source(def, Some(ability))
-            && self.is_creature(source)
-            && self.is_summoning_sick(source)
-        {
+        if taps_source(def, Some(ability)) && self.tap_sick(source) {
             return false;
         }
         if !x.targets.iter().all(|t| self.slot_ok(t, p, None, def)) {
@@ -831,6 +828,10 @@ impl Game {
                     Some(i) => match def.abilities.get(usize::from(i)) {
                         Some(Ability::Triggered(ta)) => {
                             (Some(&ta.effect), CastStage::Targets, "700.2b")
+                        }
+                        // A modal activated ability: modes first, then costs (CR 700.2a, 602.2b).
+                        Some(Ability::Activated(aa)) => {
+                            (Some(&aa.effect), CastStage::Cost, "700.2a")
                         }
                         _ => (None, CastStage::Cost, "700.2a"),
                     },
@@ -1643,10 +1644,7 @@ impl Game {
                         ));
                     }
                 }
-                if taps_source(def, Some(r.ability))
-                    && self.is_creature(source)
-                    && self.is_summoning_sick(source)
-                {
+                if taps_source(def, Some(r.ability)) && self.tap_sick(source) {
                     out.push(explain(
                         "302.6",
                         format!(

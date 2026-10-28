@@ -866,6 +866,8 @@ fn search(c: &mut Cur) -> Option<Effect> {
         count: Quantity::Fixed(1),
         to,
         reveal,
+        max_mana_value: None,
+        graveyard: false,
     })
 }
 

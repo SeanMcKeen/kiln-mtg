@@ -419,7 +419,7 @@ impl Game {
             }
             let mana = self.mana_abilities_of(id);
             // CR 302.6: a creature's {T} abilities need it under control since the turn began.
-            if mana.is_empty() || (self.is_creature(id) && self.is_summoning_sick(id)) {
+            if mana.is_empty() || self.tap_sick(id) {
                 continue;
             }
             let abilities: SmallVec<[(u8, Bags); 2]> = mana
@@ -582,7 +582,7 @@ impl Game {
                 kiln_cards::ir::CostPart::Tap | kiln_cards::ir::CostPart::Untap
             )
         });
-        if taps && self.is_creature(source) && self.is_summoning_sick(source) {
+        if taps && self.tap_sick(source) {
             return false;
         }
         let ctx = EffectCtx::new(r, source, p);

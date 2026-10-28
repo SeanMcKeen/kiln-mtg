@@ -1,0 +1,11 @@
+scenario: kiln-scenario/1
+name: "Bloom Tender adds one mana of each color among permanents its controller controls"
+cr: ["605.1a"]
+verifies: [Bloom Tender]
+players:
+  - battlefield: [Bloom Tender, "Thalia, Guardian of Thraben", "Ragavan, Nimble Pilferer"]
+  - battlefield: [Thassa's Oracle, Birds of Paradise]
+script:
+  - choose: "Tap Bloom Tender for {W}{R}{G}"
+expect:
+  pool: { P1: "{W}{R}{G}" }

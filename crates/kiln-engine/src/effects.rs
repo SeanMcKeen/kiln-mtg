@@ -1366,6 +1366,8 @@ impl Game {
                 count,
                 to,
                 reveal,
+                max_mana_value,
+                graveyard,
             } => {
                 let Some(p) = self.player_ref(&t.ctx, who) else {
                     return Flow::Continue;
@@ -1383,16 +1385,31 @@ impl Game {
                         )
                 });
                 let searched = if top_four { 4 } else { library.len() };
-                let candidates: Vec<ObjectId> = library
+                // "with mana value X or less", worked out now.
+                let cap = max_mana_value
+                    .as_ref()
+                    .map(|q| u32::try_from(self.amount(&t.ctx, q).max(0)).unwrap_or(0));
+                let fits = |id: &ObjectId| cap.is_none_or(|c| self.mana_value_of(*id) <= c);
+                let mut candidates: Vec<ObjectId> = library
                     .iter()
                     .rev()
                     .take(searched)
                     .copied()
-                    .filter(|id| self.matches_card(&t.ctx, *id, filter))
+                    .filter(|id| self.matches_card(&t.ctx, *id, filter) && fits(id))
                     .collect();
+                // "your library and/or graveyard" (Finale of Devastation).
+                if *graveyard {
+                    candidates.extend(
+                        self.player(p)
+                            .graveyard
+                            .iter()
+                            .copied()
+                            .filter(|id| self.matches_card(&t.ctx, *id, filter) && fits(id)),
+                    );
+                }
                 // CR 701.23b/d: a search for a stated quality may fail to find;
                 // a search for a quantity of cards must find as many as possible.
-                let quality = *filter != ObjectFilter::default();
+                let quality = *filter != ObjectFilter::default() || cap.is_some();
                 let n = count.min(u32::try_from(candidates.len()).unwrap_or(u32::MAX));
                 // CR 723.5: a player controlling the searcher makes the choices.
                 let agent = self.search_controller(p);
@@ -2231,6 +2248,24 @@ impl Game {
                     .fold(kiln_types::Colors::COLORLESS, kiln_types::Colors::union),
             ),
             ManaSpec::OpponentLandColors => one_each(self.opponent_land_colors(ctx.controller)),
+            // Vivid: one of each color at once, a single outcome.
+            ManaSpec::EachColorAmong(f) => {
+                let colors = self
+                    .battlefield
+                    .iter()
+                    .filter(|id| self.matches_filter(**id, f, ctx.controller, Some(ctx.source)))
+                    .filter_map(|id| self.chars(*id).map(|c| c.colors()))
+                    .fold(kiln_types::Colors::COLORLESS, kiln_types::Colors::union);
+                let mut bag = [0u8; 6];
+                for c in colors.iter() {
+                    bag[ManaType::of_color(c).index()] = 1;
+                }
+                if bag.iter().all(|x| *x == 0) {
+                    Vec::new()
+                } else {
+                    vec![bag]
+                }
+            }
             ManaSpec::ChosenColor(name) => self
                 .object_var(ctx.source, name)
                 .and_then(|i| Color::ALL.get(usize::try_from(i).ok()?).copied())

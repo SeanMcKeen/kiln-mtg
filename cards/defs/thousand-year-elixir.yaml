@@ -1,0 +1,8 @@
+card: Thousand-Year Elixir
+faces:
+  - abilities:
+      - static: { effect: { rule: abilities_as_though_haste } }
+      - activated:
+          cost: [{ mana: "{1}" }, tap]
+          targets: [{ what: { object: { types: [creature] } } }]
+          effect: { untap: { one: { target: 0 } } }

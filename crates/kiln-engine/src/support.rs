@@ -104,9 +104,6 @@ pub(crate) fn check(def: &CardDef) -> Check {
             }
             Ability::Activated(x) => {
                 activated_extras(x)?;
-                if matches!(x.effect, Effect::Modal { .. }) {
-                    return Err("modal activated abilities".into());
-                }
                 if x.targets.iter().any(|t| t.up_to == Some(0)) {
                     return Err("a target slot that allows zero targets".into());
                 }
