@@ -1,0 +1,16 @@
+scenario: kiln-scenario/1
+name: "Basic lands: each basic land type gives its mana ability (CR 305.6)"
+cr: ["305.6", "106.1"]
+verifies: [Plains, Island, Swamp, Mountain, Forest]
+players:
+  - battlefield: [Plains, Island, Swamp, Mountain, Forest]
+  - {}
+script:
+  - check: { decision: { player: P1, kind: priority, options_include: ["Tap Plains for {W}", "Tap Island for {U}", "Tap Swamp for {B}", "Tap Mountain for {R}", "Tap Forest for {G}"] } }
+  - choose: "Tap Plains for {W}"
+  - choose: "Tap Island for {U}"
+  - choose: "Tap Swamp for {B}"
+  - choose: "Tap Mountain for {R}"
+  - choose: "Tap Forest for {G}"
+expect:
+  pool: { P1: "{W}{U}{B}{R}{G}" }

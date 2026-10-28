@@ -94,13 +94,23 @@
           "description": "Feature name → share of kept hands with at least one of its cards.",
           "type": "object"
         },
+        "hand_sizes": {
+          "default": [],
+          "description": "The hand size kept after 0, 1, 2, … mulligans (the first is free in the\n4-player pod these hands are dealt in, CR 103.5c).",
+          "items": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": "array"
+        },
         "hands": {
           "format": "uint64",
           "minimum": 0,
           "type": "integer"
         },
         "kept_at": {
-          "description": "Share of hands kept at 7, 6, 5, …",
+          "description": "Share of hands kept after 0, 1, 2, … mulligans (index = mulligans taken).",
           "items": {
             "$ref": "#/$defs/Rate"
           },
@@ -201,6 +211,7 @@
         "format": "double",
         "type": "number"
       },
+      "description": "Share of games where the deck kept its first seven, with no mulligan.",
       "type": "object"
     },
     "median_win_turn": {

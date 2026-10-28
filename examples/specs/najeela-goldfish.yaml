@@ -10,4 +10,3 @@ decks:
 policies:
   default: { kind: greedy }
 goldfish: { opponents: 3 }
-limits: { max_turns: 60 }

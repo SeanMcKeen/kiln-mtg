@@ -170,13 +170,19 @@ opening_hands: { features: { fast_mana: [Sol Ring, Mana Vault, Chrome Mox] } }
     assert_eq!(records.len(), 20);
     for r in &records {
         assert_eq!(r.outcome, Outcome::NotPlayed);
-        // London mulligan (CR 103.5): one card to the bottom per mulligan.
+        // London mulligan (CR 103.5) in a 4-player pod: one card to the bottom
+        // per mulligan after the first, which is free (CR 103.5c).
+        assert_eq!(r.seats.len(), 4);
         let kept = r.hand.as_ref().map_or(0, Vec::len);
-        assert_eq!(kept, 7 - r.mulligans[0] as usize, "{r:?}");
+        let bottom = (r.mulligans[0] as usize).saturating_sub(1);
+        assert_eq!(kept, 7 - bottom, "{r:?}");
     }
     let report = experiment::write_report(&dir).unwrap_or_else(|e| panic!("{e}"));
     assert_eq!(report.opening_hands.len(), 1);
     assert_eq!(report.opening_hands[0].hands, 20);
+    let sizes = &report.opening_hands[0].hand_sizes;
+    assert_eq!(sizes.len(), report.opening_hands[0].kept_at.len());
+    assert!(sizes.iter().take(2).all(|s| *s == 7), "{sizes:?}");
     assert!(report.configs.is_empty());
 
     let ab = POD

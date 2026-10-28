@@ -183,11 +183,16 @@ pub struct SimReportParams {
     #[serde(default)]
     pub sections: Vec<String>,
     /// For per_card: which page of each deck's cards (1-based, default 1) and how many per page
-    /// (default 25). Cards are sorted by how often they were seen.
+    /// (default 25).
     #[serde(default)]
     pub page: Option<usize>,
     #[serde(default)]
     pub page_size: Option<usize>,
+    /// For per_card: sort each deck's cards, highest first, by `seen` (default), `iwd`
+    /// (improvement when drawn), `gih_wr` (win rate when seen), `oh_wr` (in the opening hand),
+    /// `cast_wr` or `dead` (seen but never cast).
+    #[serde(default)]
+    pub sort: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -537,6 +542,12 @@ impl KilnServer {
                     p.sections.clone()
                 };
                 let (page, size) = (p.page.unwrap_or(1).max(1), p.page_size.unwrap_or(25).max(1));
+                let sort = p.sort.clone().unwrap_or_else(|| "seen".into());
+                if !["seen", "iwd", "gih_wr", "oh_wr", "cast_wr", "dead"].contains(&sort.as_str()) {
+                    return Err(format!(
+                        "sort must be seen, iwd, gih_wr, oh_wr, cast_wr or dead, not {sort:?}"
+                    ));
+                }
                 if let Some(configs) = v.get_mut("configs").and_then(Value::as_array_mut) {
                     for c in configs {
                         if let Some(obj) = c.as_object_mut() {
@@ -553,6 +564,18 @@ impl KilnServer {
                                     if let Some(cards) =
                                         d.get_mut("cards").and_then(Value::as_array_mut)
                                     {
+                                        // A number (iwd) or a rate object; missing sorts last.
+                                        let key = |c: &Value| {
+                                            let x = &c[sort.as_str()];
+                                            x.as_f64()
+                                                .or_else(|| x["rate"].as_f64())
+                                                .unwrap_or(f64::NEG_INFINITY)
+                                        };
+                                        cards.sort_by(|a, b| {
+                                            key(b).total_cmp(&key(a)).then_with(|| {
+                                                a["name"].as_str().cmp(&b["name"].as_str())
+                                            })
+                                        });
                                         let pages = cards.len().div_ceil(size);
                                         let slice: Vec<Value> = cards
                                             .iter()
@@ -563,6 +586,7 @@ impl KilnServer {
                                         *cards = slice;
                                         d["page"] = json!(page);
                                         d["pages"] = json!(pages);
+                                        d["sorted_by"] = json!(sort);
                                     }
                                 }
                             }

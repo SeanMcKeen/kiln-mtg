@@ -158,7 +158,11 @@ pub struct DeckShape {
 #[serde(deny_unknown_fields)]
 pub struct DeckMulligans {
     pub deck: String,
-    /// Share of games kept at 7, 6, 5, … cards (index = mulligans taken).
+    /// The hand size kept after 0, 1, 2, … mulligans: 7, 7, 6, … in multiplayer,
+    /// where the first mulligan is free (CR 103.5c).
+    #[serde(default)]
+    pub hand_sizes: Vec<u32>,
+    /// Share of games kept after 0, 1, 2, … mulligans (index = mulligans taken).
     pub kept_at: Vec<Rate>,
     /// Win rate by mulligans taken.
     pub win_rate_by_mulligans: Vec<Rate>,
@@ -220,6 +224,7 @@ pub struct CardStats {
     pub iwd_q: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cast_wr: Option<Rate>,
+    /// When it was first cast or played, as its deck's own turn number (like win turns).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub first_cast_turn: Option<Dist>,
     /// Seen but never cast or played.
@@ -264,7 +269,11 @@ pub struct AbComparison {
 pub struct OpeningHandStats {
     pub deck: String,
     pub hands: u64,
-    /// Share of hands kept at 7, 6, 5, …
+    /// The hand size kept after 0, 1, 2, … mulligans (the first is free in the
+    /// 4-player pod these hands are dealt in, CR 103.5c).
+    #[serde(default)]
+    pub hand_sizes: Vec<u32>,
+    /// Share of hands kept after 0, 1, 2, … mulligans (index = mulligans taken).
     pub kept_at: Vec<Rate>,
     /// Feature name → share of kept hands with at least one of its cards.
     pub features: BTreeMap<String, Rate>,
@@ -287,6 +296,7 @@ pub struct ConciseReport {
     pub median_win_turn: BTreeMap<String, BTreeMap<String, u32>>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub win_types: BTreeMap<String, BTreeMap<String, BTreeMap<String, f64>>>,
+    /// Share of games where the deck kept its first seven, with no mulligan.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub keep_at_7: BTreeMap<String, f64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

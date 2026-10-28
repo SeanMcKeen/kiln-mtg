@@ -66,6 +66,19 @@ fn own_turn(turn: u32, seat: usize, seats: usize) -> u32 {
     }
 }
 
+/// The hand kept after 0, 1, … `most` mulligans: seven cards, less one per
+/// mulligan, but the first mulligan is free with more than two players
+/// (CR 103.5c).
+fn hand_sizes(most: usize, players: usize) -> Vec<u32> {
+    (0..=most)
+        .map(|k| {
+            let k = u32::try_from(k).unwrap_or(u32::MAX);
+            let bottom = if players > 2 { k.saturating_sub(1) } else { k };
+            7u32.saturating_sub(bottom)
+        })
+        .collect()
+}
+
 /// The decks of a configuration, in spec order (variants after decks).
 fn deck_order(spec: &Spec, records: &[&GameRecord]) -> Vec<String> {
     let mut order: Vec<String> = spec.decks.iter().map(|d| d.id.clone()).collect();
@@ -239,8 +252,10 @@ fn config_report(spec: &Spec, config: &str, records: &[&GameRecord]) -> ConfigRe
                 }
                 let most = taken.iter().map(|t| t.0).max().unwrap_or(0) as usize;
                 let n = taken.len() as u64;
+                let players = records.first().map_or(4, |r| r.seats.len());
                 DeckMulligans {
                     deck: d.clone(),
+                    hand_sizes: hand_sizes(most, players),
                     kept_at: (0..=most)
                         .map(|k| rate(taken.iter().filter(|t| t.0 as usize == k).count() as u64, n))
                         .collect(),
@@ -433,12 +448,20 @@ fn result_warnings(spec: &Spec, manifest: &RunManifest, configs: &[ConfigReport]
     if spec.seating == Seating::Fixed && spec.mode != Mode::OpeningHands {
         w.push("fixed seating: seat-order bias isn't balanced across decks".into());
     }
+    // limits.max_turns counts game turns; each player gets a share of them.
+    let players = match spec.mode {
+        Mode::Goldfish => 1 + usize::from(spec.goldfish.clone().unwrap_or_default().opponents),
+        _ => spec.decks.len(),
+    }
+    .max(1);
     for c in configs {
         if c.capped.rate >= 0.05 {
             w.push(format!(
-                "{}: {:.1}% of games hit a limit and are left out of win rates; raise limits.max_turns or check for stalls",
+                "{}: {:.1}% of games hit a limit and are left out of win rates; limits.max_turns {} counts game turns (about {} turns each with {players} players): raise it or check for stalls",
                 c.config,
-                c.capped.rate * 100.0
+                c.capped.rate * 100.0,
+                spec.limits.max_turns,
+                spec.limits.max_turns / u32::try_from(players).unwrap_or(1)
             ));
         }
         if let Some(wr) = &c.win_rates {
@@ -555,10 +578,17 @@ fn next_hints(spec: &Spec, dir: &str, records: &[GameRecord]) -> Vec<String> {
             spec.decks.first().map_or("…", |d| d.id.as_str())
         ));
     }
+    // By the winner's own turn; a win where the others decked themselves
+    // shows little, so those come last.
     if let Some(fast) = records
         .iter()
         .filter(|r| r.outcome == Outcome::Win)
-        .min_by_key(|r| (r.turns, r.index))
+        .min_by_key(|r| {
+            let own = r
+                .winner
+                .map_or(r.turns, |w| own_turn(r.turns, w, r.seats.len()));
+            (r.win_type.as_deref() == Some("decking"), own, r.index)
+        })
     {
         out.push(format!(
             "kiln game inspect {dir} {}  # the fastest win",
@@ -677,7 +707,8 @@ pub fn concise(r: &Report) -> ConciseReport {
         report: r.report.clone(),
         run_id: r.run_id.clone(),
         mode: r.mode.clone(),
-        games: r.configs.iter().map(|c| c.games).sum(),
+        games: r.configs.iter().map(|c| c.games).sum::<u64>()
+            + r.opening_hands.iter().map(|o| o.hands).sum::<u64>(),
         capped: r.configs.iter().map(|c| c.capped.k).sum(),
         versions: r.versions.clone(),
         warnings: r.warnings.clone(),
@@ -912,7 +943,12 @@ pub fn markdown(r: &Report) -> String {
     for o in &r.opening_hands {
         let _ = writeln!(s, "Opening hands for {} ({} hands):", o.deck, o.hands);
         for (i, k) in o.kept_at.iter().enumerate() {
-            let _ = writeln!(s, "- kept at {}: {}", 7 - i, pct(k.rate));
+            let _ = writeln!(
+                s,
+                "- kept after {i} mulligan(s), {} cards: {}",
+                o.hand_sizes.get(i).copied().unwrap_or(0),
+                pct(k.rate)
+            );
         }
         for (f, x) in &o.features {
             let _ = writeln!(s, "- {f}: {} of kept hands", pct(x.rate));
@@ -1049,7 +1085,8 @@ fn per_card_report(spec: &Spec, config: &str, records: &[&GameRecord]) -> PerCar
                 if let Some(t) = f.cast {
                     a.cast += 1;
                     a.cast_wins += u64::from(won);
-                    a.cast_turns.push(t);
+                    // The deck's own turn, like win turns.
+                    a.cast_turns.push(own_turn(t, seat, r.seats.len()));
                 }
             }
         }
@@ -1243,6 +1280,7 @@ fn opening_report(spec: &Spec, records: &[GameRecord]) -> Vec<OpeningHandStats> 
             OpeningHandStats {
                 deck: d.id.clone(),
                 hands: n,
+                hand_sizes: hand_sizes(most, mine.first().map_or(4, |r| r.seats.len())),
                 kept_at,
                 features,
             }
