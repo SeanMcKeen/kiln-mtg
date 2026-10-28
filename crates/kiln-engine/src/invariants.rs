@@ -110,8 +110,15 @@ impl Game {
         match (&self.pending, &self.result) {
             (Some(d), None) => {
                 if d.option_count() == 0 {
+                    let card = match &d.kind {
+                        crate::decision::DecisionKind::ChooseCost { spell, .. } => self
+                            .obj(*spell)
+                            .map(|o| self.def(o.def).name.clone())
+                            .unwrap_or_default(),
+                        _ => String::new(),
+                    };
                     return Err(format!(
-                        "invariant 2: decision {:?} has no options: {:?}",
+                        "invariant 2: decision {:?} has no options: {:?} {card}",
                         d.id, d.kind
                     ));
                 }

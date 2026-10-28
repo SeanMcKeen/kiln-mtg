@@ -287,6 +287,11 @@ fn effect(e: &Effect) -> Check {
         Effect::Counter(ObjectSet::One(ObjectRef::Target(_) | ObjectRef::Triggering))
         | Effect::CounterAndExile(ObjectSet::One(ObjectRef::Target(_))) => Ok(()),
         Effect::CounterAndExile(_) => Err("countering anything but a targeted spell".into()),
+        Effect::CounterAndSuspend {
+            what: ObjectSet::One(ObjectRef::Target(_)),
+            ..
+        } => Ok(()),
+        Effect::CounterAndSuspend { .. } => Err("countering anything but a targeted spell".into()),
         Effect::LookAtHand(p) => player(p),
         Effect::Counter(_) => Err("countering anything but a targeted or triggering spell".into()),
         Effect::Draw { who, amount }

@@ -466,9 +466,25 @@ impl Game {
                 .any(|(_, _, e)| matches!(e, StaticEffect::Rule(ir::RuleMod::NoLegendRule)))
     }
 
+    /// Whether spell `card`, cast by `caster`, matches a cost modifier's
+    /// filter: "spells you cast" / "your opponents cast" is about the caster
+    /// (a card in exile is controlled by its owner until someone casts it).
+    fn spell_matches_for_caster(
+        &self,
+        card: ObjectId,
+        spells: &ir::ObjectFilter,
+        you: PlayerId,
+        source: ObjectId,
+        caster: PlayerId,
+    ) -> bool {
+        let mut f = spells.clone();
+        let rel = std::mem::take(&mut f.controller);
+        self.matches_filter(card, &f, you, Some(source)) && self.player_rel(rel, you, caster)
+    }
+
     /// CR 601.2f: generic mana taken off the cost of spell `card` by cost
     /// reductions (Grand Arbiter Augustin IV).
-    pub(crate) fn cost_reduction(&self, card: ObjectId) -> u32 {
+    pub(crate) fn cost_reduction(&self, card: ObjectId, caster: PlayerId) -> u32 {
         if !self.pool.has_rule_statics() {
             return 0;
         }
@@ -476,7 +492,13 @@ impl Game {
             .iter()
             .filter_map(|(source, controller, e)| match e {
                 StaticEffect::CostReduction { spells, amount }
-                    if self.matches_filter(card, spells, *controller, Some(*source)) =>
+                    if self.spell_matches_for_caster(
+                        card,
+                        spells,
+                        *controller,
+                        *source,
+                        caster,
+                    ) =>
                 {
                     Some(*amount)
                 }
@@ -487,7 +509,7 @@ impl Game {
 
     /// CR 601.2f: generic mana added to the cost of spell `card` by cost
     /// increases (Thalia).
-    pub(crate) fn cost_increase(&self, card: ObjectId) -> u32 {
+    pub(crate) fn cost_increase(&self, card: ObjectId, caster: PlayerId) -> u32 {
         if !self.pool.has_rule_statics() {
             return 0;
         }
@@ -495,7 +517,13 @@ impl Game {
             .iter()
             .filter_map(|(source, controller, e)| match e {
                 StaticEffect::CostIncrease { spells, amount }
-                    if self.matches_filter(card, spells, *controller, Some(*source)) =>
+                    if self.spell_matches_for_caster(
+                        card,
+                        spells,
+                        *controller,
+                        *source,
+                        caster,
+                    ) =>
                 {
                     Some(*amount)
                 }

@@ -671,6 +671,13 @@ pub enum Effect {
     /// "Counter ... If that spell is countered this way, exile it instead of
     /// putting it into its owner's graveyard" (Force of Negation).
     CounterAndExile(ObjectSet),
+    /// "Counter [spell]. If it's countered this way, exile it with N time
+    /// counters on it instead; if it doesn't have suspend, it gains suspend"
+    /// (Delay; CR 702.62).
+    CounterAndSuspend {
+        what: ObjectSet,
+        counters: u32,
+    },
     /// "Look at [player]'s hand" (Gitaxian Probe).
     LookAtHand(PlayerRef),
     Draw {
@@ -1045,6 +1052,9 @@ pub enum CounterKind {
     Wish,
     #[serde(rename = "chorus")]
     Chorus,
+    /// Suspend's counters (CR 702.62a).
+    #[serde(rename = "time")]
+    Time,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

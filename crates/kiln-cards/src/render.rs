@@ -358,6 +358,10 @@ fn effect(e: &Effect, t: &[TargetSpec]) -> String {
             ..
         } => format!("return {} to its owner's hand", objects(what, t)),
         Effect::Counter(o) | Effect::CounterAndExile(o) => format!("counter {}", objects(o, t)),
+        Effect::CounterAndSuspend { what, counters } => format!(
+            "counter {}; exile it with {counters} time counters, and it gains suspend",
+            objects(what, t)
+        ),
         Effect::Unless {
             payer,
             cost,

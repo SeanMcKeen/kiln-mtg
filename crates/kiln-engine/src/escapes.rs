@@ -16,6 +16,8 @@ pub(crate) type EscapeFn = fn(&mut Game, &mut EffectTask);
 /// Registered escapes, sorted by name.
 const ESCAPES: &[(&str, EscapeFn)] = &[
     ("doomsday", |g, t| g.doomsday(t)),
+    ("suspend_haste", |g, t| g.suspend_haste(t)),
+    ("suspend_upkeep", |g, t| g.suspend_upkeep(t)),
     ("sylvan_library", |g, t| g.sylvan_library(t)),
     ("tainted_pact", |g, t| g.tainted_pact(t)),
 ];

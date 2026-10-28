@@ -147,8 +147,9 @@ fn the_coverage_gate_refuses_unverified_cards() {
     if library().is_none() {
         return;
     }
-    let spec = POD.replace("kinnan-verified.txt", "kinnan.txt");
-    let err = play(&spec, &scratch("gate"), 1).expect_err("kinnan.txt has unsupported cards");
+    let spec = POD.replace("kinnan-verified.txt", "kinnan-unsupported.txt");
+    let err = play(&spec, &scratch("gate"), 1)
+        .expect_err("kinnan-unsupported.txt has an unsupported card");
     assert_eq!(err.exit_code(), 3, "{err}");
 }
 

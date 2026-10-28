@@ -321,6 +321,8 @@ impl GameBuilder {
             escaping: Vec::new(),
             flashback: Vec::new(),
             cost_paid: Vec::new(),
+            suspended: Vec::new(),
+            suspend_haste: Vec::new(),
             graveyard_casts: Vec::new(),
             drawn_this_turn: Vec::new(),
             library_casts: Vec::new(),

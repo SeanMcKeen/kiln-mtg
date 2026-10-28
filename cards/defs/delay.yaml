@@ -1,0 +1,6 @@
+card: Delay
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { spell: {} } }]
+          effect: { counter_and_suspend: { what: { one: { target: 0 } }, counters: 3 } }

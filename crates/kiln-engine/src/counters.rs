@@ -31,10 +31,15 @@ impl Game {
             .collect()
     }
 
-    /// CR 122.6: put counters on a permanent.
+    /// CR 122.6: put counters on a permanent, or on a card in exile
+    /// (suspend's time counters, CR 702.62a).
     pub(crate) fn add_counters(&mut self, id: ObjectId, kind: CounterKind, n: u32) {
         self.bump_layers();
-        if n == 0 || !self.obj(id).is_some_and(|o| o.zone == ZoneId::Battlefield) {
+        if n == 0
+            || !self
+                .obj(id)
+                .is_some_and(|o| matches!(o.zone, ZoneId::Battlefield | ZoneId::Exile))
+        {
             return;
         }
         match self

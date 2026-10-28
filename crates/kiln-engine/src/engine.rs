@@ -281,6 +281,10 @@ pub struct Game {
     /// Objects a spell's cost moved, by name, with last known information:
     /// its effects can find them (CR 400.7j). (spell, name, object).
     pub(crate) cost_paid: Vec<(ObjectId, String, crate::effects::Lki)>,
+    /// Exiled cards with suspend, given or printed (CR 702.62b).
+    pub(crate) suspended: Vec<ObjectId>,
+    /// Creature spells cast with suspend: their permanents have haste (CR 702.62a).
+    pub(crate) suspend_haste: Vec<ObjectId>,
     /// Spells being cast from the top of a library with Bolas's Citadel.
     pub(crate) library_casts: Vec<ObjectId>,
     /// Additional combat phases still to come this turn (CR 500.8; Najeela).
@@ -390,6 +394,8 @@ impl Game {
             escaping: Vec::new(),
             flashback: Vec::new(),
             cost_paid: Vec::new(),
+            suspended: Vec::new(),
+            suspend_haste: Vec::new(),
             graveyard_casts: Vec::new(),
             drawn_this_turn: Vec::new(),
             library_casts: Vec::new(),
@@ -702,6 +708,12 @@ impl Game {
         if !self.cost_paid.is_empty() {
             self.cost_paid.hash(&mut h);
         }
+        if !self.suspended.is_empty() {
+            self.suspended.hash(&mut h);
+        }
+        if !self.suspend_haste.is_empty() {
+            self.suspend_haste.hash(&mut h);
+        }
         if !self.graveyard_casts.is_empty() {
             self.graveyard_casts.hash(&mut h);
         }
@@ -974,6 +986,12 @@ impl Game {
         }
         if !self.cost_paid.is_empty() {
             self.cost_paid.retain(|(x, _, _)| *x != id);
+        }
+        if !self.suspended.is_empty() {
+            self.suspended.retain(|x| *x != id);
+        }
+        if !self.suspend_haste.is_empty() {
+            self.suspend_haste.retain(|x| *x != id);
         }
         if !self.graveyard_casts.is_empty() {
             self.graveyard_casts.retain(|(x, _)| *x != id);
@@ -2332,6 +2350,8 @@ impl Game {
             object: item.object,
             def: def_id,
         });
+        // Cast with suspend: the permanent has haste (CR 702.62a).
+        let suspend_haste = item.is_spell() && self.suspend_haste.contains(&item.object);
         let ability = match item.ability {
             Some(i) => {
                 // CR 608.2n: the ability is removed from the stack last.
@@ -2386,6 +2406,15 @@ impl Game {
                             && let Some(&host) = item.targets.first()
                         {
                             self.attach(new, host, false);
+                        }
+                        if suspend_haste {
+                            self.add_effect(
+                                SmallVec::from_elem(new, 1),
+                                crate::layers::LayerEffect::GrantKeyword(Box::new(
+                                    ir::Keyword::Haste,
+                                )),
+                                crate::layers::Duration::Permanent,
+                            );
                         }
                         // CR 702.109a: dashed, it has haste and returns to its
                         // owner's hand at the beginning of the next end step.

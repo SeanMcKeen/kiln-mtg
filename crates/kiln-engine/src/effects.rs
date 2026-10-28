@@ -354,9 +354,40 @@ static DASH_RETURN_EFFECT: Effect = Effect::Move {
     under_owners: false,
 };
 
+/// Suspend's upkeep trigger and last-counter trigger (CR 702.62a), as
+/// pseudo abilities of the suspended card.
+pub(crate) const SUSPEND_UPKEEP: u8 = 254;
+pub(crate) const SUSPEND_CAST: u8 = 253;
+static SUSPEND_UPKEEP_EFFECT: std::sync::LazyLock<Effect> = std::sync::LazyLock::new(|| {
+    Effect::Escape(kiln_cards::ir::Escape {
+        function: "suspend_upkeep".into(),
+        text: "remove a time counter from this suspended card".into(),
+    })
+});
+/// "You may play it without paying its mana cost if able. If you don't, it
+/// remains exiled. If you cast a creature spell this way, it gains haste."
+static SUSPEND_CAST_EFFECT: std::sync::LazyLock<Effect> = std::sync::LazyLock::new(|| {
+    Effect::May(Box::new(Effect::Seq(vec![
+        Effect::Cast {
+            what: ObjectSet::One(ObjectRef::This),
+            without_paying: true,
+        },
+        Effect::Escape(kiln_cards::ir::Escape {
+            function: "suspend_haste".into(),
+            text: "a creature spell cast this way gains haste".into(),
+        }),
+    ])))
+});
+
 pub(crate) fn root(pool: &CardPool, a: AbilityRef) -> Option<&Effect> {
     if a.ability == DASH_RETURN {
         return Some(&DASH_RETURN_EFFECT);
+    }
+    if a.ability == SUSPEND_UPKEEP {
+        return Some(&SUSPEND_UPKEEP_EFFECT);
+    }
+    if a.ability == SUSPEND_CAST {
+        return Some(&SUSPEND_CAST_EFFECT);
     }
     if a.ability >= ALT_EFFECT_BASE {
         return alt_effect(pool.get(a.def), a.ability - ALT_EFFECT_BASE);
@@ -1350,6 +1381,14 @@ impl Game {
             Effect::CounterAndExile(set) => {
                 for id in self.set_now(&t.ctx, set) {
                     self.counter_to(&mut t.ctx, id, true);
+                }
+            }
+            Effect::CounterAndSuspend { what, counters } => {
+                for id in self.set_now(&t.ctx, what) {
+                    if let Some(new) = self.counter_to(&mut t.ctx, id, true) {
+                        self.add_counters(new, kiln_cards::ir::CounterKind::Time, *counters);
+                        self.suspend(new);
+                    }
                 }
             }
             Effect::LookAtHand(who) => {
@@ -2860,10 +2899,8 @@ impl Game {
     }
 
     /// Counters spell `id`, into exile if `exile` (Force of Negation).
-    fn counter_to(&mut self, ctx: &mut EffectCtx, id: ObjectId, exile: bool) {
-        let Some(o) = self.obj(id).copied() else {
-            return;
-        };
+    fn counter_to(&mut self, ctx: &mut EffectCtx, id: ObjectId, exile: bool) -> Option<ObjectId> {
+        let o = self.obj(id).copied()?;
         // CR 101.2: "can't be countered" takes precedence.
         if o.zone != ZoneId::Stack
             || self.def(o.def).cant_be_countered()
@@ -2874,7 +2911,7 @@ impl Game {
                 kiln_cards::ir::PlayerRuleKind::SpellsCantBeCountered,
             )
         {
-            return;
+            return None;
         }
         self.log(Event::Countered { object: id });
         let to = if exile {
@@ -2882,7 +2919,107 @@ impl Game {
         } else {
             ZoneId::Graveyard(o.owner)
         };
-        self.fx_move(ctx, id, to, true);
+        self.fx_move(ctx, id, to, true)
+    }
+
+    /// CR 702.62a-b: `id`, in exile, is suspended: at the beginning of its
+    /// owner's upkeep a time counter comes off.
+    pub(crate) fn suspend(&mut self, id: ObjectId) {
+        let Some(o) = self.obj(id).copied() else {
+            return;
+        };
+        if !self.suspended.contains(&id) {
+            self.suspended.push(id);
+        }
+        self.delayed.push(crate::triggers::DelayedTrigger {
+            trigger: kiln_cards::ir::Trigger::BeginningOf {
+                step: kiln_cards::ir::StepName::Upkeep,
+                whose: kiln_cards::ir::PlayerRel::You,
+            },
+            path: SmallVec::new(),
+            ctx: EffectCtx::new(
+                AbilityRef {
+                    def: o.def,
+                    ability: SUSPEND_UPKEEP,
+                },
+                id,
+                o.owner,
+            ),
+        });
+    }
+
+    /// Suspend's upkeep trigger (CR 702.62a): "if this card is suspended,
+    /// remove a time counter from it"; removing the last one triggers its
+    /// cast ability, otherwise it waits for the next upkeep.
+    pub(crate) fn suspend_upkeep(&mut self, t: &mut EffectTask) {
+        let id = t.ctx.source;
+        let Some(o) = self.obj(id).copied() else {
+            return;
+        };
+        let time = kiln_cards::ir::CounterKind::Time;
+        // CR 702.62b: suspended = exiled, has suspend, has a time counter.
+        if o.zone != ZoneId::Exile
+            || !self.suspended.contains(&id)
+            || self.counters_on(id, time) == 0
+        {
+            return;
+        }
+        self.remove_counters(id, time, 1);
+        if self.counters_on(id, time) > 0 {
+            self.suspend(id);
+            return;
+        }
+        let ctx = EffectCtx::new(
+            AbilityRef {
+                def: o.def,
+                ability: SUSPEND_CAST,
+            },
+            id,
+            o.owner,
+        );
+        self.log(Event::Triggered {
+            source: id,
+            def: o.def,
+            ability: SUSPEND_CAST,
+            controller: o.owner,
+        });
+        self.pending_triggers.push(crate::triggers::PendingTrigger {
+            source: id,
+            source_def: o.def,
+            ability: SUSPEND_CAST,
+            controller: o.owner,
+            info: crate::triggers::TriggerInfo {
+                object: None,
+                player: None,
+                lki: None,
+                mana: None,
+                stack_ability: None,
+                amount: None,
+            },
+            delayed: Some(Box::new(crate::triggers::DelayedTrigger {
+                trigger: kiln_cards::ir::Trigger::BeginningOf {
+                    step: kiln_cards::ir::StepName::Upkeep,
+                    whose: kiln_cards::ir::PlayerRel::You,
+                },
+                path: SmallVec::new(),
+                ctx,
+            })),
+        });
+    }
+
+    /// After suspend's free cast: a creature spell cast this way gains
+    /// haste (CR 702.62a).
+    pub(crate) fn suspend_haste(&mut self, _t: &mut EffectTask) {
+        if let Some(item) = self.stack.last()
+            && item.is_spell()
+            && item.cost == crate::decision::CastCost::WithoutPaying
+            && self
+                .chars(item.object)
+                .is_some_and(|c| c.is(kiln_types::CardType::Creature))
+        {
+            let id = item.object;
+            self.suspend_haste.push(id);
+        }
     }
 
     /// CR 701.6a: an ability is countered by removing it from the stack (the
