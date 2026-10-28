@@ -15,47 +15,47 @@ Verified cards have a rules scenario proving their behaviour; parsed cards run f
 
 | Slice | Cards | Verified | Parsed | Unsupported | Verified % | Runnable % |
 |---|---|---|---|---|---|---|
-| All legal cards | 32116 | 283 | 2777 | 29056 | 0.9% | 9.5% |
-| Game Changers | 53 | 32 | 1 | 20 | 60.4% | 62.3% |
-| EDHREC top 100 | 95 | 53 | 1 | 41 | 55.8% | 56.8% |
-| EDHREC top 500 | 495 | 147 | 56 | 292 | 29.7% | 41.0% |
-| EDHREC top 1000 | 992 | 191 | 93 | 708 | 19.3% | 28.6% |
-| EDHREC top 5000 | 4989 | 255 | 303 | 4431 | 5.1% | 11.2% |
-| Decklist corpus: distinct cards (7 lists) | 198 | 180 | 0 | 18 | 90.9% | 90.9% |
-| Decklist corpus: appearances | 688 | 638 | 0 | 50 | 92.7% | 92.7% |
+| All legal cards | 32116 | 402 | 2759 | 28955 | 1.3% | 9.8% |
+| Game Changers | 53 | 43 | 0 | 10 | 81.1% | 81.1% |
+| EDHREC top 100 | 95 | 88 | 0 | 7 | 92.6% | 92.6% |
+| EDHREC top 500 | 495 | 245 | 39 | 211 | 49.5% | 57.4% |
+| EDHREC top 1000 | 992 | 298 | 75 | 619 | 30.0% | 37.6% |
+| EDHREC top 5000 | 4989 | 374 | 285 | 4330 | 7.5% | 13.2% |
+| Decklist corpus: distinct cards (8 lists) | 199 | 198 | 0 | 1 | 99.5% | 99.5% |
+| Decklist corpus: appearances | 786 | 785 | 0 | 1 | 99.9% | 99.9% |
 
 ## By keyword
 
 | Keyword | Cards | Verified | Parsed | Unsupported | Verified % | Runnable % |
 |---|---|---|---|---|---|---|
-| Flying | 3164 | 11 | 425 | 2728 | 0.3% | 13.8% |
-| Enchant | 1241 | 4 | 0 | 1237 | 0.3% | 0.3% |
+| Flying | 3164 | 14 | 423 | 2727 | 0.4% | 13.8% |
+| Enchant | 1241 | 6 | 0 | 1235 | 0.5% | 0.5% |
 | Trample | 994 | 2 | 89 | 903 | 0.2% | 9.2% |
 | Vigilance | 727 | 0 | 91 | 636 | 0.0% | 12.5% |
 | Haste | 640 | 3 | 76 | 561 | 0.5% | 12.3% |
 | Flash | 608 | 12 | 65 | 531 | 2.0% | 12.7% |
-| Equip | 601 | 2 | 0 | 599 | 0.3% | 0.3% |
+| Equip | 601 | 3 | 0 | 598 | 0.5% | 0.5% |
 | Mill | 581 | 2 | 0 | 579 | 0.3% | 0.3% |
-| Scry | 425 | 6 | 100 | 319 | 1.4% | 24.9% |
+| Scry | 425 | 7 | 99 | 319 | 1.6% | 24.9% |
 | Reach | 424 | 0 | 69 | 355 | 0.0% | 16.3% |
 | Transform | 424 | 0 | 0 | 424 | 0.0% | 0.0% |
 | Cycling | 394 | 0 | 0 | 394 | 0.0% | 0.0% |
 | Menace | 382 | 1 | 29 | 352 | 0.3% | 7.9% |
 | First strike | 375 | 2 | 71 | 302 | 0.5% | 19.5% |
 | Lifelink | 362 | 1 | 50 | 311 | 0.3% | 14.1% |
-| Treasure | 350 | 4 | 27 | 319 | 1.1% | 8.9% |
+| Treasure | 350 | 8 | 27 | 315 | 2.3% | 10.0% |
 | Deathtouch | 329 | 1 | 51 | 277 | 0.3% | 15.8% |
 | Defender | 308 | 0 | 68 | 240 | 0.0% | 22.1% |
 | Regenerate | 271 | 0 | 0 | 271 | 0.0% | 0.0% |
 | Surveil | 252 | 1 | 0 | 251 | 0.4% | 0.4% |
 | Kicker | 226 | 1 | 0 | 225 | 0.4% | 0.4% |
-| Flashback | 215 | 0 | 0 | 215 | 0.0% | 0.0% |
+| Flashback | 215 | 1 | 0 | 214 | 0.5% | 0.5% |
 | Protection | 193 | 0 | 49 | 144 | 0.0% | 25.4% |
 | Ward | 192 | 1 | 6 | 185 | 0.5% | 3.6% |
-| Landfall | 185 | 0 | 0 | 185 | 0.0% | 0.0% |
+| Landfall | 185 | 1 | 0 | 184 | 0.5% | 0.5% |
 | Crew | 181 | 0 | 0 | 181 | 0.0% | 0.0% |
 | Morph | 153 | 0 | 0 | 153 | 0.0% | 0.0% |
-| Food | 150 | 0 | 11 | 139 | 0.0% | 7.3% |
+| Food | 150 | 2 | 11 | 137 | 1.3% | 8.7% |
 | Fight | 143 | 0 | 0 | 143 | 0.0% | 0.0% |
 | Investigate | 134 | 1 | 0 | 133 | 0.7% | 0.7% |
 
@@ -63,9 +63,9 @@ Verified cards have a rules scenario proving their behaviour; parsed cards run f
 
 | Cards | Reason |
 |---|---|
-| 44222 | no parser template |
+| 44100 | no parser template |
 | 846 | multi-face layouts |
-| 287 | renderer lint mismatch |
+| 286 | renderer lint mismatch |
 | 6 | mana abilities with timing restrictions |
 | 4 | mana cost {S} with snow or non-tournament symbols |
 | 4 | predefined token the engine doesn't define yet |
@@ -80,53 +80,53 @@ Verified cards have a rules scenario proving their behaviour; parsed cards run f
 
 | Card | Now | In lists | Game Changer | EDHREC rank | Blocker |
 |---|---|---|---|---|---|
-| Intuition | unsupported | 3 | ★ | 2030 | no parser template |
-| Survival of the Fittest | unsupported | 3 | ★ | 2370 | no parser template |
-| Eternal Witness | unsupported | 3 |  | 121 | no parser template |
-| Tireless Provisioner | unsupported | 3 |  | 189 | no parser template |
-| Bloom Tender | unsupported | 3 |  | 251 | no parser template |
-| Finale of Devastation | unsupported | 3 |  | 300 | no parser template |
-| Chord of Calling | unsupported | 3 |  | 519 | no parser template |
-| Green Sun's Zenith | unsupported | 3 |  | 540 | no parser template |
-| Muddle the Mixture | unsupported | 3 |  | 710 | no parser template |
-| Eldritch Evolution | unsupported | 3 |  | 764 | no parser template |
-| Priest of Titania | unsupported | 3 |  | 771 | no parser template |
-| Freed from the Real | unsupported | 3 |  | 1579 | no parser template |
-| Delay | unsupported | 3 |  | 2258 | no parser template |
-| Pemmin's Aura | unsupported | 3 |  | 2661 | no parser template |
-| Springleaf Drum | unsupported | 2 |  | 562 | no parser template |
-| Gilded Goose | unsupported | 2 |  | 807 | no parser template |
-| Thousand-Year Elixir | unsupported | 2 |  | 890 | no parser template |
-| Snapback | unsupported | 2 |  | 4041 | no parser template |
-| The One Ring | unsupported | 0 | ★ | 96 | no parser template |
+| The One Ring | unsupported | 1 | ★ | 96 | no parser template |
 | Jeska's Will | unsupported | 0 | ★ | 107 | no parser template |
-| Farewell | unsupported | 0 | ★ | 179 | no parser template |
-| Seedborn Muse | unsupported | 0 | ★ | 286 | no parser template |
 | Field of the Dead | unsupported | 0 | ★ | 493 | no parser template |
-| Consecrated Sphinx | parsed | 0 | ★ | 653 |  |
 | Narset, Parter of Veils | unsupported | 0 | ★ | 982 | no parser template |
-| Aura Shards | unsupported | 0 | ★ | 1062 | renderer lint mismatch |
-| Gifts Ungiven | unsupported | 0 | ★ | 1532 | no parser template |
 | Tergrid, God of Fright // Tergrid's Lantern | unsupported | 0 | ★ | 1589 | multi-face layouts |
-| Grand Arbiter Augustin IV | unsupported | 0 | ★ | 1808 | no parser template |
 | Glacial Chasm | unsupported | 0 | ★ | 2246 | no parser template |
-| Serra's Sanctum | unsupported | 0 | ★ | 3110 | no parser template |
-| Mishra's Workshop | unsupported | 0 | ★ | 3678 | no parser template |
-| Braids, Cabal Minion | unsupported | 0 | ★ | 4722 | no parser template |
 | The Tabernacle at Pendrell Vale | unsupported | 0 | ★ | 8859 | no parser template |
 | Biorhythm | unsupported | 0 | ★ | 9386 | no parser template |
 | Coalition Victory | unsupported | 0 | ★ | 9552 | no parser template |
 | Panoptic Mirror | unsupported | 0 | ★ | 9895 | no parser template |
-| Reliquary Tower | unsupported | 0 |  | 10 | no parser template |
 | Path of Ancestry | unsupported | 0 |  | 14 | no parser template |
-| Path to Exile | unsupported | 0 |  | 15 | no parser template |
-| Rogue's Passage | unsupported | 0 |  | 18 | no parser template |
-| Evolving Wilds | unsupported | 0 |  | 19 | no parser template |
-| Cultivate | unsupported | 0 |  | 20 | no parser template |
-| Thought Vessel | unsupported | 0 |  | 21 | no parser template |
-| Blasphemous Act | unsupported | 0 |  | 22 | no parser template |
-| Farseek | unsupported | 0 |  | 23 | no parser template |
-| Bojuka Bog | unsupported | 0 |  | 24 | no parser template |
-| Nature's Lore | unsupported | 0 |  | 26 | no parser template |
-| Rampant Growth | unsupported | 0 |  | 27 | no parser template |
-| Heroic Intervention | unsupported | 0 |  | 28 | no parser template |
+| Myriad Landscape | unsupported | 0 |  | 31 | no parser template |
+| Arcane Denial | unsupported | 0 |  | 52 | no parser template |
+| Chromatic Lantern | unsupported | 0 |  | 85 | no parser template |
+| Garruk's Uprising | unsupported | 0 |  | 91 | no parser template |
+| Frantic Search | unsupported | 0 |  | 98 | no parser template |
+| Cavern of Souls | unsupported | 0 |  | 110 | no parser template |
+| Propaganda | unsupported | 0 |  | 111 | no parser template |
+| Urza's Saga | unsupported | 0 |  | 117 | no parser template |
+| Black Market Connections | unsupported | 0 |  | 129 | no parser template |
+| Victimize | unsupported | 0 |  | 130 | no parser template |
+| Roaming Throne | unsupported | 0 |  | 133 | no parser template |
+| War Room | unsupported | 0 |  | 139 | no parser template |
+| Blood Artist | unsupported | 0 |  | 144 | no parser template |
+| Abrade | unsupported | 0 |  | 145 | no parser template |
+| Herald's Horn | unsupported | 0 |  | 151 | no parser template |
+| Ghostly Prison | unsupported | 0 |  | 159 | no parser template |
+| Nykthos, Shrine to Nyx | unsupported | 0 |  | 163 | no parser template |
+| Reflecting Pool | unsupported | 0 |  | 164 | no parser template |
+| Sink into Stupor // Soporific Springs | unsupported | 0 |  | 166 | multi-face layouts |
+| Flawless Maneuver | unsupported | 0 |  | 170 | no parser template |
+| Austere Command | unsupported | 0 |  | 171 | no parser template |
+| Mystic Sanctuary | unsupported | 0 |  | 175 | no parser template |
+| Three Tree City | unsupported | 0 |  | 177 | no parser template |
+| Return of the Wildspeaker | unsupported | 0 |  | 178 | no parser template |
+| Boros Charm | unsupported | 0 |  | 182 | no parser template |
+| Command Beacon | unsupported | 0 |  | 183 | no parser template |
+| Akroma's Will | unsupported | 0 |  | 185 | no parser template |
+| Hardened Scales | unsupported | 0 |  | 186 | no parser template |
+| Doubling Season | unsupported | 0 |  | 187 | no parser template |
+| Idol of Oblivion | unsupported | 0 |  | 191 | no parser template |
+| Buried Ruin | unsupported | 0 |  | 193 | no parser template |
+| Storm-Kiln Artist | unsupported | 0 |  | 196 | no parser template |
+| Mosswort Bridge | unsupported | 0 |  | 197 | no parser template |
+| Fell the Profane // Fell Mire | unsupported | 0 |  | 199 | multi-face layouts |
+| Patchwork Banner | unsupported | 0 |  | 201 | no parser template |
+| Impact Tremors | unsupported | 0 |  | 203 | renderer lint mismatch |
+| Karn's Bastion | unsupported | 0 |  | 206 | no parser template |
+| Professional Face-Breaker | unsupported | 0 |  | 207 | no parser template |
+| Ash Barrens | unsupported | 0 |  | 210 | no parser template |
