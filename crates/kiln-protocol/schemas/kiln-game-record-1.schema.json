@@ -72,6 +72,11 @@
           "const": "not_played",
           "description": "No game was played (`mode: opening_hands`).",
           "type": "string"
+        },
+        {
+          "const": "lost",
+          "description": "`mode: goldfish`: the measured deck left the game, which the passive\nopponents could never finish. A loss for it, in win-rate denominators.",
+          "type": "string"
         }
       ]
     },

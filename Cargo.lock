@@ -1034,6 +1034,7 @@ dependencies = [
  "kiln-cards",
  "kiln-data",
  "kiln-engine",
+ "kiln-policy",
  "kiln-protocol",
  "kiln-sim",
  "kiln-types",

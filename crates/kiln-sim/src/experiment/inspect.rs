@@ -26,6 +26,11 @@ pub struct DeckDiff {
     /// Two-proportion z-test.
     pub p_value: f64,
     pub intervals_overlap: bool,
+    /// When both runs played the same seeds and seat orders: b − a over the
+    /// shared games, with a 95% paired-bootstrap interval (common random
+    /// numbers, tighter than comparing the two intervals).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub paired_ci95: Option<[f64; 2]>,
 }
 
 /// Two runs' base configurations, deck by deck.
@@ -49,7 +54,8 @@ pub fn compare(a: &Path, b: &Path) -> Result<Comparison, ExperimentError> {
             .unwrap_or_default()
     };
     let (da, db) = (rates(&ra), rates(&rb));
-    let decks = da
+    let paired = paired_games(&read_records(a)?, &read_records(b)?);
+    let decks: Vec<DeckDiff> = da
         .iter()
         .filter_map(|x| {
             let y = db.iter().find(|y| y.deck == x.deck)?;
@@ -58,6 +64,14 @@ pub fn compare(a: &Path, b: &Path) -> Result<Comparison, ExperimentError> {
                 difference: stats::r4(y.win.rate - x.win.rate),
                 p_value: stats::r4(stats::two_proportion_p(x.win.k, x.win.n, y.win.k, y.win.n)),
                 intervals_overlap: x.win.ci95[0] <= y.win.ci95[1] && y.win.ci95[0] <= x.win.ci95[1],
+                paired_ci95: paired.as_ref().map(|games| {
+                    let won = |r: &GameRecord| {
+                        i32::from(r.winner.is_some_and(|w| r.seats.get(w) == Some(&x.deck)))
+                    };
+                    let diffs: Vec<i32> = games.iter().map(|(ga, gb)| won(gb) - won(ga)).collect();
+                    let (lo, hi) = stats::paired_mean_ci(&diffs, 0xC0_4A_9E);
+                    [stats::r4(lo), stats::r4(hi)]
+                }),
                 a: x.win.clone(),
                 b: y.win.clone(),
             })
@@ -67,9 +81,40 @@ pub fn compare(a: &Path, b: &Path) -> Result<Comparison, ExperimentError> {
         a: ra.run_id,
         b: rb.run_id,
         same_card_db: ra.versions.card_db == rb.versions.card_db,
+        note: if paired.is_some() {
+            "same seeds and seat orders: games are paired, so paired_ci95 is the interval to read; a difference comes from whatever changed between the specs (change one thing at a time)".into()
+        } else {
+            "independent runs: a difference can come from any change between them; for a card's effect use mode: ab (paired seeds)".into()
+        },
         decks,
-        note: "independent runs: a difference can come from any change between them; for a card's effect use mode: ab (paired seeds)".into(),
     })
+}
+
+/// The two runs' base games side by side, when every game index has the same
+/// seed and seat order in both and neither was capped. `None` otherwise.
+fn paired_games(a: &[GameRecord], b: &[GameRecord]) -> Option<Vec<(GameRecord, GameRecord)>> {
+    let base = |v: &[GameRecord]| -> BTreeMap<u64, GameRecord> {
+        v.iter()
+            .filter(|r| r.config == kiln_protocol::record::BASE_CONFIG)
+            .map(|r| (r.index, r.clone()))
+            .collect()
+    };
+    let (ma, mb) = (base(a), base(b));
+    if ma.is_empty() || ma.len() != mb.len() {
+        return None;
+    }
+    let mut out = Vec::new();
+    for (i, ra) in &ma {
+        let rb = mb.get(i)?;
+        if ra.seed != rb.seed || ra.seats != rb.seats {
+            return None;
+        }
+        let capped = |r: &GameRecord| r.outcome == kiln_protocol::Outcome::Capped;
+        if !capped(ra) && !capped(rb) {
+            out.push((ra.clone(), rb.clone()));
+        }
+    }
+    Some(out)
 }
 
 /// One game of a run, played again.

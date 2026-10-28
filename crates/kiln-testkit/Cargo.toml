@@ -19,6 +19,7 @@ thiserror.workspace = true
 yaml_serde.workspace = true
 
 [dev-dependencies]
+kiln-policy.workspace = true
 kiln-sim.workspace = true
 kiln-protocol.workspace = true
 

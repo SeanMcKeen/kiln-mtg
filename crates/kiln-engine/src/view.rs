@@ -595,6 +595,21 @@ impl<'g> PlayerView<'g> {
             .collect()
     }
 
+    /// What the viewer's own library holds, sorted (never its order). A player
+    /// knows their deck list and every card that has left the library, so the
+    /// contents are theirs to deduce; the order stays hidden (CR 401.2).
+    pub fn own_library_contents(&self) -> Vec<DefId> {
+        let mut v: Vec<DefId> = self
+            .game
+            .player(self.me)
+            .library
+            .iter()
+            .filter_map(|&id| self.game.object(id).map(|o| o.def))
+            .collect();
+        v.sort_unstable();
+        v
+    }
+
     /// Card definitions are public knowledge; this gives a definition by id
     /// (for reasoning about stack entries whose source has left play).
     pub fn definition(&self, def: DefId) -> &'g CardDef {

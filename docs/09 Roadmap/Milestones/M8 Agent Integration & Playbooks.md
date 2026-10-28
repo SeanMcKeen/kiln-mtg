@@ -1,6 +1,6 @@
 ---
 type: milestone
-status: review
+status: done
 milestone: M8
 tags: [milestone, agents]
 updated: 2026-10-27
@@ -15,7 +15,7 @@ updated: 2026-10-27
 - [x] `kiln_playbook_validate`, plus example playbooks for the four test decks
 - [x] Policy composition ([[Policy Composition]])
 - [x] Agent docs: AGENT_GUIDE, llms.txt, Claude Code skill, example specs ([[Agent-Facing Docs Plan]])
-- [~] Agent eval suite: 15 tasks written (`docs/agents/evals/`); running them with a live model waits for the user's go-ahead
+- [x] Agent eval suite: 15 tasks (`docs/agents/evals/`), run in-chat 2026-10-27 (15/15), with the fixes it prompted
 
 ## Exit criteria
 Claude completes US-1 end to end via MCP with no human help: it writes playbooks, runs the experiment, and interprets the CIs correctly.
@@ -53,4 +53,4 @@ Claude completes US-1 end to end via MCP with no human help: it writes playbooks
 | 8.2 | ✅ 2026-10-27 | `kiln playbook check` (compile errors exit 2; a goldfish dry run with rule counts, playbook share, wins and runtime errors). Reports show each deck's recipe, counters and errors (with a warning). Example playbooks for the four test decks plus a generic one. Found: closures capturing `view` fail as a data race (documented). Evidence over 400 games with the greedy pod's seed: with every deck on its playbook, Najeela +7.5 pp and Rograkh/Silas +6.5 pp; with only Kinnan's playbook, Kinnan −5.2 pp (p = 0.11), so that example doesn't beat greedy yet. |
 | 8.3 | ✅ 2026-10-27 | `kiln-mcp` on `rmcp` 3.8 with the nine core tools; `kiln mcp serve` (stdio). Async runs with status, ETA and cancel; concise/detailed/markdown reports with section filters and per-card pages; actionable errors with `isError`. Comparison and inspection moved into `kiln-sim` so CLI and MCP share them. `tools/mcp-smoke/smoke.py` exercised every tool over stdio; an in-crate test calls them directly. |
 | 8.4 | ✅ 2026-10-27 | `docs/agents/AGENT_GUIDE.md`, `llms.txt`, the `kiln-sim` Claude Code skill (`.claude/skills/kiln-sim/`), `examples/mcp.json`, and the 15-task eval suite (`docs/agents/evals/`). |
-| 8.5 | ⏳ | Running the eval suite with a live model (the exit criterion) waits for the user's go-ahead: it spends API usage. |
+| 8.5 | ✅ 2026-10-27 | The eval suite ran in-chat (the session acted as the agent over `kiln mcp serve`, no API spend): 15/15, including the exit criterion (us1-playbooks: wrote a Kinnan playbook, changed only Kinnan's pilot, and read 28.5% → 28.2%, p = 0.81, as no detectable change). Fixes it prompted: greedy names a card still in its library for Demonic Consultation (pod results moved: Kinnan 28.5% → 23.0% on the same seeds), goldfish games end when the measured deck is out (`lost`), MCP hints as tool calls, intervals in notable lines, paired `kiln_sim_compare`. Results and open items: `docs/agents/evals/README.md`. The evaluator built the system, so a blind run with a fresh agent is still worth doing. |

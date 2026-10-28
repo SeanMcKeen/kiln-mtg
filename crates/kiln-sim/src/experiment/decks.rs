@@ -126,7 +126,10 @@ fn check(
         return Err(ExperimentError::Coverage {
             id: id.to_owned(),
             cards: unsupported,
-            gate: "unsupported cards can't be played".into(),
+            gate: "unsupported cards can't be played (no setting allows them: replace them \
+                   with supported cards, checking candidates' engine_support with \
+                   kiln_card_lookup or `kiln data coverage`)"
+                .into(),
         });
     }
     let unverified = below(CoverageLevel::Parsed);
