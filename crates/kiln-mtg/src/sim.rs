@@ -93,60 +93,17 @@ pub fn sim(cmd: SimCmd) -> Result<ExitCode> {
     }
 }
 
-/// One deck's win rate in two runs.
-#[derive(Debug, serde::Serialize)]
-struct DeckDiff {
-    deck: String,
-    a: kiln_protocol::report::Rate,
-    b: kiln_protocol::report::Rate,
-    /// b − a.
-    difference: f64,
-    /// Two-proportion z-test.
-    p_value: f64,
-    intervals_overlap: bool,
-}
-
 fn compare(a: &Path, b: &Path, json: bool) -> Result<ExitCode> {
-    let (ra, rb) = match (experiment::write_report(a), experiment::write_report(b)) {
-        (Ok(x), Ok(y)) => (x, y),
-        (Err(e), _) | (_, Err(e)) => return Ok(fail(&e)),
+    let c = match experiment::inspect::compare(a, b) {
+        Ok(c) => c,
+        Err(e) => return Ok(fail(&e)),
     };
-    let rates = |r: &kiln_protocol::Report| {
-        r.configs
-            .first()
-            .and_then(|c| c.win_rates.clone())
-            .map(|w| w.decks)
-            .unwrap_or_default()
-    };
-    let (da, db) = (rates(&ra), rates(&rb));
-    let diffs: Vec<DeckDiff> = da
-        .iter()
-        .filter_map(|x| {
-            let y = db.iter().find(|y| y.deck == x.deck)?;
-            Some(DeckDiff {
-                deck: x.deck.clone(),
-                difference: report::r4_pub(y.win.rate - x.win.rate),
-                p_value: report::r4_pub(experiment::stats::two_proportion_p(
-                    x.win.k, x.win.n, y.win.k, y.win.n,
-                )),
-                intervals_overlap: x.win.ci95[0] <= y.win.ci95[1] && y.win.ci95[0] <= x.win.ci95[1],
-                a: x.win.clone(),
-                b: y.win.clone(),
-            })
-        })
-        .collect();
-    let paired = ra.versions.spec_hash != rb.versions.spec_hash;
     if json {
-        print_json(&serde_json::json!({
-            "a": ra.run_id, "b": rb.run_id,
-            "same_card_db": ra.versions.card_db == rb.versions.card_db,
-            "decks": diffs,
-            "note": "independent runs: for a causal card comparison use mode: ab (paired seeds)",
-        }))?;
+        print_json(&c)?;
     } else {
-        println!("{} → {}", ra.run_id, rb.run_id);
+        println!("{} → {}", c.a, c.b);
         println!("| Deck | A | B | B − A | p | intervals overlap |\n|---|---|---|---|---|---|");
-        for d in &diffs {
+        for d in &c.decks {
             println!(
                 "| {} | {:.1}% | {:.1}% | {:+.1} pp | {:.3} | {} |",
                 d.deck,
@@ -157,12 +114,10 @@ fn compare(a: &Path, b: &Path, json: bool) -> Result<ExitCode> {
                 if d.intervals_overlap { "yes" } else { "no" }
             );
         }
-        if !paired {
-            println!("(same spec in both: differences are run-to-run noise only if seeds differ)");
-        }
-        if ra.versions.card_db != rb.versions.card_db {
+        if !c.same_card_db {
             println!("warning: the runs used different card DBs");
         }
+        println!("{}", c.note);
     }
     Ok(ExitCode::SUCCESS)
 }

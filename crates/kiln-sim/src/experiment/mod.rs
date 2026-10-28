@@ -5,6 +5,7 @@
 pub mod check;
 pub mod decks;
 pub mod facts;
+pub mod inspect;
 pub mod play;
 pub mod report;
 pub mod stats;
