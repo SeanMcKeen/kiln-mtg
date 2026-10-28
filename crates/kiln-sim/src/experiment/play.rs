@@ -424,6 +424,7 @@ impl Experiment {
                 *k.entry(kind_name(&d.kind)).or_default() += 1;
             }
             let count = d.option_count();
+            let mut asked = None;
             let option = if count == 1 {
                 0
             } else {
@@ -434,10 +435,18 @@ impl Experiment {
                 let t = Instant::now();
                 let choice = policies[seat].decide(&game.view(decider), &d);
                 policy_us[seat] += u64::try_from(t.elapsed().as_micros()).unwrap_or(u64::MAX);
+                asked = Some(seat);
                 choice.min(u32::try_from(count - 1).unwrap_or(0))
             };
             let applied = match &mut recorder {
-                Some(r) => r.apply(&mut game, option),
+                Some(r) => {
+                    let applied = r.apply(&mut game, option);
+                    // Annotated replays (M10 plan L5): why the policy chose it.
+                    if let Some(why) = asked.and_then(|s| policies[s].rationale()) {
+                        r.annotate(why);
+                    }
+                    applied
+                }
                 None => game.apply_option(option),
             };
             if applied.is_err() {

@@ -322,6 +322,69 @@ impl Game {
             .collect()
     }
 
+    /// What stops `p` casting `card`, mirroring [`Game::cast_allowed`]: the
+    /// permanent whose static forbids it (if one does) and what it says.
+    pub(crate) fn cast_blocker(
+        &self,
+        p: PlayerId,
+        card: ObjectId,
+    ) -> Option<(Option<ObjectId>, &'static str)> {
+        if self.has_player_rule(p, ir::PlayerRuleKind::CantCastSpells) {
+            return Some((
+                None,
+                "an effect says this player can't cast spells this turn",
+            ));
+        }
+        let zone = self.obj(card).map(|o| o.zone);
+        self.active_rule_statics()
+            .iter()
+            .find_map(|(source, controller, e)| {
+                let blocked = match e {
+                    StaticEffect::CantCast { who, spells } => {
+                        self.player_rel(*who, *controller, p)
+                            && self.matches_filter(card, spells, *controller, Some(*source))
+                    }
+                    StaticEffect::Rule(ir::RuleMod::OneSpellEachTurn) => {
+                        self.cast_this_turn.iter().any(|r| r.player == p)
+                    }
+                    StaticEffect::Rule(ir::RuleMod::OpponentsCastOnlyFromHand) => {
+                        p != *controller && zone != Some(crate::state::ZoneId::Hand(p))
+                    }
+                    StaticEffect::Rule(ir::RuleMod::GraveyardLibraryLock) => matches!(
+                        zone,
+                        Some(crate::state::ZoneId::Graveyard(_) | crate::state::ZoneId::Library(_))
+                    ),
+                    _ => false,
+                };
+                let what = match e {
+                    StaticEffect::Rule(ir::RuleMod::OneSpellEachTurn) => {
+                        "each player can cast only one spell each turn, and this player already has"
+                    }
+                    StaticEffect::Rule(ir::RuleMod::OpponentsCastOnlyFromHand) => {
+                        "its controller's opponents can cast spells only from their hands"
+                    }
+                    StaticEffect::Rule(ir::RuleMod::GraveyardLibraryLock) => {
+                        "players can't cast spells from graveyards or libraries"
+                    }
+                    _ => "it says this player can't cast this spell now",
+                };
+                blocked.then_some((Some(*source), what))
+            })
+    }
+
+    /// The permanent whose static stops `p` activating abilities of `object`
+    /// (Null Rod, Cursed Totem), mirroring [`Game::activation_allowed`].
+    pub(crate) fn activation_blocker(&self, p: PlayerId, object: ObjectId) -> Option<ObjectId> {
+        self.active_rule_statics()
+            .iter()
+            .find(|(source, controller, e)| {
+                matches!(e, StaticEffect::CantActivate { who, sources }
+                if self.player_rel(*who, *controller, p)
+                    && self.matches_filter(object, sources, *controller, Some(*source)))
+            })
+            .map(|(source, _, _)| *source)
+    }
+
     /// "[who] can't cast [spells]" (Grand Abolisher): whether `p` may cast `card`.
     pub(crate) fn cast_allowed(&self, p: PlayerId, card: ObjectId) -> bool {
         // "[player] can't cast spells this turn" (Silence, Orim's Chant).

@@ -16,10 +16,9 @@
 use std::sync::Arc;
 use std::time::Instant;
 
-use kiln_engine::decision::{CardPurpose, OptionalKind};
 use kiln_engine::rng::splitmix64;
 use kiln_engine::{Action, DecisionKind, Game, GameResult, PendingDecision, PlayerView, ZoneId};
-use kiln_policy::{GreedyPolicy, Policy};
+use kiln_policy::{GreedyPolicy, Policy, is_key_decision};
 use kiln_types::{CardType, ObjectId, PlayerId};
 
 /// The value of a win, in thousandths.
@@ -175,13 +174,14 @@ impl Policy for SearchPolicy {
 
     fn decide(&mut self, view: &PlayerView<'_>, d: &PendingDecision) -> u32 {
         self.decisions += 1;
+        self.last.clear();
         let turn = view.turn().number;
         if turn != self.turn {
             self.turn = turn;
             self.activated.clear();
             self.searched_this_turn = 0;
         }
-        if !worth_searching(view, d) || self.searched_this_turn >= SEARCHES_PER_TURN {
+        if !is_key_decision(d) || self.searched_this_turn >= SEARCHES_PER_TURN {
             return self.guide.decide(view, d);
         }
         let seed = splitmix64(self.seed ^ self.decisions.wrapping_mul(0x9E37_79B9));
@@ -204,6 +204,7 @@ impl Policy for SearchPolicy {
             })
             .collect();
         let Some((choice, iterations)) = result else {
+            self.last.clear();
             return self.guide.decide(view, d);
         };
         self.searched += 1;
@@ -229,47 +230,30 @@ impl Policy for SearchPolicy {
     fn take_errors(&mut self) -> Vec<String> {
         self.guide.take_errors()
     }
-}
 
-/// Decisions worth a search (M9 plan S6); the rest go to the guide.
-fn worth_searching(view: &PlayerView<'_>, d: &PendingDecision) -> bool {
-    match &d.kind {
-        DecisionKind::Priority { actions } => {
-            actions
-                .iter()
-                .filter(|a| !matches!(a, Action::ActivateMana { .. }))
-                .count()
-                >= 2
+    /// The options the last search weighed, best first: "search: Cast
+    /// Lightning Bolt 0.62 (12 playouts); Pass 0.48 (6)". None when the
+    /// guide answered.
+    fn rationale(&self) -> Option<String> {
+        if self.last.is_empty() {
+            return self.guide.rationale();
         }
-        DecisionKind::ChooseTarget { .. }
-        | DecisionKind::DeclareAttacker { .. }
-        | DecisionKind::DeclareBlocker { .. }
-        | DecisionKind::Mulligan { .. }
-        | DecisionKind::Discard { .. }
-        | DecisionKind::ChooseMode { .. }
-        | DecisionKind::ChooseName { .. }
-        | DecisionKind::ChoosePlayer { .. } => d.option_count() >= 2,
-        DecisionKind::ChooseCard { purpose, .. } => {
-            matches!(
-                purpose,
-                CardPurpose::Search
-                    | CardPurpose::Take
-                    | CardPurpose::Discard
-                    | CardPurpose::Sacrifice
-                    | CardPurpose::Exile
-            ) && d.option_count() >= 2
-        }
-        DecisionKind::Optional { kind, .. } => matches!(
-            kind,
-            OptionalKind::May
-                | OptionalKind::IfDoes
-                | OptionalKind::PayUnless
-                | OptionalKind::Kicker
-        ),
-        _ => {
-            let _ = view;
-            false
-        }
+        let mut opts: Vec<&RootOption> = self.last.iter().filter(|o| o.visits > 0).collect();
+        opts.sort_by_key(|o| (std::cmp::Reverse(o.value), std::cmp::Reverse(o.visits)));
+        let parts: Vec<String> = opts
+            .iter()
+            .take(4)
+            .map(|o| {
+                format!(
+                    "{} {}.{:03} ({})",
+                    o.option,
+                    o.value / 1000,
+                    o.value % 1000,
+                    o.visits
+                )
+            })
+            .collect();
+        Some(format!("search: {}", parts.join("; ")))
     }
 }
 
@@ -462,7 +446,7 @@ impl Search<'_> {
                     activated.clear();
                 }
                 match node {
-                    Some(at) if decider == me && worth_searching(&view, &d) => {
+                    Some(at) if decider == me && is_key_decision(&d) => {
                         let pick = self.pilot.decide(&view, &d);
                         let options = candidates(&view, &d, pick, &activated);
                         let all = !matches!(d.kind, DecisionKind::Priority { .. });

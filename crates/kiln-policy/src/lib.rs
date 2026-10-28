@@ -41,6 +41,12 @@ pub trait Policy: Send {
     fn take_errors(&mut self) -> Vec<String> {
         Vec::new()
     }
+
+    /// Why the last decision was made, when the policy can say (an LLM's
+    /// reason, the options search weighed). Annotates replays (M10 plan L5).
+    fn rationale(&self) -> Option<String> {
+        None
+    }
 }
 
 /// Asks each policy in turn; the first that answers decides
@@ -49,6 +55,8 @@ pub trait Policy: Send {
 pub struct Compose {
     pub chain: Vec<Box<dyn Policy>>,
     answered: Vec<u64>,
+    /// Which policy answered the last decision.
+    last: Option<usize>,
 }
 
 impl std::fmt::Debug for Compose {
@@ -65,6 +73,7 @@ impl Compose {
         Self {
             chain,
             answered: vec![0; n],
+            last: None,
         }
     }
 }
@@ -89,10 +98,15 @@ impl Policy for Compose {
         for (i, p) in self.chain.iter_mut().enumerate() {
             if let Some(c) = p.try_decide(view, decision) {
                 self.answered[i] += 1;
+                self.last = Some(i);
                 return Some(c);
             }
         }
         None
+    }
+
+    fn rationale(&self) -> Option<String> {
+        self.last.and_then(|i| self.chain[i].rationale())
     }
 
     fn decide(&mut self, view: &PlayerView<'_>, decision: &PendingDecision) -> u32 {
@@ -101,6 +115,7 @@ impl Policy for Compose {
         }
         let last = self.chain.len().saturating_sub(1);
         self.answered[last] += 1;
+        self.last = Some(last);
         self.chain[last].decide(view, decision)
     }
 
@@ -217,6 +232,52 @@ impl Policy for ScriptedPolicy {
                 0
             }
         }
+    }
+}
+
+/// Whether a decision is worth a real choice (M10 plan L2): mulligans,
+/// priority with at least two actions besides mana abilities, targets,
+/// attacks, blocks, discards, modes, names, players, card choices that
+/// search, take, discard, sacrifice or exile, and "may" choices. Search (M9)
+/// searches these, live play and the LLM adapter ask about them, and other
+/// decisions (payments, ordering, bottoming) go to a fallback.
+pub fn is_key_decision(d: &PendingDecision) -> bool {
+    use kiln_engine::Action;
+    use kiln_engine::decision::{CardPurpose, OptionalKind};
+    match &d.kind {
+        DecisionKind::Priority { actions } => {
+            actions
+                .iter()
+                .filter(|a| !matches!(a, Action::ActivateMana { .. }))
+                .count()
+                >= 2
+        }
+        DecisionKind::ChooseTarget { .. }
+        | DecisionKind::DeclareAttacker { .. }
+        | DecisionKind::DeclareBlocker { .. }
+        | DecisionKind::Mulligan { .. }
+        | DecisionKind::Discard { .. }
+        | DecisionKind::ChooseMode { .. }
+        | DecisionKind::ChooseName { .. }
+        | DecisionKind::ChoosePlayer { .. } => d.option_count() >= 2,
+        DecisionKind::ChooseCard { purpose, .. } => {
+            matches!(
+                purpose,
+                CardPurpose::Search
+                    | CardPurpose::Take
+                    | CardPurpose::Discard
+                    | CardPurpose::Sacrifice
+                    | CardPurpose::Exile
+            ) && d.option_count() >= 2
+        }
+        DecisionKind::Optional { kind, .. } => matches!(
+            kind,
+            OptionalKind::May
+                | OptionalKind::IfDoes
+                | OptionalKind::PayUnless
+                | OptionalKind::Kicker
+        ),
+        _ => false,
     }
 }
 

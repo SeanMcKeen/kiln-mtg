@@ -37,6 +37,7 @@ pub use builder::{CommanderAt, GameBuilder, PermanentOpts};
 pub use card::{
     CardDef, CardPool, Characteristics, DefId, Keywords, ManaAbility, ManaType, Unsupported,
 };
+pub use cast::Explanation;
 pub use commander::{COMMANDER_DAMAGE_LIMIT, Commander};
 pub use decision::{
     Action, Choice, ChoiceError, DamageRecipient, DecisionId, DecisionKind, ManaStep, PaymentPlan,
