@@ -360,6 +360,7 @@ impl Experiment {
         let (mut setup, seats) = self.setup(config, index);
         setup.rules.log_events |= log_events;
         let opening = spec.mode == Mode::OpeningHands;
+        let goldfish = spec.mode == Mode::Goldfish;
         let mut recorder = replay.then(Recorder::new);
         let mut hands: Option<Vec<Vec<DefId>>> = None;
         let n = seats.len();
@@ -464,6 +465,18 @@ impl Experiment {
             }
             record.decisions += 1;
             note_eliminations(&game, &mut record);
+            // Goldfish: once the measured deck is out, only passive players remain.
+            if goldfish
+                && record
+                    .seats
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, d)| *d != OPPONENT)
+                    .all(|(seat, _)| record.eliminations.iter().any(|e| e.seat == seat))
+            {
+                record.outcome = Outcome::Lost;
+                break;
+            }
         }
         record.turns = game.turn().number;
         for (seat, m) in record.mulligans.iter_mut().enumerate() {

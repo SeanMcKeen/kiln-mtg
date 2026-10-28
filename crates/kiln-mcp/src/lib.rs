@@ -95,6 +95,37 @@ fn slug(s: &str) -> String {
     out.trim_matches('-').chars().take(48).collect()
 }
 
+/// A report's next-step hint (written for the CLI) as the matching tool call.
+fn mcp_hint(hint: &str, run_id: &str) -> String {
+    if hint.starts_with("kiln sim report ") {
+        return format!("kiln_sim_report run_id={run_id} format=detailed");
+    }
+    if let Some(rest) = hint.strip_prefix("kiln game inspect ") {
+        let mut words = rest.split_whitespace();
+        if let (Some(_dir), Some(index)) = (words.next(), words.next()) {
+            let note = rest.split_once('#').map_or("", |(_, n)| n.trim());
+            return format!("kiln_game_inspect run_id={run_id} game_index={index}  ({note})");
+        }
+    }
+    hint.to_owned()
+}
+
+/// What to do after a status check.
+fn status_next(status: &str, run_id: &str, eta: Option<f64>) -> String {
+    match status {
+        "complete" => format!("kiln_sim_report run_id={run_id}"),
+        "cancelled" => {
+            "resume: call kiln_sim_run with the same spec; finished games are kept".to_owned()
+        }
+        "starting" | "running" | "cancelling" => {
+            // About a quarter of the remaining time, between 2 and 30 seconds.
+            let wait = eta.map_or(5.0, |e| (e / 4.0).clamp(2.0, 30.0));
+            format!("poll kiln_sim_status run_id={run_id} again in about {wait:.0} s")
+        }
+        _ => "fix the problem, then call kiln_sim_run again".to_owned(),
+    }
+}
+
 /// Runs blocking work off the async runtime.
 async fn blocking<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> Result<T, String> {
     tokio::task::spawn_blocking(f)
@@ -151,7 +182,8 @@ pub struct SimReportParams {
     /// interaction, mana, timing, decision_stats, policies). Default: all but per_card.
     #[serde(default)]
     pub sections: Vec<String>,
-    /// For per_card: which page of each deck's cards (0-based) and how many per page (default 25).
+    /// For per_card: which page of each deck's cards (1-based, default 1) and how many per page
+    /// (default 25). Cards are sorted by how often they were seen.
     #[serde(default)]
     pub page: Option<usize>,
     #[serde(default)]
@@ -438,7 +470,7 @@ impl KilnServer {
                     "status": "starting",
                     "games_done": 0,
                     "games_total": job_total,
-                    "next": "poll again",
+                    "next": status_next("starting", &p.run_id, None),
                 })));
             }
             Err(_) => {
@@ -449,6 +481,7 @@ impl KilnServer {
             }
         };
         let status = match &job_state {
+            Some(None) if p.cancel => "cancelling".to_owned(),
             Some(None) => "running".to_owned(),
             Some(Some(Err(e))) => format!("failed: {e}"),
             _ => format!("{:?}", m.status).to_lowercase(),
@@ -463,7 +496,7 @@ impl KilnServer {
             "elapsed_seconds": (elapsed * 10.0).round() / 10.0,
             "eta_seconds": eta.map(f64::round),
             "warnings": m.warnings,
-            "next": if status == "complete" { format!("kiln_sim_report run_id={}", p.run_id) } else { "poll again".into() },
+            "next": status_next(&status, &p.run_id, eta),
         })))
     }
 
@@ -479,9 +512,11 @@ impl KilnServer {
             .await?
             .map_err(|e| e.to_string())?;
         match p.format.as_deref().unwrap_or("concise") {
-            "concise" => Ok(to_text(
-                &serde_json::to_value(report::concise(&r)).unwrap_or_default(),
-            )),
+            "concise" => {
+                let mut c = report::concise(&r);
+                c.next = c.next.iter().map(|n| mcp_hint(n, &p.run_id)).collect();
+                Ok(to_text(&serde_json::to_value(c).unwrap_or_default()))
+            }
             "markdown" => Ok(report::markdown(&r)),
             "detailed" => {
                 let mut v = serde_json::to_value(&r).unwrap_or_default();
@@ -501,7 +536,7 @@ impl KilnServer {
                 } else {
                     p.sections.clone()
                 };
-                let (page, size) = (p.page.unwrap_or(0), p.page_size.unwrap_or(25).max(1));
+                let (page, size) = (p.page.unwrap_or(1).max(1), p.page_size.unwrap_or(25).max(1));
                 if let Some(configs) = v.get_mut("configs").and_then(Value::as_array_mut) {
                     for c in configs {
                         if let Some(obj) = c.as_object_mut() {
@@ -521,7 +556,7 @@ impl KilnServer {
                                         let pages = cards.len().div_ceil(size);
                                         let slice: Vec<Value> = cards
                                             .iter()
-                                            .skip(page * size)
+                                            .skip((page - 1) * size)
                                             .take(size)
                                             .cloned()
                                             .collect();
@@ -594,7 +629,17 @@ impl KilnServer {
             match kiln_testkit::scenario::run(&s, &state.scenario_pool) {
                 Ok(game) => Ok(to_text(&json!({
                     "expectations_held": true,
-                    "result": game.result(),
+                    // The scenario format's words: `win P2`, `draw`, `in_progress`.
+                    "result": match game.result() {
+                        Some(kiln_engine::GameResult::Win { player, turn }) => {
+                            format!("win P{} on turn {turn}", player.0 + 1)
+                        }
+                        Some(kiln_engine::GameResult::Draw { turn }) => format!("draw on turn {turn}"),
+                        Some(kiln_engine::GameResult::Aborted { reason, turn }) => {
+                            format!("aborted on turn {turn}: {reason:?}")
+                        }
+                        None => "in_progress".into(),
+                    },
                     "events": inspect::describe_events(&game, &state.scenario_pool),
                 }))),
                 Err(e) => Ok(to_text(

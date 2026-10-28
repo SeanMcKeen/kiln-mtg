@@ -474,35 +474,51 @@ fn result_warnings(spec: &Spec, manifest: &RunManifest, configs: &[ConfigReport]
     w
 }
 
-fn notable(configs: &[ConfigReport]) -> Vec<String> {
+fn notable(configs: &[ConfigReport], mode: Mode) -> Vec<String> {
     let mut out = Vec::new();
     let Some(base) = configs.first() else {
         return out;
     };
+    let overlap = |a: &Rate, b: &Rate| a.ci95[0] <= b.ci95[1] && b.ci95[0] <= a.ci95[1];
     if let Some(wr) = &base.win_rates {
+        // Goldfish seats hold one deck and passive players: no seat effect to show.
         if let (Some(first), Some(last)) = (wr.by_seat.first(), wr.by_seat.last())
             && wr.by_seat.len() > 1
+            && mode != Mode::Goldfish
         {
             out.push(format!(
-                "Seat 1 wins {:.1}% vs seat {} {:.1}% ({:+.1} pp)",
+                "Seat 1 wins {:.1}% [{:.1}, {:.1}] vs seat {} {:.1}% [{:.1}, {:.1}]{}",
                 first.rate * 100.0,
+                first.ci95[0] * 100.0,
+                first.ci95[1] * 100.0,
                 wr.by_seat.len(),
                 last.rate * 100.0,
-                (first.rate - last.rate) * 100.0
+                last.ci95[0] * 100.0,
+                last.ci95[1] * 100.0,
+                if overlap(first, last) {
+                    ": the intervals overlap, no clear seat effect"
+                } else {
+                    ""
+                }
             ));
         }
-        if let Some(best) = wr
-            .decks
-            .iter()
-            .max_by(|a, b| a.win.rate.total_cmp(&b.win.rate))
-            && wr.decks.len() > 1
-        {
+        let mut ranked: Vec<_> = wr.decks.iter().collect();
+        ranked.sort_by(|a, b| b.win.rate.total_cmp(&a.win.rate));
+        if let [best, second, ..] = ranked.as_slice() {
             out.push(format!(
-                "Highest win rate: {} {:.1}% [{:.1}, {:.1}]",
+                "Highest win rate: {} {:.1}% [{:.1}, {:.1}]{}",
                 best.deck,
                 best.win.rate * 100.0,
                 best.win.ci95[0] * 100.0,
-                best.win.ci95[1] * 100.0
+                best.win.ci95[1] * 100.0,
+                if overlap(&best.win, &second.win) {
+                    format!(
+                        ", not clearly ahead of {} (the intervals overlap)",
+                        second.deck
+                    )
+                } else {
+                    String::new()
+                }
             ));
         }
     }
@@ -514,8 +530,18 @@ fn notable(configs: &[ConfigReport]) -> Vec<String> {
             .min_by_key(|(_, w)| w.median)
     {
         out.push(format!(
-            "Fastest median win: {} on turn {} (p10 {}, p90 {})",
-            fast.0.deck, fast.1.median, fast.1.p10, fast.1.p90
+            "{}: {} on its own turn {} [{}, {}] (p10 {}, p90 {})",
+            if gs.decks.len() > 1 {
+                "Fastest median win"
+            } else {
+                "Median win"
+            },
+            fast.0.deck,
+            fast.1.median,
+            fast.1.median_ci95[0],
+            fast.1.median_ci95[1],
+            fast.1.p10,
+            fast.1.p90
         ));
     }
     out
@@ -567,14 +593,17 @@ pub fn build(spec: &Spec, manifest: &RunManifest, records: &[GameRecord]) -> Rep
     Report {
         report: REPORT_VERSION.into(),
         run_id: manifest.run.clone(),
-        mode: format!("{:?}", spec.mode).to_lowercase(),
+        mode: serde_json::to_value(spec.mode)
+            .ok()
+            .and_then(|v| v.as_str().map(str::to_owned))
+            .unwrap_or_default(),
         versions: Versions {
             engine: manifest.engine.clone(),
             card_db: manifest.card_db.clone(),
             cr: CR_VERSION.into(),
             spec_hash: manifest.spec_hash.clone(),
         },
-        notable: notable(&configs),
+        notable: notable(&configs, spec.mode),
         next: next_hints(spec, &dir, records),
         warnings,
         configs,

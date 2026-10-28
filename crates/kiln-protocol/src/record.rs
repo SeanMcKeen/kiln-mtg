@@ -114,6 +114,9 @@ pub enum Outcome {
     Capped,
     /// No game was played (`mode: opening_hands`).
     NotPlayed,
+    /// `mode: goldfish`: the measured deck left the game, which the passive
+    /// opponents could never finish. A loss for it, in win-rate denominators.
+    Lost,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

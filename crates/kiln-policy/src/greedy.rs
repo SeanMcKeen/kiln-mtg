@@ -8,7 +8,7 @@
 
 use kiln_engine::decision::{CardPurpose, OptionalKind};
 use kiln_engine::ir::{self, Effect, TargetKind};
-use kiln_engine::{Action, CardDef, DecisionKind, PendingDecision, PlayerView, Target};
+use kiln_engine::{Action, CardDef, DecisionKind, DefId, PendingDecision, PlayerView, Target};
 use kiln_types::{CardType, ObjectId, PlayerId};
 
 use crate::Policy;
@@ -336,10 +336,57 @@ impl GreedyPolicy {
         }
     }
 
+    /// Name a card (CR 201.4). Demonic Consultation exiles until it finds the
+    /// name, so name a card still in the library (a spell before a land);
+    /// with a win off an empty library ready (an Oracle on the stack, a Lab
+    /// Maniac in play) name one that isn't there, to exile it all.
+    fn choose_name(view: &PlayerView<'_>, names: &[Option<DefId>]) -> usize {
+        let me = view.me();
+        let on_stack = view.stack().iter().any(|s| {
+            s.controller == me
+                && view
+                    .definition(s.def)
+                    .abilities
+                    .iter()
+                    .any(|a| matches!(a, ir::Ability::Triggered(_)) && wins_on_empty_library(a))
+        });
+        let in_play = view.battlefield().iter().any(|&id| {
+            view.object(id).is_some_and(|o| o.controller == me)
+                && view.card(id).is_some_and(|d| {
+                    d.abilities.iter().any(|a| {
+                        matches!(a, ir::Ability::Replacement(_) | ir::Ability::Static(_))
+                            && wins_on_empty_library(a)
+                    })
+                })
+        });
+        if on_stack || in_play {
+            return names.iter().position(Option::is_none).unwrap_or(0);
+        }
+        let library = view.own_library_contents();
+        argmax(names.iter().map(|n| match n {
+            Some(d) if library.binary_search(d).is_ok() => {
+                if view.definition(*d).is(CardType::Land) {
+                    1
+                } else {
+                    2
+                }
+            }
+            _ => 0,
+        }))
+    }
+
     fn mulligan(view: &PlayerView<'_>, taken: u32) -> usize {
         let lands = Self::lands_in_hand(view);
         usize::from(taken < 2 && !(2..=5).contains(&lands))
     }
+}
+
+/// Whether an ability wins off an empty library (Thassa's Oracle, Laboratory
+/// Maniac, Jace, Wielder of Mysteries): a win effect checked against the
+/// library's size.
+fn wins_on_empty_library(a: &ir::Ability) -> bool {
+    let s = format!("{a:?}");
+    s.contains("WinGame") && s.contains("CardsInLibrary")
 }
 
 /// Index of the highest score; ties go to the lowest index.
@@ -391,6 +438,7 @@ impl Policy for GreedyPolicy {
             DecisionKind::ChooseCard { purpose, cards, .. } => {
                 Self::choose_card(view, *purpose, cards)
             }
+            DecisionKind::ChooseName { names, .. } => Self::choose_name(view, names),
             // "You may", "if you do", and paying to stop an "unless" effect.
             DecisionKind::Optional { kind, .. } => match kind {
                 OptionalKind::May
@@ -415,7 +463,6 @@ impl Policy for GreedyPolicy {
             | DecisionKind::AssignDamage { .. }
             | DecisionKind::LegendRule { .. }
             | DecisionKind::ChooseMana { .. }
-            | DecisionKind::ChooseName { .. }
             | DecisionKind::ChooseColor { .. }
             | DecisionKind::ChoosePlayer { .. }
             | DecisionKind::ChooseAttacked { .. }

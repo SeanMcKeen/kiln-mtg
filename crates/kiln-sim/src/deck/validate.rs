@@ -640,10 +640,13 @@ fn report(
             CoverageLevel::Unsupported => coverage.unsupported += r.qty,
         }
         if let kiln_cards::Coverage::Unsupported { reasons } = &cov {
-            for reason in reasons {
+            // Count each card once per reason, however many of its abilities hit it.
+            let distinct: std::collections::BTreeSet<&String> =
+                reasons.iter().map(|x| &x.reason).collect();
+            for reason in distinct {
                 *coverage
                     .unsupported_reasons
-                    .entry(reason.reason.clone())
+                    .entry(reason.clone())
                     .or_default() += r.qty;
             }
         }
