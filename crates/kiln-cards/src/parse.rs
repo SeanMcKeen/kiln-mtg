@@ -75,6 +75,7 @@ fn parse_face_with(text: &str, name: &str, is_spell: bool, lint: bool) -> Parsed
                     alternative_costs: Vec::new(),
                     additional_costs: Vec::new(),
                     per_extra_target: Vec::new(),
+                    cost_reduction: None,
                 });
                 let offset = u8::try_from(s.targets.len()).unwrap_or(0);
                 s.targets.extend(targets);
@@ -869,6 +870,7 @@ fn search(c: &mut Cur) -> Option<Effect> {
         max_mana_value: None,
         graveyard: false,
         rest_to: None,
+        remember: None,
     })
 }
 

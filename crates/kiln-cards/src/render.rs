@@ -320,6 +320,7 @@ fn effect(e: &Effect, t: &[TargetSpec]) -> String {
                 Recipient::Target(i) => target_phrase(t, *i),
                 Recipient::Player(p) => player(p, t),
                 Recipient::Object(_) => "<object>".into(),
+                Recipient::Each(f) => format!("each {}", filter_phrase(f, false)),
             };
             format!("~ deals {} damage to {to}", qty(amount))
         }

@@ -1,0 +1,12 @@
+card: Fabled Passage
+faces:
+  - abilities:
+      - activated:
+          cost: [tap, { sacrifice: { one: this } }]
+          effect:
+            seq:
+              - search: { who: you, filter: { types: [land], supertypes: [basic] }, count: 1, to: battlefield_tapped, reveal: false, remember: found }
+              - shuffle: you
+              - if:
+                  condition: { at_least: [{ count: { types: [land], controller: you } }, 4] }
+                  then: { untap: { one: { remembered: found } } }

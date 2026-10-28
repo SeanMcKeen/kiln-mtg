@@ -466,6 +466,25 @@ impl Game {
                 .any(|(_, _, e)| matches!(e, StaticEffect::Rule(ir::RuleMod::NoLegendRule)))
     }
 
+    /// CR 601.2f: generic mana taken off the cost of spell `card` by cost
+    /// reductions (Grand Arbiter Augustin IV).
+    pub(crate) fn cost_reduction(&self, card: ObjectId) -> u32 {
+        if !self.pool.has_rule_statics() {
+            return 0;
+        }
+        self.active_rule_statics()
+            .iter()
+            .filter_map(|(source, controller, e)| match e {
+                StaticEffect::CostReduction { spells, amount }
+                    if self.matches_filter(card, spells, *controller, Some(*source)) =>
+                {
+                    Some(*amount)
+                }
+                _ => None,
+            })
+            .sum()
+    }
+
     /// CR 601.2f: generic mana added to the cost of spell `card` by cost
     /// increases (Thalia).
     pub(crate) fn cost_increase(&self, card: ObjectId) -> u32 {

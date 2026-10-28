@@ -1,0 +1,18 @@
+scenario: kiln-scenario/1
+name: "Blasphemous Act costs {1} less for each creature on the battlefield, then deals 13 damage to each creature"
+cr: ["601.2f", "120.3", "704.5g"]
+verifies: [Blasphemous Act]
+players:
+  - battlefield: [Mountain, Mountain, Mountain, Mountain, Grizzly Bears, Llanowar Elves, Birds of Paradise]
+    hand: [Blasphemous Act]
+  - battlefield: [Test Ogre, Eternal Witness]
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Blasphemous Act
+  - choose: "Pay with Mountain, Mountain, Mountain, Mountain"
+  - pass_all
+expect:
+  zones:
+    P1.battlefield: [Mountain, Mountain, Mountain, Mountain]
+    P1.graveyard: [Grizzly Bears, Llanowar Elves, Birds of Paradise, Blasphemous Act]
+    P2.battlefield: []

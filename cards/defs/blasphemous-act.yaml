@@ -1,0 +1,7 @@
+card: Blasphemous Act
+faces:
+  - abilities:
+      - spell:
+          # "This spell costs {1} less to cast for each creature on the battlefield."
+          cost_reduction: { count: { types: [creature] } }
+          effect: { deal_damage: { to: { each: { types: [creature] } }, amount: 13 } }

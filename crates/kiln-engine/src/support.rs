@@ -179,6 +179,9 @@ fn spell(s: &SpellAbility) -> Check {
     }
     cast_cost(&s.additional_costs)?;
     cast_cost(&s.per_extra_target)?;
+    if let Some(q) = &s.cost_reduction {
+        quantity(q)?;
+    }
     if s.targets.len() > 32 {
         return Err("more than 32 target slots".into());
     }
@@ -256,6 +259,7 @@ fn effect(e: &Effect) -> Check {
                 Recipient::Target(_) => {}
                 Recipient::Player(p) => player(p)?,
                 Recipient::Object(o) => object(o)?,
+                Recipient::Each(f) => set(&ObjectSet::All(f.clone()))?,
             }
             quantity(amount)
         }

@@ -288,6 +288,7 @@ pub(crate) fn is_rule_static(e: &StaticEffect) -> bool {
             | StaticEffect::PlayerRule { .. }
             | StaticEffect::GrantEscape { .. }
             | StaticEffect::CostIncrease { .. }
+            | StaticEffect::CostReduction { .. }
             | StaticEffect::SpellsCantBeCountered { .. }
             | StaticEffect::ActivationCostReduction { .. }
             | StaticEffect::Rule(

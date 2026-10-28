@@ -1258,6 +1258,36 @@ impl Game {
                 shape.symbols.push(ManaSymbol::Generic(tax));
             }
         }
+        // CR 601.2f: cost reductions, after increases and additional costs;
+        // they reduce only the generic part, never below zero.
+        if ability.is_none() {
+            let mut left = self.cost_reduction(object);
+            if let Some(o) = self.obj(object)
+                && let Some((i, q)) = def.abilities.iter().enumerate().find_map(|(i, a)| match a {
+                    Ability::Spell(s) => s.cost_reduction.as_ref().map(|q| (i, q)),
+                    _ => None,
+                })
+                && let Ok(i) = u8::try_from(i)
+            {
+                let ctx = crate::effects::EffectCtx::new(
+                    crate::effects::AbilityRef {
+                        def: o.def,
+                        ability: i,
+                    },
+                    object,
+                    o.controller,
+                );
+                left += self.amount(&ctx, q);
+            }
+            for s in &mut shape.symbols {
+                if let ManaSymbol::Generic(n) = s {
+                    let cut = (*n).min(left);
+                    *n -= cut;
+                    left -= cut;
+                }
+            }
+            shape.symbols.retain(|s| *s != ManaSymbol::Generic(0));
+        }
         let any_color = ability.is_none()
             && (self.any_color_spells.contains(&object)
                 || self.exile_permission(object).is_some_and(|(_, any)| any));

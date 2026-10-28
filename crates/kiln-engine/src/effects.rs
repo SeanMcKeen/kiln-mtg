@@ -278,6 +278,8 @@ pub(crate) enum AfterPick {
         /// Where the cards after the first go (Cultivate).
         rest_to: Option<Destination>,
         reveal: bool,
+        /// Remember the found cards under this name (Fabled Passage).
+        remember: Option<String>,
     },
     /// Put this many +1/+1 counters on the pick (amass, CR 701.47a).
     PutCounters(u32),
@@ -358,6 +360,22 @@ fn follow_source(ctx: &mut EffectCtx, old: ObjectId, new: Option<ObjectId>, to: 
         && !matches!(to, ZoneId::Hand(_) | ZoneId::Library(_))
     {
         ctx.source = new;
+    }
+}
+
+/// CR 400.7j: an object an effect moved to a public zone can be found by
+/// other parts of that effect, so a remembered object follows the move.
+fn follow_remembered(ctx: &mut EffectCtx, old: ObjectId, new: Option<ObjectId>, to: ZoneId) {
+    let Some(new) = new else { return };
+    if matches!(to, ZoneId::Hand(_) | ZoneId::Library(_)) {
+        return;
+    }
+    for (_, ids) in &mut ctx.remembered {
+        for id in ids.iter_mut() {
+            if *id == old {
+                *id = new;
+            }
+        }
     }
 }
 
@@ -1373,6 +1391,7 @@ impl Game {
                 max_mana_value,
                 graveyard,
                 rest_to,
+                remember,
             } => {
                 let Some(p) = self.player_ref(&t.ctx, who) else {
                     return Flow::Continue;
@@ -1429,6 +1448,7 @@ impl Game {
                         to: *to,
                         rest_to: *rest_to,
                         reveal: *reveal,
+                        remember: remember.clone(),
                     },
                 }));
             }
@@ -2033,6 +2053,11 @@ impl Game {
                 .into_iter()
                 .map(Target::Object)
                 .collect(),
+            Recipient::Each(f) => self
+                .set_now(ctx, &ObjectSet::All(f.clone()))
+                .into_iter()
+                .map(Target::Object)
+                .collect(),
         }
     }
 
@@ -2567,6 +2592,7 @@ impl Game {
         }
         let new = self.move_object(id, to, top);
         follow_source(ctx, id, new, to);
+        follow_remembered(ctx, id, new, to);
         new
     }
 
@@ -2680,6 +2706,7 @@ impl Game {
                     self.attach(new, h, false);
                 }
                 follow_source(ctx, id, new, ZoneId::Battlefield);
+                follow_remembered(ctx, id, new, ZoneId::Battlefield);
             }
         }
     }
@@ -3565,8 +3592,17 @@ impl Game {
                 to,
                 rest_to,
                 reveal,
+                remember,
             } => {
                 let who = searcher;
+                // The found cards are followed into the public zone they go
+                // to (CR 400.7j; see `follow_remembered`).
+                if let Some(name) = remember {
+                    t.ctx.remembered.retain(|(k, _)| *k != name);
+                    t.ctx
+                        .remembered
+                        .push((name, picked.iter().copied().collect()));
+                }
                 self.log(Event::Searched {
                     player: who,
                     found: u32::try_from(picked.len()).unwrap_or(0),

@@ -145,6 +145,10 @@ pub struct SpellAbility {
     /// (CR 601.2f).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub per_extra_target: Vec<CostPart>,
+    /// "This spell costs {1} less to cast for each [quantity]" (Blasphemous
+    /// Act; CR 601.2f): generic mana only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cost_reduction: Option<Quantity>,
 }
 
 /// An alternative cost (CR 118.9), optionally conditional.
@@ -422,6 +426,9 @@ pub enum StaticEffect {
     },
     /// "[spells] cost {N} more to cast" (Thalia; CR 601.2f).
     CostIncrease { spells: ObjectFilter, amount: u32 },
+    /// "[spells] cost {N} less to cast" (Grand Arbiter Augustin IV;
+    /// CR 601.2f): generic mana only.
+    CostReduction { spells: ObjectFilter, amount: u32 },
     /// "[spells] can't be countered" (Allosaurus Shepherd; CR 101.2).
     SpellsCantBeCountered { spells: ObjectFilter },
     /// "Activated abilities of [objects] cost {N} less to activate. This
@@ -704,6 +711,10 @@ pub enum Effect {
         /// first card found goes to `to`, the rest here.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         rest_to: Option<Destination>,
+        /// Name the found cards for later parts of the effect ("untap that
+        /// land"; CR 400.7j finds them in the public zone they went to).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        remember: Option<String>,
     },
     Shuffle(PlayerRef),
     /// CR 701.22
@@ -905,6 +916,8 @@ pub enum Recipient {
     Target(u8),
     Player(PlayerRef),
     Object(ObjectRef),
+    /// "each [permanent]" (Blasphemous Act: "deals 13 damage to each creature").
+    Each(ObjectFilter),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

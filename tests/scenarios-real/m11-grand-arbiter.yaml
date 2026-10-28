@@ -1,0 +1,20 @@
+scenario: kiln-scenario/1
+name: "Grand Arbiter Augustin IV: your blue spells cost {1} less; opponents' spells cost {1} more"
+cr: ["601.2f"]
+verifies: [Grand Arbiter Augustin IV]
+players:
+  - battlefield: [Grand Arbiter Augustin IV, Island, Island]
+    hand: [Rhystic Study]
+  - battlefield: [Mountain]
+    hand: [Lightning Bolt]
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Rhystic Study
+  - choose: "Pay with Island, Island"
+  - choose: Pass
+  - check:
+      decision: { player: P2, kind: priority, options_exclude: [Cast Lightning Bolt] }
+  - choose: Pass
+expect:
+  zones:
+    P1.battlefield: [Grand Arbiter Augustin IV, Island, Island, Rhystic Study]

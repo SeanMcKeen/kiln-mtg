@@ -1,0 +1,6 @@
+card: Grand Arbiter Augustin IV
+faces:
+  - abilities:
+      - static: { effect: { cost_reduction: { spells: { color: W, controller: you }, amount: 1 } } }
+      - static: { effect: { cost_reduction: { spells: { color: U, controller: you }, amount: 1 } } }
+      - static: { effect: { cost_increase: { spells: { controller: opponent }, amount: 1 } } }
