@@ -39,6 +39,8 @@ pub struct ServerState {
     pub workdir: PathBuf,
     /// Worker threads per run unless a call asks for more.
     pub default_threads: usize,
+    /// Serve the live-play toolset (`kiln_live_*`, M10 plan L4).
+    pub live: bool,
 }
 
 #[derive(Debug)]
@@ -65,6 +67,7 @@ passive or playbook-driven; search AI arrives later.";
 pub struct KilnServer {
     state: Arc<ServerState>,
     jobs: Arc<Mutex<BTreeMap<String, Job>>>,
+    games: Arc<Mutex<BTreeMap<String, kiln_sim::live::LiveGame>>>,
     tool_router: ToolRouter<Self>,
 }
 
@@ -251,6 +254,39 @@ pub struct ScenarioParams {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+pub struct LiveStartParams {
+    /// A kiln-spec/1 pod (decks and their policies) as YAML or JSON; paths start at the work directory.
+    pub spec_text: String,
+    /// The deck id whose seat you play.
+    pub deck: String,
+    /// Which game of the spec to deal (its seating and seed). Default 0.
+    #[serde(default)]
+    pub game: u64,
+    /// `key` (default): you're asked mulligans, priority with something to do, targets,
+    /// attacks, blocks and choices; greedy answers payments and other trivia. `all`: every decision.
+    #[serde(default)]
+    pub ask: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct LiveDecideParams {
+    pub game_id: String,
+    /// The option's index or its exact label.
+    pub option: String,
+    /// Why (kept in the game's annotated replay).
+    #[serde(default)]
+    pub rationale: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct LiveViewParams {
+    pub game_id: String,
+    /// Add graveyards, exile and the text of every visible card.
+    #[serde(default)]
+    pub detailed: bool,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 pub struct PlaybookParams {
     /// The deck it pilots: a decklist path (as kiln_deck_import returns).
     pub deck: String,
@@ -271,11 +307,82 @@ pub struct PlaybookParams {
 #[tool_router]
 impl KilnServer {
     pub fn new(state: ServerState) -> Self {
+        let mut tool_router = Self::tool_router();
+        // The live toolset is opt-in, so it costs no context when unused.
+        if !state.live {
+            for t in ["kiln_live_start", "kiln_live_decide", "kiln_live_view"] {
+                tool_router.remove_route(t);
+            }
+        }
         Self {
             state: Arc::new(state),
             jobs: Arc::new(Mutex::new(BTreeMap::new())),
-            tool_router: Self::tool_router(),
+            games: Arc::new(Mutex::new(BTreeMap::new())),
+            tool_router,
         }
+    }
+
+    /// A live game's payload, saving the annotated replay once it's over.
+    fn live_payload(
+        &self,
+        id: &str,
+        live: &mut kiln_sim::live::LiveGame,
+        detailed: bool,
+    ) -> String {
+        let db = &self.state.db;
+        let oracle = |name: &str| match db.resolve(name, "commander") {
+            NameMatch::Exact(i) | NameMatch::Loose(i) => {
+                let c = &db.cards()[i];
+                Some(kiln_sim::live::CardText {
+                    mana_cost: c
+                        .faces
+                        .first()
+                        .and_then(|f| f.mana_cost.as_ref())
+                        .map(ToString::to_string),
+                    type_line: c
+                        .faces
+                        .iter()
+                        .map(|f| f.type_line.to_string())
+                        .collect::<Vec<_>>()
+                        .join(" // "),
+                    oracle_text: c
+                        .faces
+                        .iter()
+                        .map(|f| f.oracle_text.clone())
+                        .collect::<Vec<_>>()
+                        .join("\n//\n"),
+                })
+            }
+            _ => None,
+        };
+        let mut v = live.payload(&oracle, detailed);
+        v["game_id"] = json!(id);
+        if live.game().is_over() {
+            let dir = self.state.workdir.join("live");
+            let file = dir.join(format!("{id}.replay.json"));
+            let saved = std::fs::create_dir_all(&dir).and_then(|()| {
+                std::fs::write(
+                    &file,
+                    serde_json::to_string_pretty(&live.replay()).unwrap_or_default(),
+                )
+            });
+            v["replay"] = match saved {
+                Ok(()) => json!(
+                    file.strip_prefix(&self.state.workdir)
+                        .unwrap_or(&file)
+                        .display()
+                        .to_string()
+                ),
+                Err(e) => json!(format!("couldn't save the replay: {e}")),
+            };
+            v["next"] = json!("the game is over; start another with kiln_live_start");
+        } else {
+            v["next"] = json!(format!(
+                "kiln_live_decide game_id={id} option=<index or label> rationale=<why>"
+            ));
+        }
+        v["your_decisions"] = json!(live.answered);
+        to_text(&v)
     }
 
     fn run_dir(&self, run_id: &str) -> PathBuf {
@@ -705,6 +812,69 @@ impl KilnServer {
     }
 
     #[tool(
+        description = "Live play (opt-in): deal a game of a kiln-spec/1 pod in which you play one deck's seat. The other seats play their spec policies. Returns a game_id and your first decision: its kind and CR rule, the options, the board as you see it, what happened, and the Oracle text of the cards involved. Answer with kiln_live_decide."
+    )]
+    async fn kiln_live_start(
+        &self,
+        Parameters(p): Parameters<LiveStartParams>,
+    ) -> Result<String, String> {
+        let resolved = kiln_protocol::load_spec(&p.spec_text).map_err(|e| e.to_string())?;
+        let st = Arc::clone(&self.state);
+        let ask_all = match p.ask.as_deref() {
+            None | Some("key") => false,
+            Some("all") => true,
+            Some(other) => return Err(format!("ask must be key or all, not {other:?}")),
+        };
+        let (deck, game) = (p.deck.clone(), p.game);
+        let mut live = blocking(move || {
+            let exp = Experiment::prepare(resolved, &st.workdir, &st.db, &st.lib)
+                .map_err(|e| e.to_string())?;
+            kiln_sim::live::LiveGame::start(&exp, &deck, game, ask_all)
+        })
+        .await??;
+        let mut games = self.games.lock().map_err(|e| e.to_string())?;
+        let id = format!("live-{}", games.len() + 1);
+        let text = self.live_payload(&id, &mut live, false);
+        games.insert(id, live);
+        Ok(text)
+    }
+
+    #[tool(
+        description = "Live play: answer your pending decision with an option index or exact label, and a short rationale (kept in the annotated replay). The game plays on to your next decision and returns it, or the result and the saved replay when the game ends."
+    )]
+    async fn kiln_live_decide(
+        &self,
+        Parameters(p): Parameters<LiveDecideParams>,
+    ) -> Result<String, String> {
+        let mut games = self.games.lock().map_err(|e| e.to_string())?;
+        let live = games.get_mut(&p.game_id).ok_or_else(|| {
+            format!(
+                "no live game {:?}; start one with kiln_live_start",
+                p.game_id
+            )
+        })?;
+        live.decide(&p.option, p.rationale.as_deref())?;
+        Ok(self.live_payload(&p.game_id, live, false))
+    }
+
+    #[tool(
+        description = "Live play: the current view of a live game (your decision, the board, recent events, card text). detailed=true adds graveyards, exile and every visible card's text."
+    )]
+    async fn kiln_live_view(
+        &self,
+        Parameters(p): Parameters<LiveViewParams>,
+    ) -> Result<String, String> {
+        let mut games = self.games.lock().map_err(|e| e.to_string())?;
+        let live = games.get_mut(&p.game_id).ok_or_else(|| {
+            format!(
+                "no live game {:?}; start one with kiln_live_start",
+                p.game_id
+            )
+        })?;
+        Ok(self.live_payload(&p.game_id, live, p.detailed))
+    }
+
+    #[tool(
         description = "Check a playbook: compile errors with line and column, then a goldfish dry run reporting which rules fired (tag counts), how often it deferred to its fallback, wins, and runtime errors. Returns the playbook's file path for use in specs: { kind: playbook, playbook: <path> }."
     )]
     async fn kiln_playbook_validate(
@@ -787,6 +957,7 @@ mod tests {
             scenario_pool: Arc::new(pool),
             workdir,
             default_threads: 1,
+            live: true,
         }))
     }
 
@@ -836,5 +1007,74 @@ mod tests {
             .await
             .expect_err("no such run");
         assert!(e.contains("kiln_sim_run"), "{e}");
+    }
+
+    #[tokio::test]
+    async fn live_play_answers_and_hides_opponents_cards() {
+        let Some(s) = server() else { return };
+        let root = kiln_testkit::real::repo_root();
+        let deck = |f: &str| {
+            root.join("tests/fixtures/decks")
+                .join(f)
+                .display()
+                .to_string()
+        };
+        let spec = format!(
+            "spec: kiln-spec/1\nname: live\nseed: 3\ndecks:\n  - {{ id: najeela, source: {{ file: {} }} }}\n  - {{ id: kinnan, source: {{ file: {} }} }}\n",
+            deck("najeela.txt"),
+            deck("kinnan-verified.txt")
+        );
+        let r = s
+            .kiln_live_start(Parameters(LiveStartParams {
+                spec_text: spec,
+                deck: "najeela".into(),
+                game: 0,
+                ask: None,
+            }))
+            .await
+            .unwrap_or_else(|e| panic!("{e}"));
+        let mut v: Value = serde_json::from_str(&r).unwrap_or_default();
+        let id = v["game_id"].as_str().unwrap_or_default().to_owned();
+        let mut turns = 0;
+        // Answer the first option of every decision until the game is over.
+        while v["result"].is_null() && turns < 400 {
+            turns += 1;
+            // P2's hand is hidden: none of its cards may be named.
+            let hidden: Vec<String> = {
+                let games = s.games.lock().unwrap_or_else(|e| panic!("{e}"));
+                let g = games[&id].game();
+                g.player_state(kiln_types::PlayerId(1))
+                    .hand
+                    .iter()
+                    .filter_map(|o| g.object_name(*o).map(str::to_owned))
+                    .collect()
+            };
+            let text = format!("{}{}", v["since_last"], v["cards"]);
+            for n in &hidden {
+                let mine = v["your_hand"].to_string().contains(n.as_str())
+                    || v["players"].to_string().contains(n.as_str())
+                    || v["stack_top_first"].to_string().contains(n.as_str());
+                assert!(
+                    mine || !text.contains(n.as_str()),
+                    "payload names {n}, in P2's hand"
+                );
+            }
+            let r = s
+                .kiln_live_decide(Parameters(LiveDecideParams {
+                    game_id: id.clone(),
+                    option: "0".into(),
+                    rationale: Some("test".into()),
+                }))
+                .await
+                .unwrap_or_else(|e| panic!("{e}"));
+            v = serde_json::from_str(&r).unwrap_or_default();
+        }
+        assert!(v["result"].is_string(), "the game should finish: {v}");
+        assert!(
+            v["replay"]
+                .as_str()
+                .is_some_and(|f| f.ends_with(".replay.json")),
+            "{v}"
+        );
     }
 }

@@ -286,7 +286,13 @@ impl Experiment {
         (setup, seats)
     }
 
-    fn policies(&self, seats: &[usize]) -> Vec<Box<dyn Policy>> {
+    /// The deck id of play deck `d` (a seat entry of [`Experiment::setup`]).
+    pub fn deck_id(&self, d: usize) -> &str {
+        &self.play[d].id
+    }
+
+    /// A fresh policy for each seat, from its deck's recipe.
+    pub fn policies(&self, seats: &[usize]) -> Vec<Box<dyn Policy>> {
         seats
             .iter()
             .map(|d| self.build_policy(&self.play[*d].policy))

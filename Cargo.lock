@@ -937,6 +937,7 @@ dependencies = [
  "kiln-protocol",
  "kiln-sim",
  "kiln-testkit",
+ "kiln-types",
  "rmcp",
  "schemars",
  "serde",

@@ -33,6 +33,20 @@ impl Game {
     /// Every logged event, described with card names (objects keep the name
     /// they had, even after leaving play). Needs `GameRules::log_events`.
     pub fn describe_events(&self) -> Vec<DescribedEvent> {
+        self.describe_events_for(None)
+    }
+
+    /// [`Game::describe_events`] as `viewer` may know them (CR 400.2): a
+    /// card moving between zones the viewer can't see (another player's
+    /// library and hand) is "a card". `None` sees everything (the judge).
+    pub fn describe_events_for(&self, viewer: Option<kiln_types::PlayerId>) -> Vec<DescribedEvent> {
+        // Libraries are hidden from everyone (CR 401.2), hands from all but
+        // their owner (CR 402.3).
+        let hidden = |z: &ZoneId| match (viewer, z) {
+            (Some(_), ZoneId::Library(_)) => true,
+            (Some(v), ZoneId::Hand(p)) => !self.sees_as(v, *p),
+            _ => false,
+        };
         let mut names: BTreeMap<ObjectId, String> = BTreeMap::new();
         let mut out = Vec::with_capacity(self.events.len());
         for (index, e) in self.events.iter().enumerate() {
@@ -78,7 +92,11 @@ impl Game {
                     ..
                 } => format!(
                     "{} moves from {} to {} ({controller})",
-                    self.def(*def).name,
+                    if hidden(from) && hidden(to) {
+                        "a card"
+                    } else {
+                        self.def(*def).name.as_str()
+                    },
                     zone(*from),
                     zone(*to)
                 ),

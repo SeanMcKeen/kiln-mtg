@@ -22,6 +22,7 @@ serde_json.workspace = true
 tokio.workspace = true
 
 [dev-dependencies]
+kiln-types.workspace = true
 tokio = { workspace = true, features = ["test-util"] }
 
 [lints]

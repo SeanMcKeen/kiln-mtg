@@ -1,7 +1,7 @@
 """Run a sequence of kiln MCP tool calls in one server session.
 
 Usage:
-    python3 -I tools/mcp-smoke/session.py <kiln-binary> <workdir> <calls.json>
+    python3 -I tools/mcp-smoke/session.py <kiln-binary> <workdir> <calls.json> [serve flags, e.g. --live]
 
 `calls.json` is a list of steps:
     {"tool": "kiln_sim_run", "args": {...}}            # call a tool, print its text
@@ -16,7 +16,8 @@ import json, subprocess, sys, time
 
 binary, workdir, calls_path = sys.argv[1], sys.argv[2], sys.argv[3]
 steps = json.load(open(calls_path))
-proc = subprocess.Popen([binary, "mcp", "serve", "--workdir", workdir, "--threads", "2"],
+extra = sys.argv[4:]  # more `kiln mcp serve` flags, e.g. --live
+proc = subprocess.Popen([binary, "mcp", "serve", "--workdir", workdir, "--threads", "2", *extra],
                         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
 nid = 0
 
