@@ -110,6 +110,30 @@ fn mcp_hint(hint: &str, run_id: &str) -> String {
     hint.to_owned()
 }
 
+/// Runs judge commands on a scenario (M10 plan L3): each command with its reply,
+/// then the pending decision. Empty without commands.
+fn judge_commands(
+    s: &kiln_testkit::scenario::Scenario,
+    pool: &Arc<CardPool>,
+    commands: &[String],
+) -> Value {
+    if commands.is_empty() {
+        return Value::Null;
+    }
+    let mut j = match kiln_testkit::judge::Judge::load(s, pool) {
+        Ok(j) => j,
+        Err(e) => return json!({ "error": e }),
+    };
+    let replies: Vec<Value> = commands
+        .iter()
+        .map(|c| match j.command(c) {
+            Ok(out) => json!({ "command": c, "reply": out }),
+            Err(e) => json!({ "command": c, "error": e }),
+        })
+        .collect();
+    json!({ "replies": replies, "now": j.prompt() })
+}
+
 /// What to do after a status check.
 fn status_next(status: &str, run_id: &str, eta: Option<f64>) -> String {
     match status {
@@ -219,6 +243,11 @@ pub struct ScenarioParams {
     /// a script of choices by label, and expectations. Returns the event log and whether
     /// the expectations held.
     pub scenario: String,
+    /// Judge commands to run after the script, in order: `why-not [P2] <label or card>`
+    /// (why an action isn't available, with CR rules), `why <event #>`, `events [n]`,
+    /// `view`, `options`, an option number or label to choose it, `branch`, `back`.
+    #[serde(default)]
+    pub commands: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -640,7 +669,7 @@ impl KilnServer {
     }
 
     #[tool(
-        description = "Rules judge: run a kiln-scenario/1 board (players' zones, a script of choices by label, expectations) and return the event log with card names, the result, and whether the expectations held (with the first mismatch)."
+        description = "Rules judge: run a kiln-scenario/1 board (players' zones, a script of choices by label, expectations) and return the event log with card names, the result, and whether the expectations held (with the first mismatch). With `commands`, keep going like the judge REPL: `why-not Cast <card>` explains with CR rules why an action isn't available, `why <event #>` gives an event's rule and cause, a number or label chooses an option."
     )]
     async fn kiln_rules_scenario(
         &self,
@@ -665,6 +694,7 @@ impl KilnServer {
                         None => "in_progress".into(),
                     },
                     "events": inspect::describe_events(&game, &state.scenario_pool),
+                    "judge": judge_commands(&s, &state.scenario_pool, &p.commands),
                 }))),
                 Err(e) => Ok(to_text(
                     &json!({ "expectations_held": false, "error": e.to_string() }),

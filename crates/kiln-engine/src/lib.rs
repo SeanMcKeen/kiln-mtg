@@ -14,6 +14,7 @@ mod commander;
 mod counters;
 pub mod decision;
 pub mod decks;
+mod describe;
 mod determinize;
 mod effects;
 mod engine;
@@ -43,6 +44,7 @@ pub use decision::{
     Action, Choice, ChoiceError, DamageRecipient, DecisionId, DecisionKind, ManaStep, PaymentPlan,
     PendingDecision,
 };
+pub use describe::DescribedEvent;
 pub use engine::{AbortReason, Game, GameResult, GameRules, GameSetup, SetupError};
 pub use events::Event;
 pub use kiln_cards::ir;

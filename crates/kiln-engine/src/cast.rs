@@ -1546,9 +1546,9 @@ impl Game {
                     out.push(explain(
                         "601.3",
                         format!(
-                            "{} is in {:?}, and nothing lets {p} cast it from there",
+                            "{} is in {}, and nothing lets {p} cast it from there",
                             name(id),
-                            o.zone
+                            crate::describe::zone(o.zone)
                         ),
                     ));
                 }
