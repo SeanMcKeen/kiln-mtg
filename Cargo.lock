@@ -1034,6 +1034,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "thiserror",
+ "ureq",
  "yaml_serde",
 ]
 

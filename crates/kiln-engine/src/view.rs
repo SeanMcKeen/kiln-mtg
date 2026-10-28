@@ -546,6 +546,31 @@ impl<'g> PlayerView<'g> {
         })
     }
 
+    /// The logged events as this viewer may know them, from index `from` on
+    /// (a card moving between hidden zones is "a card"). Empty unless the
+    /// game logs events.
+    pub fn events_since(&self, from: usize) -> Vec<crate::describe::DescribedEvent> {
+        let mut v = self.game.describe_events_for(Some(self.me));
+        v.drain(..from.min(v.len()));
+        v
+    }
+
+    /// How many events the game has logged.
+    pub fn event_count(&self) -> usize {
+        self.game.events.len()
+    }
+
+    /// The exile zone (public, CR 406.3; face-down cards hide themselves
+    /// through [`PlayerView::object`]).
+    pub fn exile(&self) -> &'g [ObjectId] {
+        &self.game.exile
+    }
+
+    /// How the game ended, if it has (public).
+    pub fn result(&self) -> Option<&'g crate::engine::GameResult> {
+        self.game.result()
+    }
+
     /// An owned copy of the game behind this view, for sandboxes that need
     /// a `'static` handle (playbooks). Read it only through
     /// [`Game::view`] for the same viewer, so nothing hidden leaks.

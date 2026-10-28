@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use kiln_engine::rng::splitmix64;
-use kiln_engine::{Game, GameResult, GameSetup, Recorder, Replay, ZoneId};
+use kiln_engine::{Game, GameResult, GameSetup, PlayerView, Recorder, Replay};
 use kiln_policy::{GreedyPolicy, Policy, is_key_decision};
 use kiln_types::PlayerId;
 use serde_json::{Value, json};
@@ -185,145 +185,160 @@ impl LiveGame {
         self.recorder.clone().finish(&self.game, self.setup.clone())
     }
 
-    /// What the caller sees: the decision (kind, rule, options), the board
-    /// through its own view, what happened since the last payload, and the
-    /// text of the cards named. `detailed` adds graveyards and the text of
-    /// every visible card.
+    /// What the caller sees ([`view_payload`]), and the events since the
+    /// last payload.
     pub fn payload(&mut self, oracle: Oracle<'_>, detailed: bool) -> Value {
-        let g = &self.game;
-        let view = g.view(self.me);
-        let mut named: Vec<String> = Vec::new();
-        let name_of = |id: &kiln_types::ObjectId, named: &mut Vec<String>| -> Option<String> {
-            let n = view.object(*id)?.name;
-            if !named.contains(&n) {
-                named.push(n.clone());
-            }
-            Some(n)
-        };
-        let decision = g.pending().filter(|_| self.waiting()).map(|d| {
-            let options: Vec<Value> = (0..d.option_count())
-                .map(|i| json!({ "index": i, "label": g.option_label(i).unwrap_or_default() }))
-                .collect();
-            json!({
-                "kind": decision_kind_name(&d.kind),
-                "cr": d.cr.to_string(),
-                "options": options,
-            })
-        });
-        let mut players = Vec::new();
-        for p in 0..g.player_count() {
-            let pid = seat(p);
-            let pub_ = view.player(pid);
-            let battlefield: Vec<Value> = view
-                .battlefield()
-                .iter()
-                .filter_map(|id| view.object(*id).filter(|o| o.controller == pid))
-                .map(|o| {
-                    let _ = name_of(&o.id, &mut named);
-                    json!({
-                        "name": o.name,
-                        "tapped": o.tapped,
-                        "power": o.power,
-                        "toughness": o.toughness,
-                        "counters": o.counters.iter().map(|(k, n)| format!("{n} {k:?}")).collect::<Vec<_>>(),
-                    })
-                })
-                .collect();
-            let mut entry = json!({
-                "player": pid.to_string(),
-                "deck": self.decks[p],
-                "you": pid == self.me,
-                "in_game": pub_.in_game,
-                "life": pub_.life,
-                "hand": pub_.hand_count,
-                "library": pub_.library_count,
-                "battlefield": battlefield,
-            });
-            if detailed {
-                let gy: Vec<String> = view
-                    .graveyard(pid)
-                    .iter()
-                    .filter_map(|id| name_of(id, &mut named))
-                    .collect();
-                entry["graveyard"] = json!(gy);
-            }
-            players.push(entry);
-        }
-        let hand: Vec<String> = view
-            .hand()
-            .iter()
-            .filter_map(|id| name_of(id, &mut named))
-            .collect();
-        let stack: Vec<Value> = view
-            .stack()
-            .iter()
-            .rev()
-            .map(|s| {
-                if !named.contains(&s.name) {
-                    named.push(s.name.clone());
-                }
-                json!({
-                    "name": s.name,
-                    "controller": s.controller.to_string(),
-                    "ability": s.ability.map(|a| a + 1),
-                })
-            })
-            .collect();
-        let events = g.describe_events_for(Some(self.me));
-        let recent: Vec<String> = events
-            .iter()
-            .skip(self.shown.max(events.len().saturating_sub(40)))
-            .filter(|e| {
-                !e.text.contains(" adds ")
-                    && !e.text.ends_with(" taps")
-                    && !e.text.starts_with("a card moves")
-            })
-            .map(|e| format!("{} (CR {})", e.text, e.cr))
-            .collect();
-        self.shown = events.len();
-        // Text for what the decision is about first, then everything named.
-        let mut cards = BTreeMap::new();
-        if !detailed {
-            named.retain(|n| {
-                hand.contains(n)
-                    || stack.iter().any(|s| s["name"] == n.as_str())
-                    || decision
-                        .as_ref()
-                        .is_some_and(|d| d["options"].to_string().contains(n.as_str()))
-            });
-        }
-        for n in &named {
-            if let Some(c) = oracle(n) {
-                cards.insert(
-                    n.clone(),
-                    json!({ "cost": c.mana_cost, "type": c.type_line, "text": c.oracle_text }),
-                );
-            }
-        }
-        let t = g.turn();
-        json!({
-            "turn": t.number,
-            "active": t.active.to_string(),
-            "step": format!("{:?}", t.step),
-            "you": self.me.to_string(),
-            "decision": decision,
-            "result": g.result().map(|r| match r {
-                GameResult::Win { player, turn } => format!("{player} wins on turn {turn}"),
-                GameResult::Draw { turn } => format!("a draw on turn {turn}"),
-                GameResult::Aborted { reason, turn } => format!("aborted on turn {turn}: {reason:?}"),
-            }),
-            "your_hand": hand,
-            "stack_top_first": stack,
-            "players": players,
-            "since_last": recent,
-            "cards": cards,
-            "exile": if detailed {
-                json!(g.objects_in(ZoneId::Exile).iter().filter_map(|id| view.object(*id).map(|o| o.name)).collect::<Vec<_>>())
-            } else {
-                Value::Null
-            },
-        })
+        let view = self.game.view(self.me);
+        let v = view_payload(&view, &self.decks, oracle, detailed, self.shown);
+        self.shown = view.event_count();
+        v
     }
+}
+
+/// A decision payload for the viewer of `view` (M10 plan L4; [[C - LLM Live
+/// Decisions]]): the pending decision if it's theirs (kind, rule, options),
+/// the board as they see it, what happened since event `since` (at most the
+/// last 40), and the text of the cards it names. `detailed` adds graveyards,
+/// exile and the text of every visible card. Shared by live play and the LLM
+/// adapter.
+pub fn view_payload(
+    view: &PlayerView<'_>,
+    decks: &[String],
+    oracle: Oracle<'_>,
+    detailed: bool,
+    since: usize,
+) -> Value {
+    let me = view.me();
+    let mut named: Vec<String> = Vec::new();
+    let name_of = |id: &kiln_types::ObjectId, named: &mut Vec<String>| -> Option<String> {
+        let n = view.object(*id)?.name;
+        if !named.contains(&n) {
+            named.push(n.clone());
+        }
+        Some(n)
+    };
+    let decision = view.pending().map(|d| {
+        let options: Vec<Value> = (0..d.option_count())
+            .map(|i| json!({ "index": i, "label": view.option_label(i).unwrap_or_default() }))
+            .collect();
+        json!({
+            "kind": decision_kind_name(&d.kind),
+            "cr": d.cr.to_string(),
+            "options": options,
+        })
+    });
+    let mut players = Vec::new();
+    for p in 0..view.player_count() {
+        let pid = seat(p);
+        let pub_ = view.player(pid);
+        let battlefield: Vec<Value> = view
+            .battlefield()
+            .iter()
+            .filter_map(|id| view.object(*id).filter(|o| o.controller == pid))
+            .map(|o| {
+                let _ = name_of(&o.id, &mut named);
+                json!({
+                    "name": o.name,
+                    "tapped": o.tapped,
+                    "power": o.power,
+                    "toughness": o.toughness,
+                    "counters": o.counters.iter().map(|(k, n)| format!("{n} {k:?}")).collect::<Vec<_>>(),
+                })
+            })
+            .collect();
+        let mut entry = json!({
+            "player": pid.to_string(),
+            "deck": decks.get(p).cloned().unwrap_or_default(),
+            "you": pid == me,
+            "in_game": pub_.in_game,
+            "life": pub_.life,
+            "hand": pub_.hand_count,
+            "library": pub_.library_count,
+            "battlefield": battlefield,
+        });
+        if detailed {
+            let gy: Vec<String> = view
+                .graveyard(pid)
+                .iter()
+                .filter_map(|id| name_of(id, &mut named))
+                .collect();
+            entry["graveyard"] = json!(gy);
+        }
+        players.push(entry);
+    }
+    let hand: Vec<String> = view
+        .hand()
+        .iter()
+        .filter_map(|id| name_of(id, &mut named))
+        .collect();
+    let stack: Vec<Value> = view
+        .stack()
+        .iter()
+        .rev()
+        .map(|s| {
+            if !named.contains(&s.name) {
+                named.push(s.name.clone());
+            }
+            json!({
+                "name": s.name,
+                "controller": s.controller.to_string(),
+                "ability": s.ability.map(|a| a + 1),
+            })
+        })
+        .collect();
+    let total = view.event_count();
+    let recent: Vec<String> = view
+        .events_since(since.max(total.saturating_sub(40)))
+        .iter()
+        .filter(|e| {
+            !e.text.contains(" adds ")
+                && !e.text.ends_with(" taps")
+                && !e.text.starts_with("a card moves")
+        })
+        .map(|e| format!("{} (CR {})", e.text, e.cr))
+        .collect();
+    // Text for what the decision is about first, then everything named.
+    let mut cards = BTreeMap::new();
+    if !detailed {
+        named.retain(|n| {
+            hand.contains(n)
+                || stack.iter().any(|s| s["name"] == n.as_str())
+                || decision
+                    .as_ref()
+                    .is_some_and(|d| d["options"].to_string().contains(n.as_str()))
+        });
+    }
+    for n in &named {
+        if let Some(c) = oracle(n) {
+            cards.insert(
+                n.clone(),
+                json!({ "cost": c.mana_cost, "type": c.type_line, "text": c.oracle_text }),
+            );
+        }
+    }
+    let t = view.turn();
+    json!({
+        "turn": t.number,
+        "active": t.active.to_string(),
+        "step": format!("{:?}", t.step),
+        "you": me.to_string(),
+        "decision": decision,
+        "result": view.result().map(|r| match r {
+            GameResult::Win { player, turn } => format!("{player} wins on turn {turn}"),
+            GameResult::Draw { turn } => format!("a draw on turn {turn}"),
+            GameResult::Aborted { reason, turn } => format!("aborted on turn {turn}: {reason:?}"),
+        }),
+        "your_hand": hand,
+        "stack_top_first": stack,
+        "players": players,
+        "since_last": recent,
+        "cards": cards,
+        "exile": if detailed {
+            json!(view.exile().iter().filter_map(|id| view.object(*id).map(|o| o.name)).collect::<Vec<_>>())
+        } else {
+            Value::Null
+        },
+    })
 }
 
 /// The scenario format's name for a decision kind (`priority`, `choose_target`, …).

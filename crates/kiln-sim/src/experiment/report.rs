@@ -362,7 +362,17 @@ pub fn recipe(p: &PolicySpec) -> String {
                 .map_or_else(String::new, |ms| format!(", {ms} ms cap")),
             guide.as_deref().map_or_else(|| "greedy".into(), recipe)
         ),
-        PolicySpec::Llm { .. } => "llm".into(),
+        PolicySpec::Llm {
+            model,
+            ask,
+            fallback,
+            ..
+        } => format!(
+            "llm({}, ask {}) → {}",
+            model.as_deref().unwrap_or(crate::llm::DEFAULT_MODEL),
+            ask.as_deref().unwrap_or("key"),
+            fallback.as_deref().map_or_else(|| "greedy".into(), recipe)
+        ),
     }
 }
 
@@ -441,6 +451,9 @@ fn result_warnings(spec: &Spec, manifest: &RunManifest, configs: &[ConfigReport]
             .cloned()
             .unwrap_or_default()
     };
+    if kinds.contains("llm") {
+        w.push("an LLM pilots some decisions: its answers vary from run to run, so the run isn't reproducible (its replays are), and each answer was a paid API request".into());
+    }
     if kinds.contains("search") {
         w.push(format!(
             "pilots: {}. Search looks ahead with sampled games but is no expert either: results measure this play",

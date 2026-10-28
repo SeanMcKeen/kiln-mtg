@@ -429,11 +429,44 @@
         },
         {
           "additionalProperties": false,
-          "description": "A language model (M10).",
+          "description": "A language model through the Anthropic API (M10): `ask: key` (the\ndefault) asks only about key decisions; everything else, and anything\nit fails to answer, goes to `fallback` (greedy by default). Calls a\npaid API with `ANTHROPIC_API_KEY`; results aren't reproducible.",
           "properties": {
+            "ask": {
+              "description": "`key` or `all`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "effort": {
+              "description": "`low`, `medium`, `high`, `xhigh` or `max`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "fallback": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/PolicySpec"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
             "kind": {
               "const": "llm",
               "type": "string"
+            },
+            "max_calls": {
+              "description": "At most this many requests per game (default 200).",
+              "format": "uint32",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
             },
             "model": {
               "type": [
