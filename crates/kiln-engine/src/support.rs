@@ -70,6 +70,7 @@ pub(crate) fn check(def: &CardDef) -> Check {
             Ability::Keyword(kiln_cards::ir::Keyword::HexproofFrom(_)) => {}
             // CR 702.109: an alternative cost for a permanent card.
             Ability::Keyword(kiln_cards::ir::Keyword::Dash(c)) => cast_cost(c)?,
+            Ability::Keyword(kiln_cards::ir::Keyword::Flashback(c)) => cast_cost(c)?,
             // Works in exile (CR 113.6f); checked while offering casts.
             Ability::Static(StaticAbility {
                 effect: StaticEffect::Rule(RuleMod::MayCastFromExile),

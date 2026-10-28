@@ -545,6 +545,14 @@ impl CardDef {
     }
 
     /// Its dash cost (CR 702.109a), if it has one.
+    /// Its flashback cost (CR 702.34a).
+    pub fn flashback_cost(&self) -> Option<&[CostPart]> {
+        self.abilities.iter().find_map(|a| match a {
+            Ability::Keyword(ir::Keyword::Flashback(c)) => Some(c.as_slice()),
+            _ => None,
+        })
+    }
+
     pub fn dash_cost(&self) -> Option<&[CostPart]> {
         self.abilities.iter().find_map(|a| match a {
             Ability::Keyword(ir::Keyword::Dash(c)) => Some(c.as_slice()),

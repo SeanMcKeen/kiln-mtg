@@ -134,6 +134,7 @@ fn keyword(k: &Keyword) -> String {
         Keyword::Kicker(c) => format!("kicker {}", costs(c)),
         Keyword::HexproofFrom(c) => format!("hexproof from {c}"),
         Keyword::Dash(c) => format!("dash {}", costs(c)),
+        Keyword::Flashback(c) => format!("flashback {}", costs(c)),
         Keyword::Partner => "partner".into(),
         Keyword::PartnerWith(n) => format!("partner with {n}"),
         Keyword::Protection(f) => format!(

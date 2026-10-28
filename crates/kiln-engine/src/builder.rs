@@ -319,6 +319,7 @@ impl GameBuilder {
             player_rules_eot: Vec::new(),
             cast_permissions: Vec::new(),
             escaping: Vec::new(),
+            flashback: Vec::new(),
             graveyard_casts: Vec::new(),
             drawn_this_turn: Vec::new(),
             library_casts: Vec::new(),

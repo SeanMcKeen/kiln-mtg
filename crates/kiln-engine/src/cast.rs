@@ -244,6 +244,7 @@ fn cost_shape(def: &CardDef, ability: Option<u8>, cost: CastCost) -> Option<Cost
         // CR 118.9: no mana cost (and so X is 0, CR 107.3b); additional costs remain.
         CastCost::WithoutPaying => {}
         CastCost::Dash => add(def.dash_cost()?, &mut symbols),
+        CastCost::Flashback => add(def.flashback_cost()?, &mut symbols),
         // CR 702.138a: the mana cost plus the escape grant's extra cost
         // (added by the game, which knows the grant).
         CastCost::Escape => symbols.extend(def.mana_cost.as_ref()?.symbols().iter().cloned()),
@@ -495,6 +496,13 @@ impl Game {
         };
         if from_graveyard && escapable {
             candidates.push(CastCost::Escape);
+        }
+        // CR 702.34a: flashback, from its owner's graveyard.
+        let own_graveyard = self
+            .obj(ctx.source)
+            .is_some_and(|o| o.zone == ZoneId::Graveyard(p) || o.zone == ZoneId::Stack);
+        if from_graveyard && own_graveyard && def.flashback_cost().is_some() {
+            candidates.push(CastCost::Flashback);
         }
         let mut out = Vec::new();
         for c in candidates {
@@ -880,6 +888,9 @@ impl Game {
                     let only = *only;
                     if let Some(i) = self.item_mut(t.spell) {
                         i.cost = only;
+                    }
+                    if only == CastCost::Flashback {
+                        self.flashback.push(t.spell);
                     }
                     return self.advance(t, CastStage::Kicker);
                 }
@@ -1290,6 +1301,9 @@ impl Game {
             DecisionKind::ChooseCost { options, .. } => {
                 if let Some(i) = self.item_mut(t.spell) {
                     i.cost = options[option];
+                }
+                if options[option] == CastCost::Flashback {
+                    self.flashback.push(t.spell);
                 }
                 self.advance(t, CastStage::Kicker);
             }

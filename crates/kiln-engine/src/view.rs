@@ -419,6 +419,7 @@ impl Game {
                 CastCost::WithoutPaying => "Cast without paying its mana cost".into(),
                 CastCost::Dash => "Pay the dash cost".into(),
                 CastCost::Escape => "Pay the escape cost".into(),
+                CastCost::Flashback => "Pay the flashback cost".into(),
                 CastCost::LifeInsteadOfMana => "Pay life equal to its mana value".into(),
             },
             DecisionKind::ChooseSymbolPay {

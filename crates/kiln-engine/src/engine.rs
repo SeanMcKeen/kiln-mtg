@@ -276,6 +276,8 @@ pub struct Game {
     /// Spells being cast from a graveyard with escape and the extra cost
     /// their escape grant adds (CR 702.138a; Underworld Breach).
     pub(crate) escaping: Vec<(ObjectId, Vec<ir::CostPart>)>,
+    /// Spells cast with flashback: exiled when they leave the stack (CR 702.34a).
+    pub(crate) flashback: Vec<ObjectId>,
     /// Spells being cast from the top of a library with Bolas's Citadel.
     pub(crate) library_casts: Vec<ObjectId>,
     /// Additional combat phases still to come this turn (CR 500.8; Najeela).
@@ -383,6 +385,7 @@ impl Game {
             player_rules_eot: Vec::new(),
             cast_permissions: Vec::new(),
             escaping: Vec::new(),
+            flashback: Vec::new(),
             graveyard_casts: Vec::new(),
             drawn_this_turn: Vec::new(),
             library_casts: Vec::new(),
@@ -689,6 +692,9 @@ impl Game {
         if !self.escaping.is_empty() {
             self.escaping.hash(&mut h);
         }
+        if !self.flashback.is_empty() {
+            self.flashback.hash(&mut h);
+        }
         if !self.graveyard_casts.is_empty() {
             self.graveyard_casts.hash(&mut h);
         }
@@ -897,6 +903,13 @@ impl Game {
         let to = self.commander_destination(id, to);
         // CR 614.1a: mandatory "exile it instead" replacements.
         let to = self.zone_replacement(id, old.zone, to);
+        // CR 702.34a: a spell cast with flashback is exiled instead of going
+        // anywhere else as it leaves the stack.
+        let to = if old.zone == ZoneId::Stack && self.flashback.contains(&id) {
+            ZoneId::Exile
+        } else {
+            to
+        };
         // Last known information (CR 603.10, 608.2h) before the object leaves,
         // including what it was copying (CR 707.2).
         let (power, toughness) = (self.power(id), self.toughness(id));
@@ -948,6 +961,9 @@ impl Game {
         }
         if !self.escaping.is_empty() {
             self.escaping.retain(|(x, _)| *x != id);
+        }
+        if !self.flashback.is_empty() {
+            self.flashback.retain(|x| *x != id);
         }
         if !self.graveyard_casts.is_empty() {
             self.graveyard_casts.retain(|(x, _)| *x != id);
@@ -2087,7 +2103,10 @@ impl Game {
             if self.obj_def(id).is_none_or(|d| d.is(CardType::Land)) {
                 continue;
             }
-            if (self.cast_permitted(id, p) || self.escape_cost(id, p).is_some())
+            let flashback = self
+                .obj_def(id)
+                .is_some_and(|d| d.flashback_cost().is_some());
+            if (self.cast_permitted(id, p) || self.escape_cost(id, p).is_some() || flashback)
                 && self.can_cast(p, id, sorcery_timing)
             {
                 actions.push(Action::Cast(id));

@@ -245,6 +245,8 @@ pub enum CastCost {
     Escape,
     /// Life equal to its mana value rather than its mana cost (Bolas's Citadel).
     LifeInsteadOfMana,
+    /// The flashback cost, from its owner's graveyard (CR 702.34a).
+    Flashback,
 }
 
 /// How one hybrid or Phyrexian mana symbol is paid (CR 107.4e–f).

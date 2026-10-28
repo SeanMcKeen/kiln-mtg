@@ -1,0 +1,27 @@
+scenario: kiln-scenario/1
+name: "Faithless Looting: draw two, discard two; flashback from the graveyard, then it's exiled"
+cr: ["702.34a"]
+verifies: [Faithless Looting]
+players:
+  - battlefield: [Mountain, Mountain, Mountain, Mountain]
+    hand: [Faithless Looting, Island, Island]
+    library: [Opt, Ponder, Preordain, Brainstorm]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Faithless Looting
+  - choose: Pay with Mountain
+  - pass_all
+  - choose: Discard Island
+  - choose: Discard Island
+  - check:
+      zones: { P1.graveyard: [Faithless Looting, Island, Island], P1.hand: [Opt, Ponder] }
+  - choose: Cast Faithless Looting
+  - choose: "Pay with Mountain, Mountain, Mountain"
+  - pass_all
+  - choose: Discard Opt
+  - choose: Discard Ponder
+expect:
+  zones:
+    exile: [Faithless Looting]
+    P1.hand: [Preordain, Brainstorm]

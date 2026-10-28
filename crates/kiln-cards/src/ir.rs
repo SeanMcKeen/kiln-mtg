@@ -121,6 +121,9 @@ pub enum Keyword {
     Enchant(TargetKind),
     /// "Equip [cost]" (CR 702.6): attach to target creature you control, as a sorcery.
     Equip(Vec<CostPart>),
+    /// "Flashback [cost]" (CR 702.34a): cast from your graveyard for this
+    /// cost rather than its mana cost; then it's exiled when it leaves the stack.
+    Flashback(Vec<CostPart>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
