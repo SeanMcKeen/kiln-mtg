@@ -75,7 +75,8 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "When it was first cast or played, as its deck's own turn number (like win turns)."
         },
         "gih_wr": {
           "anyOf": [
@@ -293,8 +294,18 @@
         "deck": {
           "type": "string"
         },
+        "hand_sizes": {
+          "default": [],
+          "description": "The hand size kept after 0, 1, 2, … mulligans: 7, 7, 6, … in multiplayer,\nwhere the first mulligan is free (CR 103.5c).",
+          "items": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": "array"
+        },
         "kept_at": {
-          "description": "Share of games kept at 7, 6, 5, … cards (index = mulligans taken).",
+          "description": "Share of games kept after 0, 1, 2, … mulligans (index = mulligans taken).",
           "items": {
             "$ref": "#/$defs/Rate"
           },
@@ -574,13 +585,23 @@
           "description": "Feature name → share of kept hands with at least one of its cards.",
           "type": "object"
         },
+        "hand_sizes": {
+          "default": [],
+          "description": "The hand size kept after 0, 1, 2, … mulligans (the first is free in the\n4-player pod these hands are dealt in, CR 103.5c).",
+          "items": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": "array"
+        },
         "hands": {
           "format": "uint64",
           "minimum": 0,
           "type": "integer"
         },
         "kept_at": {
-          "description": "Share of hands kept at 7, 6, 5, …",
+          "description": "Share of hands kept after 0, 1, 2, … mulligans (index = mulligans taken).",
           "items": {
             "$ref": "#/$defs/Rate"
           },

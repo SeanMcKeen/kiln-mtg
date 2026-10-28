@@ -52,12 +52,16 @@ Fifteen realistic tasks (`tasks.yaml`) for an agent connected to `kiln mcp serve
 - **`kiln_sim_compare` pairs runs** that share seeds and seat orders and reports `paired_ci95` per deck (Kinnan's playbook: −0.3 pp, paired [−2.7, +1.8]).
 - Smaller fixes: per-card `page` is 1-based; `mode` prints as `opening_hands`; scenario results read `win P1 on turn 3`; the unsupported-card refusal says how to fix it; `unsupported_reasons` counts each card once per reason.
 
+### Follow-up fixes (same day)
+- Per-card stats sort with `sort` (`seen`, `iwd`, `gih_wr`, `oh_wr`, `cast_wr`, `dead`), and `first_cast_turn` is the deck's own turn.
+- **Opening hands are dealt in a 4-player pod**, so the first mulligan is free (CR 103.5c); it used to be a 2-player game, which understated Commander keeps. `hand_sizes` labels `kept_at` (7, 7, 6, … in multiplayer), and the concise report counts hands as games.
+- Events show the chosen name (`P2 chooses Diabolic Intent`) and cards exiled from a library as one line.
+- Basic lands are verified (`tests/scenarios-real/lands-basics.yaml`).
+- Q41 resolved: turn limits stay in game turns, the goldfish example uses the default 100 (25 own turns; capped 32.9% → 1.4%), and the capped warning gives turns per player. The fastest-win hint ranks by the winner's own turn and puts wins by opponents decking last.
+
 ### Still open
-- Concise reports hold no per-seat intervals in `win_rates` (the notable line has the seat-1 vs last-seat intervals; `detailed` has all of them).
-- Per-card stats can't be sorted (by IWD), and `first_cast_turn` is the game turn while win turns are own turns.
-- `kept_at` entries are unlabelled (index = mulligans taken), and an opening-hands report says `games: 0`.
-- Events don't show a chosen name or a mass exile; basic lands are parsed but not verified.
-- The fastest-win hint picks the shortest game, which can be a degenerate one (opponents decking themselves).
+- Concise reports hold no per-seat intervals in `win_rates` (the notable line has the seat-1 vs last-seat intervals; `detailed` has all of them). Kept: the concise report stays near 2k tokens.
+- Inspecting a run recorded before a policy change replays with the new policy and reports `diverged: true`; re-run the spec to inspect it.
 
 ## Related
 [[M8 Agent Integration & Playbooks]] · [[MCP Server Tool Catalog]]

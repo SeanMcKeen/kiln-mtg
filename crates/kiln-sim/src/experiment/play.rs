@@ -165,7 +165,8 @@ impl Experiment {
                 }
             }
             Mode::OpeningHands => {
-                // One configuration per deck: it and one passive opponent.
+                // One configuration per deck: it and three passive opponents, a
+                // Commander pod, so the first mulligan is free (CR 103.5c).
                 let island = pool.by_name("Island").ok_or_else(|| {
                     ExperimentError::Run("the pool has no Island for the dummy opponent".into())
                 })?;
@@ -179,7 +180,7 @@ impl Experiment {
                 configs = (0..spec.decks.len())
                     .map(|i| Config {
                         name: play[i].id.clone(),
-                        slots: vec![i, opp],
+                        slots: vec![i, opp, opp, opp],
                     })
                     .collect();
             }

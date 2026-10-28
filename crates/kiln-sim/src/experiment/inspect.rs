@@ -193,8 +193,31 @@ pub fn describe_events(game: &Game, pool: &CardPool) -> Vec<String> {
     let name = |id: &ObjectId, names: &BTreeMap<ObjectId, String>| {
         names.get(id).cloned().unwrap_or_else(|| format!("{id}"))
     };
+    // Cards exiled from a library in a row (Demonic Consultation) make one line.
+    let mut milled: Option<(kiln_types::PlayerId, usize)> = None;
     for e in game.events() {
+        if let Event::ZoneChange {
+            from: ZoneId::Library(p),
+            to: ZoneId::Exile,
+            ..
+        } = e
+        {
+            match &mut milled {
+                Some((q, n)) if q == p => *n += 1,
+                _ => {
+                    if let Some((q, n)) = milled.take() {
+                        out.push(format!("  {n} card(s) from {q}'s library are exiled"));
+                    }
+                    milled = Some((*p, 1));
+                }
+            }
+            continue;
+        }
+        if let Some((q, n)) = milled.take() {
+            out.push(format!("  {n} card(s) from {q}'s library are exiled"));
+        }
         let line = match e {
+            Event::Chose { player, choice } => Some(format!("  {player} chooses {choice}")),
             Event::TurnBegan { number, active } => Some(format!("— turn {number} ({active}) —")),
             Event::ZoneChange {
                 def,
@@ -262,6 +285,9 @@ pub fn describe_events(game: &Game, pool: &CardPool) -> Vec<String> {
         if let Some(l) = line {
             out.push(l);
         }
+    }
+    if let Some((q, n)) = milled {
+        out.push(format!("  {n} card(s) from {q}'s library are exiled"));
     }
     out
 }

@@ -75,7 +75,7 @@ The full spec is `kiln-spec/1` ([[Experiment Spec]]; JSON Schema: `crates/kiln-p
 - **Capped games** (hitting `max_turns` or `max_decisions`) are left out of win rates; the report warns when there are many.
 - **Per-card statistics are correlational.** Long games see more cards, so nearly every card shows a positive IWD. For a causal answer, run `mode: ab`.
 - **Independent runs** (`kiln_sim_compare`) differ for every reason that changed between them. When comparing pilots, change one deck's policy at a time (`examples/specs/m8-kinnan-playbook-only.yaml`). Keep the same `seed` and `seating`: the games then pair up, and `kiln_sim_compare` reports a tighter `paired_ci95` per deck.
-- **Goldfish limits count game turns**: with 3 opponents, `max_turns: 60` is 15 of the deck's own turns. A deck that kills with combat may need 100 or more.
+- **Turn limits count game turns**: the default `max_turns: 100` is 25 turns per player in a 4-player pod or goldfish. Lowering it caps slow decks; the capped warning says how many turns each player got.
 - **Polling**: `kiln_sim_status` says when to poll again; don't poll every second.
 
 ## Writing playbooks
