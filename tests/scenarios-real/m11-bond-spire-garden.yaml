@@ -1,0 +1,12 @@
+scenario: kiln-scenario/1
+name: "Spire Garden enters tapped with one opponent"
+cr: ["614.1c", "102.2"]
+verifies: ["Spire Garden"]
+players:
+  - hand: ["Spire Garden"]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Play Spire Garden
+expect:
+  tapped: { "Spire Garden": true }

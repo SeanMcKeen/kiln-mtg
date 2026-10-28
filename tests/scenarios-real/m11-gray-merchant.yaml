@@ -1,0 +1,17 @@
+scenario: kiln-scenario/1
+name: "Gray Merchant of Asphodel: each opponent loses X (devotion to black); you gain the life lost this way"
+cr: ["700.5", "603.2"]
+verifies: [Gray Merchant of Asphodel]
+players:
+  - battlefield: [Swamp, Swamp, Swamp, Swamp, Swamp, Phyrexian Arena]
+    hand: [Gray Merchant of Asphodel]
+  - {}
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Gray Merchant of Asphodel
+  - choose: "Pay with Swamp, Swamp, Swamp, Swamp, Swamp"
+  - pass_all
+  - pass_all
+expect:
+  life: { P1: 28, P2: 16, P3: 16 }

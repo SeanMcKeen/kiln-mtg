@@ -1,0 +1,13 @@
+scenario: kiln-scenario/1
+name: "Shattered Sanctum enters tapped with only one other land"
+cr: ["614.1c", "305.6"]
+verifies: ["Shattered Sanctum"]
+players:
+  - battlefield: [Plains]
+    hand: ["Shattered Sanctum"]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Play Shattered Sanctum
+expect:
+  tapped: { "Shattered Sanctum": true }

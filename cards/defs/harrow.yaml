@@ -1,0 +1,10 @@
+card: Harrow
+faces:
+  - abilities:
+      - spell:
+          additional_costs:
+            - sacrifice: { chosen_from: { who: you, zone: battlefield, filter: { types: [land] }, count: 1 } }
+          effect:
+            seq:
+              - search: { who: you, filter: { types: [land], supertypes: [basic] }, count: 2, to: battlefield, reveal: false }
+              - shuffle: you

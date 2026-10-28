@@ -1,0 +1,13 @@
+scenario: kiln-scenario/1
+name: "Cabal Coffers: {2}, {T}: add {B} for each Swamp you control"
+cr: ["106.1", "605.1a"]
+verifies: [Cabal Coffers]
+players:
+  - battlefield: [Cabal Coffers, Swamp, Swamp, Swamp]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: "Activate Cabal Coffers for {B}{B}{B}"
+  - choose: "Pay with Swamp, Swamp"
+expect:
+  pool: { P1: "{B}{B}{B}" }

@@ -1,0 +1,14 @@
+scenario: kiln-scenario/1
+name: "Adarkar Wastes: {C} painlessly, or {W}/{U} with 1 damage"
+cr: ["605.1a", "106.1"]
+verifies: ["Adarkar Wastes"]
+players:
+  - battlefield: ["Adarkar Wastes", "Adarkar Wastes"]
+  - {}
+script:
+  - choose: "Tap Adarkar Wastes for {C}"
+  - choose: Tap Adarkar Wastes for mana
+  - choose: "Add {U}"
+expect:
+  life: { P1: 19 }
+  pool: { P1: "{U}{C}" }

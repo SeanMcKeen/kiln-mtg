@@ -1,0 +1,30 @@
+scenario: kiln-scenario/1
+name: "An Aura returning with the permanents it could enchant can't enchant them: it stays in exile"
+cr: ["303.4f", "303.4g", "607.2a"]
+verifies: [Worldgorger Dragon, Utopia Sprawl]
+players:
+  - battlefield: [Swamp, Swamp, Forest, Forest]
+    hand: [Utopia Sprawl, Animate Dead]
+    graveyard: [Worldgorger Dragon]
+  - graveyard: [Grizzly Bears]
+script:
+  - choose: Cast Utopia Sprawl
+  - choose: Target Forest (P1)
+  - choose: Pay with Forest
+  - pass_all
+  - choose: Choose Green
+  - choose: Cast Animate Dead
+  - choose: Target Worldgorger Dragon
+  - choose: Pay with Swamp, Swamp
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - choose: Enchant Grizzly Bears
+  - pass_all
+expect:
+  result: in_progress
+  zones:
+    P1.battlefield: [Swamp, Swamp, Forest, Forest, Animate Dead, Grizzly Bears]
+    exile: [Utopia Sprawl]

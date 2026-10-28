@@ -1,0 +1,15 @@
+scenario: kiln-scenario/1
+name: "Luxury Suite enters untapped with two opponents"
+cr: ["614.1c", "102.2"]
+verifies: ["Luxury Suite"]
+players:
+  - hand: ["Luxury Suite"]
+  - {}
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Play Luxury Suite
+  - choose: Tap Luxury Suite for mana
+  - choose: "Add {B}"
+expect:
+  pool: { P1: "{B}" }

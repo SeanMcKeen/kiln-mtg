@@ -1,0 +1,14 @@
+scenario: kiln-scenario/1
+name: "Phyrexian Tower: {T}, sacrifice a creature: add {B}{B}"
+cr: ["605.1a"]
+verifies: [Phyrexian Tower]
+players:
+  - battlefield: [Phyrexian Tower, Grizzly Bears]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: "Activate Phyrexian Tower for {B}{B}"
+expect:
+  pool: { P1: "{B}{B}" }
+  zones:
+    P1.graveyard: [Grizzly Bears]

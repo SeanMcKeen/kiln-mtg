@@ -1,0 +1,15 @@
+scenario: kiln-scenario/1
+name: "Shipwreck Marsh enters untapped with two other lands"
+cr: ["614.1c", "305.6"]
+verifies: ["Shipwreck Marsh"]
+players:
+  - battlefield: [Island, Swamp]
+    hand: ["Shipwreck Marsh"]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Play Shipwreck Marsh
+  - choose: Tap Shipwreck Marsh for mana
+  - choose: "Add {U}"
+expect:
+  pool: { P1: "{U}" }

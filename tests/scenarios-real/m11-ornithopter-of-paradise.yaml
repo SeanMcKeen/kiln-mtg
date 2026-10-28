@@ -1,0 +1,13 @@
+scenario: kiln-scenario/1
+name: "Ornithopter of Paradise taps for one mana of any color"
+cr: ["605.1a"]
+verifies: [Ornithopter of Paradise]
+players:
+  - battlefield: [Ornithopter of Paradise]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Tap Ornithopter of Paradise for mana
+  - choose: "Add {G}"
+expect:
+  pool: { P1: "{G}" }

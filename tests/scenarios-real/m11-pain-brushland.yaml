@@ -1,0 +1,14 @@
+scenario: kiln-scenario/1
+name: "Brushland: {C} painlessly, or {G}/{W} with 1 damage"
+cr: ["605.1a", "106.1"]
+verifies: ["Brushland"]
+players:
+  - battlefield: ["Brushland", "Brushland"]
+  - {}
+script:
+  - choose: "Tap Brushland for {C}"
+  - choose: Tap Brushland for mana
+  - choose: "Add {G}"
+expect:
+  life: { P1: 19 }
+  pool: { P1: "{G}{C}" }

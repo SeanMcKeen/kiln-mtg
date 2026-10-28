@@ -1,0 +1,10 @@
+card: Gray Merchant of Asphodel
+faces:
+  - abilities:
+      - triggered:
+          trigger: { enters: { this: true } }
+          effect:
+            seq:
+              - for_each_player: { players: opponent, effect: { lose_life: { who: each, amount: { devotion: B } } } }
+              # "You gain life equal to the life lost this way."
+              - gain_life: { who: you, amount: { var: life_lost } }

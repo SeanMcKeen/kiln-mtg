@@ -1,0 +1,18 @@
+scenario: kiln-scenario/1
+name: "Village Rites: sacrifice a creature as an additional cost, draw two"
+cr: ["601.2b", "701.21a"]
+verifies: [Village Rites]
+players:
+  - battlefield: [Swamp, Grizzly Bears]
+    hand: [Village Rites]
+    library: [Opt, Ponder]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Village Rites
+  - choose: Pay with Swamp
+  - pass_all
+expect:
+  zones:
+    P1.hand: [Opt, Ponder]
+    P1.graveyard: [Grizzly Bears, Village Rites]

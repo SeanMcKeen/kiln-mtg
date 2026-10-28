@@ -670,6 +670,7 @@ fn quantity(q: &Quantity) -> Check {
             | QuantityExpr::SpellsCastThisTurn { .. }
             | QuantityExpr::MostSpellsCastByAnOpponent
             | QuantityExpr::LifeOf(_)
+            | QuantityExpr::Opponents
             | QuantityExpr::TopOfLibraryManaValue(_)
             | QuantityExpr::Var(_) => Ok(()),
         },

@@ -1292,6 +1292,9 @@ pub enum QuantityExpr {
     },
     /// The negation of a quantity ("-X/-X").
     Neg(Box<Quantity>),
+    /// The number of opponents still in the game (bond lands: "two or more
+    /// opponents"; CR 102.2).
+    Opponents,
 }
 
 /// Conditions (intervening ifs, "if you control …").

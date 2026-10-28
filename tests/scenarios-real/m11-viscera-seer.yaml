@@ -1,0 +1,18 @@
+scenario: kiln-scenario/1
+name: "Viscera Seer: sacrifice a creature, scry 1"
+cr: ["701.22a"]
+verifies: [Viscera Seer]
+players:
+  - battlefield: [Viscera Seer, Grizzly Bears]
+    library: [Opt, Ponder]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Activate Viscera Seer ability 1
+  - choose: Sacrifice Grizzly Bears (P1)
+  - pass_all
+  - choose: Put on bottom Opt
+expect:
+  zones:
+    P1.graveyard: [Grizzly Bears]
+    P1.library: [Ponder, Opt]

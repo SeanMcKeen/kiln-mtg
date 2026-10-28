@@ -1051,12 +1051,14 @@ impl Game {
         }
     }
 
-    pub(crate) fn lose_life(&mut self, p: PlayerId, amount: u32) {
+    /// Returns the life actually lost.
+    pub(crate) fn lose_life(&mut self, p: PlayerId, amount: u32) -> u32 {
         if amount == 0 || self.has_player_rule(p, kiln_cards::ir::PlayerRuleKind::LifeCantChange) {
-            return;
+            return 0;
         }
         self.player_mut(p).life -= i64::from(amount);
         self.log(Event::LifeLost { player: p, amount });
+        amount
     }
 
     pub(crate) fn gain_life(&mut self, p: PlayerId, amount: u32) {
@@ -1446,6 +1448,11 @@ impl Game {
         let o = self.obj(id)?;
         let (spec, store) = self.def(o.def).as_enters()?;
         if self.object_vars.iter().any(|v| v.0 == id && v.1 == store) {
+            return None;
+        }
+        // CR 303.4g: an Aura with nothing to enchant doesn't enter, so it
+        // makes no "as this enters" choice.
+        if self.aura_hosts(id).is_some_and(|h| h.is_empty()) {
             return None;
         }
         let kind = match spec {

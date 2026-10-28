@@ -1,0 +1,13 @@
+scenario: kiln-scenario/1
+name: "Deathcap Glade enters tapped with only one other land"
+cr: ["614.1c", "305.6"]
+verifies: ["Deathcap Glade"]
+players:
+  - battlefield: [Swamp]
+    hand: ["Deathcap Glade"]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Play Deathcap Glade
+expect:
+  tapped: { "Deathcap Glade": true }

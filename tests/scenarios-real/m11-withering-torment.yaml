@@ -1,0 +1,18 @@
+scenario: kiln-scenario/1
+name: "Withering Torment: destroy target creature or enchantment; you lose 2 life"
+cr: ["701.8a"]
+verifies: [Withering Torment]
+players:
+  - battlefield: [Swamp, Swamp, Swamp]
+    hand: [Withering Torment]
+  - battlefield: [Phyrexian Arena]
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Withering Torment
+  - choose: Target Phyrexian Arena (P2)
+  - choose: "Pay with Swamp, Swamp, Swamp"
+  - pass_all
+expect:
+  life: { P1: 18 }
+  zones:
+    P2.graveyard: [Phyrexian Arena]

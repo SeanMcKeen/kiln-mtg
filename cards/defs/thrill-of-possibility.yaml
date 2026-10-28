@@ -1,0 +1,6 @@
+card: Thrill of Possibility
+faces:
+  - abilities:
+      - spell:
+          additional_costs: [{ discard: { chosen: { count: 1, filter: {} } } }]
+          effect: { draw: { who: you, amount: 2 } }

@@ -1,0 +1,4 @@
+card: Jet Medallion
+faces:
+  - abilities:
+      - static: { effect: { cost_reduction: { spells: { color: B, controller: you }, amount: 1 } } }

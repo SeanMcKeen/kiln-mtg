@@ -1,0 +1,6 @@
+card: Cabal Coffers
+faces:
+  - abilities:
+      - activated:
+          cost: [{ mana: "{2}" }, tap]
+          effect: { add_mana: { mana: { times: { mana: "{B}", times: { count: { subtypes: [Swamp], controller: you } } } } } }

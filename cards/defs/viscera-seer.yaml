@@ -1,0 +1,6 @@
+card: Viscera Seer
+faces:
+  - abilities:
+      - activated:
+          cost: [{ sacrifice: { chosen_from: { who: you, zone: battlefield, filter: { types: [creature] }, count: 1 } } }]
+          effect: { scry: { who: you, amount: 1 } }

@@ -1,0 +1,13 @@
+scenario: kiln-scenario/1
+name: "Haunted Ridge enters tapped with only one other land"
+cr: ["614.1c", "305.6"]
+verifies: ["Haunted Ridge"]
+players:
+  - battlefield: [Swamp]
+    hand: ["Haunted Ridge"]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Play Haunted Ridge
+expect:
+  tapped: { "Haunted Ridge": true }

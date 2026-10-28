@@ -1,0 +1,9 @@
+card: "Morphic Pool"
+faces:
+  - abilities:
+      # "This land enters tapped unless you have two or more opponents" (CR 614.1c).
+      - replacement:
+          event: { would_enter: { this: true } }
+          condition: { not: { at_least: [opponents, 2] } }
+          instead: enters_tapped
+      - activated: { cost: [tap], effect: { add_mana: { mana: { one_of: ["{U}", "{B}"] } } } }

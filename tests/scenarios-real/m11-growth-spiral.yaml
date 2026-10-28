@@ -1,0 +1,18 @@
+scenario: kiln-scenario/1
+name: "Growth Spiral: draw a card, then you may put a land card from your hand onto the battlefield"
+cr: ["305.9", "608.2d"]
+verifies: [Growth Spiral]
+players:
+  - battlefield: [Forest, Island]
+    hand: [Growth Spiral]
+    library: [Plains]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Growth Spiral
+  - choose: "Pay with Forest, Island"
+  - pass_all
+  - choose: "Yes"
+expect:
+  zones:
+    P1.battlefield: [Forest, Island, Plains]

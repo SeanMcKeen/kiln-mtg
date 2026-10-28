@@ -1,0 +1,16 @@
+scenario: kiln-scenario/1
+name: "Jet Medallion: black spells you cast cost {1} less"
+cr: ["601.2f"]
+verifies: [Jet Medallion]
+players:
+  - battlefield: [Jet Medallion, Swamp, Swamp]
+    hand: [Phyrexian Arena]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Phyrexian Arena
+  - choose: "Pay with Swamp, Swamp"
+  - pass_all
+expect:
+  zones:
+    P1.battlefield: [Jet Medallion, Swamp, Swamp, Phyrexian Arena]

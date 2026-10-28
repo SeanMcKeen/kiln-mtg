@@ -985,6 +985,15 @@ impl Game {
                         "303.4f",
                     );
                 }
+                // Auras first: they choose among permanents already there, not
+                // ones entering with them (the hosts asked about above).
+                let mut ids = ids;
+                if matches!(
+                    to,
+                    Destination::Battlefield | Destination::BattlefieldTapped
+                ) {
+                    ids.sort_by_key(|id| self.aura_hosts(*id).is_none());
+                }
                 for id in ids {
                     self.place(&mut t.ctx, id, to, who);
                 }
@@ -1338,7 +1347,12 @@ impl Game {
             Effect::LoseLife { who, amount } => {
                 let n = self.amount(&t.ctx, amount);
                 if let Some(p) = self.player_ref(&t.ctx, who) {
-                    self.lose_life(p, n);
+                    // "the life lost this way" (Gray Merchant): `var: life_lost`.
+                    let lost = i64::from(self.lose_life(p, n));
+                    match t.ctx.vars.iter_mut().find(|(k, _)| k == "life_lost") {
+                        Some((_, v)) => *v += lost,
+                        None => t.ctx.vars.push(("life_lost".to_owned(), lost)),
+                    }
                 }
             }
             Effect::AddMana { mana, to, .. } => {
@@ -2135,6 +2149,13 @@ impl Game {
                 QuantityExpr::LifeOf(p) => {
                     self.player_ref(ctx, p).map_or(0, |p| self.player(p).life)
                 }
+                QuantityExpr::Opponents => i64::try_from(
+                    self.players
+                        .iter()
+                        .filter(|p| p.id != ctx.controller && self.in_game(p.id))
+                        .count(),
+                )
+                .unwrap_or(0),
                 QuantityExpr::TopOfLibraryManaValue(p) => self
                     .player_ref(ctx, p)
                     .and_then(|p| self.player(p).library.last().copied())

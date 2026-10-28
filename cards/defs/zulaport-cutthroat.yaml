@@ -1,0 +1,10 @@
+card: Zulaport Cutthroat
+faces:
+  - abilities:
+      # "Whenever this creature or another creature you control dies".
+      - triggered:
+          trigger: { dies: { types: [creature], controller: you } }
+          effect:
+            seq:
+              - for_each_player: { players: opponent, effect: { lose_life: { who: each, amount: 1 } } }
+              - gain_life: { who: you, amount: 1 }

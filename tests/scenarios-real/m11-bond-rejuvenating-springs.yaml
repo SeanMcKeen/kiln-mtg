@@ -1,0 +1,15 @@
+scenario: kiln-scenario/1
+name: "Rejuvenating Springs enters untapped with two opponents"
+cr: ["614.1c", "102.2"]
+verifies: ["Rejuvenating Springs"]
+players:
+  - hand: ["Rejuvenating Springs"]
+  - {}
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Play Rejuvenating Springs
+  - choose: Tap Rejuvenating Springs for mana
+  - choose: "Add {U}"
+expect:
+  pool: { P1: "{U}" }
