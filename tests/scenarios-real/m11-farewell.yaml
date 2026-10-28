@@ -1,0 +1,23 @@
+scenario: kiln-scenario/1
+name: "Farewell: choose one or more modes; each chosen kind is exiled"
+cr: ["700.2", "700.2d"]
+verifies: [Farewell]
+players:
+  - battlefield: [Plains, Plains, Plains, Plains, Plains, Plains, Sol Ring, Grizzly Bears, Phyrexian Arena]
+    hand: [Farewell]
+  - battlefield: [Test Ogre, Aura Shards]
+    graveyard: [Opt]
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Farewell
+  - choose: Mode 1
+  - choose: Mode 2
+  - choose: Mode 4
+  - choose: No more modes
+  - choose: "Pay with Plains, Plains, Plains, Plains, Plains, Plains"
+  - pass_all
+expect:
+  zones:
+    P1.battlefield: [Plains, Plains, Plains, Plains, Plains, Plains, Phyrexian Arena]
+    P2.battlefield: [Aura Shards]
+    P2.graveyard: []

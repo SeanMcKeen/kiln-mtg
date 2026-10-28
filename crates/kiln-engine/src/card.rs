@@ -125,8 +125,10 @@ impl Keywords {
         Keywords(1 << 18),
         Keywords(1 << 19),
     ];
+    /// CR 509.1b: "can't be blocked" (an evasion restriction, not a keyword).
+    pub const CANT_BE_BLOCKED: Keywords = Keywords(1 << 20);
 
-    const NAMES: [(&'static str, Keywords); 15] = [
+    const NAMES: [(&'static str, Keywords); 16] = [
         ("deathtouch", Self::DEATHTOUCH),
         ("defender", Self::DEFENDER),
         ("double strike", Self::DOUBLE_STRIKE),
@@ -142,6 +144,7 @@ impl Keywords {
         ("hexproof", Self::HEXPROOF),
         ("shroud", Self::SHROUD),
         ("indestructible", Self::INDESTRUCTIBLE),
+        ("can't be blocked", Self::CANT_BE_BLOCKED),
     ];
 
     pub fn has(self, k: Keywords) -> bool {
@@ -185,6 +188,7 @@ impl Keywords {
             K::Hexproof => Self::HEXPROOF,
             K::Shroud => Self::SHROUD,
             K::Indestructible => Self::INDESTRUCTIBLE,
+            K::CantBeBlocked => Self::CANT_BE_BLOCKED,
             K::HexproofFrom(colors) => Color::ALL
                 .iter()
                 .enumerate()
@@ -215,6 +219,7 @@ impl Keywords {
             (Self::HEXPROOF, K::Hexproof),
             (Self::SHROUD, K::Shroud),
             (Self::INDESTRUCTIBLE, K::Indestructible),
+            (Self::CANT_BE_BLOCKED, K::CantBeBlocked),
         ];
         all.into_iter().find(|(b, _)| *b == self).map(|(_, k)| k)
     }

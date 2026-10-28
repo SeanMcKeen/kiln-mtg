@@ -1391,9 +1391,7 @@ impl Game {
                 });
                 let searched = if top_four { 4 } else { library.len() };
                 // "with mana value X or less", worked out now.
-                let cap = max_mana_value
-                    .as_ref()
-                    .map(|q| u32::try_from(self.amount(&t.ctx, q).max(0)).unwrap_or(0));
+                let cap = max_mana_value.as_ref().map(|q| self.amount(&t.ctx, q));
                 let fits = |id: &ObjectId| cap.is_none_or(|c| self.mana_value_of(*id) <= c);
                 let mut candidates: Vec<ObjectId> = library
                     .iter()

@@ -124,6 +124,9 @@ pub enum Keyword {
     /// "Flashback [cost]" (CR 702.34a): cast from your graveyard for this
     /// cost rather than its mana cost; then it's exiled when it leaves the stack.
     Flashback(Vec<CostPart>),
+    /// "[This] can't be blocked": not a keyword ability, but an evasion
+    /// restriction tracked like one (CR 509.1b).
+    CantBeBlocked,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

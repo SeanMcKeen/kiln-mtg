@@ -1,0 +1,9 @@
+card: "Braids, Cabal Minion"
+faces:
+  - abilities:
+      - triggered:
+          trigger: { beginning_of: { step: upkeep, whose: any } }
+          effect:
+            sacrifice:
+              who: triggering
+              what: { chosen_from: { who: triggering, zone: battlefield, filter: { types: [artifact, creature, land] }, count: 1 } }

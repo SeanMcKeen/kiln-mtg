@@ -1,0 +1,19 @@
+scenario: kiln-scenario/1
+name: "Aura Shards: a creature entering under your control lets you destroy target artifact or enchantment"
+cr: ["603.2", "603.3d", "608.2d"]
+verifies: [Aura Shards]
+players:
+  - battlefield: [Aura Shards, Forest]
+    hand: [Llanowar Elves]
+  - battlefield: [Sol Ring]
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Llanowar Elves
+  - choose: Pay with Forest
+  - pass_all
+  - choose: Target Sol Ring (P2)
+  - pass_all
+  - choose: "Yes"
+expect:
+  zones:
+    P2.graveyard: [Sol Ring]

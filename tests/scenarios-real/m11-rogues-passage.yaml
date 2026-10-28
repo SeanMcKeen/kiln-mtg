@@ -1,0 +1,22 @@
+scenario: kiln-scenario/1
+name: "Rogue's Passage: target creature can't be blocked this turn"
+cr: ["509.1b", "611.2a"]
+verifies: ["Rogue's Passage"]
+players:
+  - battlefield: ["Rogue's Passage", Mountain, Mountain, Mountain, Mountain, Grizzly Bears]
+  - battlefield: [Test Ogre]
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Activate Rogue's Passage ability 2
+  - choose: Target Grizzly Bears (P1)
+  - choose: "Pay with Mountain, Mountain, Mountain, Mountain"
+  - pass_all
+  - pass_all
+  - pass_all
+  - choose: Grizzly Bears attacks P2
+  # No declare-blockers decision for P2: pass_all fails on any non-priority decision.
+  - pass_all
+  - pass_all
+  - pass_all
+expect:
+  life: { P2: 18 }

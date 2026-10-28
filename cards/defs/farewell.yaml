@@ -1,0 +1,15 @@
+card: Farewell
+faces:
+  - abilities:
+      - spell:
+          effect:
+            modal:
+              min: 1
+              max: 4
+              modes:
+                - exile: { what: { all: { types: [artifact] } } }
+                - exile: { what: { all: { types: [creature] } } }
+                - exile: { what: { all: { types: [enchantment] } } }
+                - for_each_player:
+                    players: any
+                    effect: { exile: { what: { zone: { owner: each, zone: graveyard } } } }

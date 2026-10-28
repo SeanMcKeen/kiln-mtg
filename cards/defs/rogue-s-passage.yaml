@@ -1,0 +1,8 @@
+card: "Rogue's Passage"
+faces:
+  - abilities:
+      - activated: { cost: [tap], effect: { add_mana: { mana: { fixed: "{C}" } } } }
+      - activated:
+          cost: [{ mana: "{4}" }, tap]
+          targets: [{ what: { object: { types: [creature] } } }]
+          effect: { gain_keyword: { what: { one: { target: 0 } }, keyword: cant_be_blocked } }

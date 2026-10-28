@@ -1,0 +1,7 @@
+card: Aura Shards
+faces:
+  - abilities:
+      - triggered:
+          trigger: { enters: { types: [creature], controller: you } }
+          targets: [{ what: { object: { types: [artifact, enchantment] } } }]
+          effect: { may: { destroy: { one: { target: 0 } } } }

@@ -16,7 +16,7 @@ use crate::card::{CardDef, Keywords, is_mana_ability};
 use crate::effects::simple_mana;
 
 /// Keywords whose rules the engine implements.
-const IMPLEMENTED_KEYWORDS: [Keywords; 15] = [
+const IMPLEMENTED_KEYWORDS: [Keywords; 16] = [
     Keywords::FLASH,
     Keywords::HEXPROOF,
     Keywords::SHROUD,
@@ -32,6 +32,7 @@ const IMPLEMENTED_KEYWORDS: [Keywords; 15] = [
     Keywords::TRAMPLE,
     Keywords::VIGILANCE,
     Keywords::MENACE,
+    Keywords::CANT_BE_BLOCKED,
 ];
 
 type Check = Result<(), String>;

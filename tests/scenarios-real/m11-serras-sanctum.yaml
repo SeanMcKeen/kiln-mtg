@@ -1,0 +1,11 @@
+scenario: kiln-scenario/1
+name: "Serra's Sanctum adds {W} for each enchantment you control"
+cr: ["106.1", "605.1a"]
+verifies: ["Serra's Sanctum"]
+players:
+  - battlefield: ["Serra's Sanctum", Phyrexian Arena, Aura Shards, Sol Ring]
+  - battlefield: [Rest in Peace]
+script:
+  - choose: "Tap Serra's Sanctum for {W}{W}"
+expect:
+  pool: { P1: "{W}{W}" }

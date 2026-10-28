@@ -1,0 +1,6 @@
+card: "Serra's Sanctum"
+faces:
+  - abilities:
+      - activated:
+          cost: [tap]
+          effect: { add_mana: { mana: { times: { mana: "{W}", times: { count: { types: [enchantment], controller: you } } } } } }
