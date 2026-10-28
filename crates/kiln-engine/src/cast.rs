@@ -365,7 +365,7 @@ impl Game {
             .map(symbol_options)
             .collect();
         let pool = self.usable_pool(p, shape.spell.then_some(ctx.source));
-        let sources = self.mana_sources(p, except);
+        let sources = self.mana_sources_for(p, except, shape.spell.then_some(ctx.source));
         let life = self.player(p).life;
         // Try every completion of the open symbols (a spell has only a few).
         let mut choice = vec![0usize; open.len()];
@@ -404,7 +404,11 @@ impl Game {
         let pool = self
             .usable_pool(p, shape.spell.then_some(ctx.source))
             .total();
-        let sources = u32::try_from(self.mana_sources(p, except).len()).unwrap_or(u32::MAX);
+        let sources = u32::try_from(
+            self.mana_sources_for(p, except, shape.spell.then_some(ctx.source))
+                .len(),
+        )
+        .unwrap_or(u32::MAX);
         let cap = if cost_uses_x(&shape.other) {
             1_000
         } else {
@@ -1076,7 +1080,7 @@ impl Game {
                 let plans = enumerate_plans(
                     &req,
                     &self.usable_pool(t.caster, spell),
-                    &self.mana_sources(t.caster, except),
+                    &self.mana_sources_for(t.caster, except, spell),
                 );
                 self.tasks.push(Task::Cast(t));
                 self.decide(
@@ -1398,8 +1402,9 @@ impl Game {
 
     /// Manual payment steps that keep the payment completable.
     pub(crate) fn manual_steps(&self, t: &ManualPayTask) -> Vec<ManaStep> {
-        let pool = self.usable_pool(t.payer, self.spell_being_cast(t.spell).then_some(t.spell));
-        let sources = self.mana_sources(t.payer, t.except);
+        let spell = self.spell_being_cast(t.spell).then_some(t.spell);
+        let pool = self.usable_pool(t.payer, spell);
+        let sources = self.mana_sources_for(t.payer, t.except, spell);
         let mut steps = Vec::new();
         for m in ManaType::ALL {
             if pool.get(m) == 0 {

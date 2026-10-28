@@ -1,0 +1,9 @@
+card: Chord of Calling
+faces:
+  - abilities:
+      - keyword: convoke
+      - spell:
+          effect:
+            seq:
+              - search: { who: you, filter: { types: [creature] }, count: 1, to: battlefield, reveal: false, max_mana_value: x }
+              - shuffle: you

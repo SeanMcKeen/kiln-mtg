@@ -285,7 +285,16 @@ impl Game {
         for (p, pool) in d.pools.iter().enumerate() {
             for (t, &per) in pool.iter().enumerate() {
                 if per < 0 {
-                    max = max.min(cap(i64::from(now.pools[p][t]), -per));
+                    // Restricted mana (CR 106.6) isn't what the loop spends:
+                    // its units stay in the pool.
+                    let restricted = self
+                        .restricted
+                        .iter()
+                        .filter(|r| usize::from(r.player.0) == p && r.mana.index() == t)
+                        .count();
+                    let have =
+                        i64::from(now.pools[p][t]) - i64::try_from(restricted).unwrap_or(i64::MAX);
+                    max = max.min(cap(have, -per));
                 }
             }
         }

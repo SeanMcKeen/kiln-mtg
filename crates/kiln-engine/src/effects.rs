@@ -90,6 +90,8 @@ pub(crate) struct EffectCtx {
     /// This effect is a mana ability whose cost taps its source, so the
     /// mana it adds is "tapped for mana" (CR 106.12, 605.1b triggers).
     pub tapped_for_mana: bool,
+    /// This task pays a cost (`EffectTask::paying`), not an effect.
+    pub paying: bool,
     /// Replacement effects already applied to the event this effect replaces
     /// (CR 614.5, 616.1f).
     pub applied: crate::replacement::Applied,
@@ -117,6 +119,7 @@ impl EffectCtx {
             triggering_ability: None,
             triggering_amount: None,
             tapped_for_mana: false,
+            paying: false,
             applied: SmallVec::new(),
         }
     }
@@ -141,7 +144,10 @@ impl EffectTask {
     /// Only pays costs (casting or activation costs, CR 601.2h, 602.2b).
     pub(crate) fn paying(ctx: EffectCtx, who: PlayerId, cost: &[CostPart]) -> Self {
         Self {
-            ctx,
+            ctx: EffectCtx {
+                paying: true,
+                ..ctx
+            },
             frames: vec![pay_frame(who, cost)],
         }
     }
@@ -2779,6 +2785,14 @@ impl Game {
     }
 
     fn sacrifice_all(&mut self, ctx: &mut EffectCtx, ids: &[ObjectId]) {
+        // A spell's effects can find what its cost sacrificed (CR 400.7j):
+        // remembered as "sacrificed", with last known information
+        // (Eldritch Evolution).
+        let for_spell = ctx.paying
+            && self
+                .stack
+                .iter()
+                .any(|i| i.is_spell() && i.object == ctx.source);
         self.begin_leaving(ids);
         for &id in ids {
             let Some(o) = self.obj(id).copied() else {
@@ -2786,6 +2800,10 @@ impl Game {
             };
             if o.zone != ZoneId::Battlefield {
                 continue;
+            }
+            if for_spell && let Some(k) = self.known(ctx, id) {
+                self.cost_paid
+                    .push((ctx.source, "sacrificed".to_owned(), k));
             }
             self.log(Event::Sacrificed { object: id });
             self.fx_move(ctx, id, ZoneId::Graveyard(o.owner), true);

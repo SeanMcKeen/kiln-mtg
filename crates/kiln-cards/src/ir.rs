@@ -127,6 +127,8 @@ pub enum Keyword {
     /// "[This] can't be blocked": not a keyword ability, but an evasion
     /// restriction tracked like one (CR 509.1b).
     CantBeBlocked,
+    /// "Convoke" (CR 702.51a): creatures you tap help pay for this spell.
+    Convoke,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

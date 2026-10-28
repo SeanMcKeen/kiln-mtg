@@ -278,6 +278,9 @@ pub struct Game {
     pub(crate) escaping: Vec<(ObjectId, Vec<ir::CostPart>)>,
     /// Spells cast with flashback: exiled when they leave the stack (CR 702.34a).
     pub(crate) flashback: Vec<ObjectId>,
+    /// Objects a spell's cost moved, by name, with last known information:
+    /// its effects can find them (CR 400.7j). (spell, name, object).
+    pub(crate) cost_paid: Vec<(ObjectId, String, crate::effects::Lki)>,
     /// Spells being cast from the top of a library with Bolas's Citadel.
     pub(crate) library_casts: Vec<ObjectId>,
     /// Additional combat phases still to come this turn (CR 500.8; Najeela).
@@ -386,6 +389,7 @@ impl Game {
             cast_permissions: Vec::new(),
             escaping: Vec::new(),
             flashback: Vec::new(),
+            cost_paid: Vec::new(),
             graveyard_casts: Vec::new(),
             drawn_this_turn: Vec::new(),
             library_casts: Vec::new(),
@@ -695,6 +699,9 @@ impl Game {
         if !self.flashback.is_empty() {
             self.flashback.hash(&mut h);
         }
+        if !self.cost_paid.is_empty() {
+            self.cost_paid.hash(&mut h);
+        }
         if !self.graveyard_casts.is_empty() {
             self.graveyard_casts.hash(&mut h);
         }
@@ -964,6 +971,9 @@ impl Game {
         }
         if !self.flashback.is_empty() {
             self.flashback.retain(|x| *x != id);
+        }
+        if !self.cost_paid.is_empty() {
+            self.cost_paid.retain(|(x, _, _)| *x != id);
         }
         if !self.graveyard_casts.is_empty() {
             self.graveyard_casts.retain(|(x, _)| *x != id);
@@ -2446,6 +2456,17 @@ impl Game {
             }
             ctx.modes.clone_from(&item.modes);
             ctx.x = item.x;
+            if item.is_spell() {
+                for (_, name, k) in self.cost_paid.iter().filter(|(s, _, _)| *s == item.object) {
+                    match ctx.remembered.iter_mut().find(|(n, _)| n == name) {
+                        Some((_, ids)) => ids.push(k.id),
+                        None => ctx
+                            .remembered
+                            .push((name.clone(), SmallVec::from_elem(k.id, 1))),
+                    }
+                    ctx.lki.push(*k);
+                }
+            }
             if let Some(d) = &item.delayed {
                 // CR 603.7: a delayed trigger runs its effect in its creator's context.
                 let mut dctx = d.ctx.clone();

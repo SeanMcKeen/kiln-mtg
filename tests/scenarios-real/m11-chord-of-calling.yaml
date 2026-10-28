@@ -1,0 +1,22 @@
+scenario: kiln-scenario/1
+name: "Chord of Calling: convoke (a summoning-sick creature may convoke); find a creature with mana value X or less"
+cr: ["702.51a", "302.6", "107.3", "701.23a"]
+verifies: [Chord of Calling]
+players:
+  - battlefield: [Forest, Forest, Forest, Grizzly Bears, { card: Llanowar Elves, sick: true }]
+    hand: [Chord of Calling]
+    library: [Opt, Sakura-Tribe Elder, Eternal Witness]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Chord of Calling
+  - choose: Choose 2
+  - choose: "Pay with Forest, Forest, Forest, Grizzly Bears, Llanowar Elves"
+  - pass_all
+  - check:
+      decision: { player: P1, options: [Stop, Find Sakura-Tribe Elder] }
+  - choose: Find Sakura-Tribe Elder
+expect:
+  zones:
+    P1.battlefield: [Forest, Forest, Forest, Grizzly Bears, Llanowar Elves, Sakura-Tribe Elder]
+  tapped: { Grizzly Bears: true, Llanowar Elves: true }

@@ -72,6 +72,8 @@ pub(crate) fn check(def: &CardDef) -> Check {
             // CR 702.109: an alternative cost for a permanent card.
             Ability::Keyword(kiln_cards::ir::Keyword::Dash(c)) => cast_cost(c)?,
             Ability::Keyword(kiln_cards::ir::Keyword::Flashback(c)) => cast_cost(c)?,
+            // CR 702.51a: creatures join the spell's mana sources.
+            Ability::Keyword(kiln_cards::ir::Keyword::Convoke) => {}
             // Works in exile (CR 113.6f); checked while offering casts.
             Ability::Static(StaticAbility {
                 effect: StaticEffect::Rule(RuleMod::MayCastFromExile),

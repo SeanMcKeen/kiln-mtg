@@ -248,6 +248,11 @@ impl Game {
                 }
             },
             DecisionKind::ManaStep { steps, .. } => match steps[i] {
+                ManaStep::Activate {
+                    source,
+                    bag,
+                    ability: crate::mana::CONVOKE,
+                } => format!("Convoke with {} for {}", name(source), bag_text(&bag)),
                 ManaStep::Activate { source, bag, .. } => {
                     format!("Tap {} for {}", name(source), bag_text(&bag))
                 }

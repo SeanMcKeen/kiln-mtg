@@ -136,6 +136,7 @@ fn keyword(k: &Keyword) -> String {
         Keyword::Dash(c) => format!("dash {}", costs(c)),
         Keyword::Flashback(c) => format!("flashback {}", costs(c)),
         Keyword::CantBeBlocked => "can't be blocked".into(),
+        Keyword::Convoke => "convoke".into(),
         Keyword::Partner => "partner".into(),
         Keyword::PartnerWith(n) => format!("partner with {n}"),
         Keyword::Protection(f) => format!(

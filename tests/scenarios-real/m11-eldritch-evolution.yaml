@@ -1,0 +1,23 @@
+scenario: kiln-scenario/1
+name: "Eldritch Evolution: sacrifice a creature; find a creature with mana value up to 2 more than it; exile Eldritch Evolution"
+cr: ["601.2b", "400.7j", "608.2h", "701.23a"]
+verifies: [Eldritch Evolution]
+players:
+  - battlefield: [Forest, Forest, Forest, Llanowar Elves]
+    hand: [Eldritch Evolution]
+    library: [Opt, Eternal Witness, Solemn Simulacrum, Consecrated Sphinx]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Eldritch Evolution
+  - choose: "Pay with Forest, Forest, Forest"
+  - pass_all
+  # Elves' mana value 1 + 2: Solemn (4) and Consecrated Sphinx (6) can't be found.
+  - check:
+      decision: { player: P1, options: [Stop, Find Eternal Witness] }
+  - choose: Find Eternal Witness
+expect:
+  zones:
+    P1.battlefield: [Forest, Forest, Forest, Eternal Witness]
+    P1.graveyard: [Llanowar Elves]
+    exile: [Eldritch Evolution]
