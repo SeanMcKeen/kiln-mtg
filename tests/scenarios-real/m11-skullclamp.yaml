@@ -1,0 +1,19 @@
+scenario: kiln-scenario/1
+name: "Skullclamp: +1/-1 kills a one-toughness creature, and its controller draws two"
+cr: ["702.6a", "704.5f", "603.10a"]
+verifies: [Skullclamp]
+players:
+  - battlefield: [Skullclamp, Island, Llanowar Elves]
+    library: [Opt, Ponder, Island]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Activate Skullclamp ability 4
+  - choose: Target Llanowar Elves (P1)
+  - choose: Pay with Island
+  - pass_all
+  - pass_all
+expect:
+  zones:
+    P1.graveyard: [Llanowar Elves]
+    P1.hand: [Opt, Ponder]

@@ -1,0 +1,16 @@
+scenario: kiln-scenario/1
+name: "Thought Vessel: no maximum hand size, and it taps for {C}"
+cr: ["402.2", "514.1"]
+verifies: [Thought Vessel]
+players:
+  - battlefield: [Thought Vessel]
+    hand: [Island, Island, Island, Island, Island, Island, Island, Island]
+  - {}
+turn: { number: 3, active: P1, step: end }
+script:
+  - check:
+      decision: { player: P1, kind: priority, options_include: ["Tap Thought Vessel for {C}"] }
+  - pass_all
+expect:
+  zones:
+    P1.hand: [Island, Island, Island, Island, Island, Island, Island, Island]

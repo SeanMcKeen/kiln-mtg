@@ -1,0 +1,13 @@
+card: Chaos Warp
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { object: {} } }]
+          effect:
+            seq:
+              - move: { what: { one: { target: 0 } }, to: top_of_library }
+              - shuffle: { owner_of: { target: 0 } }
+              - reveal: { top_of_library: { owner: { owner_of: { target: 0 } }, count: 1 } }
+              - if:
+                  condition: { top_of_library_matches: { who: { owner_of: { target: 0 } }, filter: { types: [artifact, creature, enchantment, land, planeswalker, battle] } } }
+                  then: { move: { what: { top_of_library: { owner: { owner_of: { target: 0 } }, count: 1 } }, to: battlefield, under_owners: true } }

@@ -1,0 +1,18 @@
+scenario: kiln-scenario/1
+name: "Feed the Swarm destroys an opponent's creature or enchantment; its caster loses life equal to its mana value"
+cr: ["701.8a", "202.3"]
+verifies: [Feed the Swarm]
+players:
+  - battlefield: [Swamp, Swamp]
+    hand: [Feed the Swarm]
+  - battlefield: [Survival of the Fittest]
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Feed the Swarm
+  - choose: Target Survival of the Fittest (P2)
+  - choose: "Pay with Swamp, Swamp"
+  - pass_all
+expect:
+  zones:
+    P2.graveyard: [Survival of the Fittest]
+  life: { P1: 18 }

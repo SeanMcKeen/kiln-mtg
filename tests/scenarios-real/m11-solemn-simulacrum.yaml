@@ -1,0 +1,21 @@
+scenario: kiln-scenario/1
+name: "Solemn Simulacrum fetches a basic land tapped as it enters"
+cr: ["603.2", "608.2d"]
+verifies: [Solemn Simulacrum]
+players:
+  - battlefield: [Island, Island, Island, Island]
+    hand: [Solemn Simulacrum]
+    library: [Swamp, Opt]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Solemn Simulacrum
+  - choose: "Pay with Island, Island, Island, Island"
+  - pass_all
+  - pass_all
+  - choose: "Yes"
+  - choose: Find Swamp
+expect:
+  zones:
+    P1.battlefield: [Island, Island, Island, Island, Solemn Simulacrum, Swamp]
+  tapped: { Swamp: true }

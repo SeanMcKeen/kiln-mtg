@@ -1,0 +1,9 @@
+card: Phyrexian Arena
+faces:
+  - abilities:
+      - triggered:
+          trigger: { beginning_of: { step: upkeep, whose: you } }
+          effect:
+            seq:
+              - draw: { who: you, amount: 1 }
+              - lose_life: { who: you, amount: 1 }

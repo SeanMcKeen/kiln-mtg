@@ -1,0 +1,7 @@
+card: Consecrated Sphinx
+faces:
+  - abilities:
+      - keyword: flying
+      - triggered:
+          trigger: { draws: { by: opponent } }
+          effect: { may: { draw: { who: you, amount: 2 } } }

@@ -1,0 +1,18 @@
+scenario: kiln-scenario/1
+name: "Vandalblast overloaded destroys each artifact its caster doesn't control"
+cr: ["702.96a", "118.9"]
+verifies: [Vandalblast]
+players:
+  - battlefield: [Mountain, Mountain, Mountain, Mountain, Mountain, Sol Ring]
+    hand: [Vandalblast]
+  - battlefield: [Sol Ring, Skullclamp]
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Vandalblast
+  - choose: Pay alternative cost 1
+  - choose: "Pay with Mountain, Mountain, Mountain, Mountain, Mountain"
+  - pass_all
+expect:
+  zones:
+    P2.graveyard: [Sol Ring, Skullclamp]
+    P1.battlefield: [Mountain, Mountain, Mountain, Mountain, Mountain, Sol Ring]

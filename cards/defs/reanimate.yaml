@@ -1,0 +1,9 @@
+card: Reanimate
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { object: { types: [creature], zone: graveyard } } }]
+          effect:
+            seq:
+              - move: { what: { one: { target: 0 } }, to: battlefield }
+              - lose_life: { who: you, amount: { mana_value_of: { target: 0 } } }

@@ -1,0 +1,19 @@
+scenario: kiln-scenario/1
+name: "Chaos Warp shuffles a permanent into its owner's library, then a revealed permanent card enters"
+cr: ["701.20a"]
+verifies: [Chaos Warp]
+players:
+  - battlefield: [Mountain, Mountain, Mountain]
+    hand: [Chaos Warp]
+  - battlefield: [Skullclamp]
+    library: []
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Chaos Warp
+  - choose: Target Skullclamp (P2)
+  - choose: "Pay with Mountain, Mountain, Mountain"
+  - pass_all
+expect:
+  zones:
+    P2.battlefield: [Skullclamp]
+    P2.library: []

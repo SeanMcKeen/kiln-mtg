@@ -1,0 +1,18 @@
+scenario: kiln-scenario/1
+name: "Reanimate returns a creature card from any graveyard under its caster's control; they lose life equal to its mana value"
+cr: ["202.3"]
+verifies: [Reanimate]
+players:
+  - battlefield: [Swamp]
+    hand: [Reanimate]
+  - graveyard: [Solemn Simulacrum]
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Reanimate
+  - choose: Target Solemn Simulacrum
+  - choose: Pay with Swamp
+  - pass_all
+expect:
+  zones:
+    P1.battlefield: [Swamp, Solemn Simulacrum]
+  life: { P1: 16 }

@@ -1,0 +1,13 @@
+card: Solemn Simulacrum
+faces:
+  - abilities:
+      - triggered:
+          trigger: { enters: { this: true } }
+          effect:
+            may:
+              seq:
+                - search: { who: you, filter: { types: [land], supertypes: [basic] }, count: 1, to: battlefield_tapped, reveal: false }
+                - shuffle: you
+      - triggered:
+          trigger: { dies: { this: true } }
+          effect: { may: { draw: { who: you, amount: 1 } } }

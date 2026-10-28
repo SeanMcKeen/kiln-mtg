@@ -1,0 +1,8 @@
+card: Skullclamp
+faces:
+  - abilities:
+      - static: { effect: { pump: { affected: { attached: true }, power: 1, toughness: -1 } } }
+      - triggered:
+          trigger: { dies: { attached: true } }
+          effect: { draw: { who: you, amount: 2 } }
+      - keyword: { equip: [{ mana: "{1}" }] }
