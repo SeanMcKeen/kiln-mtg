@@ -119,6 +119,20 @@ enum DataCmd {
         /// Report coverage for this decklist instead of the whole format.
         #[arg(long)]
         deck: Option<PathBuf>,
+        /// The full dashboard (M11): Game Changers, EDHREC tiers, keywords and
+        /// the cards to verify next, as Markdown (or JSON with --json).
+        #[arg(long)]
+        dashboard: bool,
+        /// With --dashboard: also weigh coverage by appearances in these
+        /// decklists (a directory of .txt/.csv/.dec files).
+        #[arg(long)]
+        decklists: Option<PathBuf>,
+        /// With --dashboard: how many next cards to list.
+        #[arg(long, default_value_t = 50)]
+        next: usize,
+        /// With --dashboard: write the Markdown here instead of stdout.
+        #[arg(long)]
+        out: Option<PathBuf>,
         #[command(flatten)]
         db: DbArgs,
         #[arg(long)]
@@ -316,9 +330,34 @@ fn run(cli: Cli) -> Result<ExitCode> {
         Command::Data(DataCmd::Info { db, json }) => data_info(&db, json),
         Command::Data(DataCmd::Coverage {
             format,
+            dashboard: true,
+            decklists,
+            next,
+            out,
+            db,
+            json,
+            ..
+        }) => {
+            let (db, _) = db.load()?;
+            let lib = card_library(&db)?;
+            let d = kiln_sim::coverage::dashboard(&db, &lib, &format, decklists.as_deref(), next)
+                .map_err(|e| anyhow::anyhow!(e))?;
+            if json {
+                print_json(&d)?;
+            } else if let Some(out) = out {
+                std::fs::write(&out, d.page())?;
+                println!("wrote {}", out.display());
+            } else {
+                print!("{}", d.markdown());
+            }
+            Ok(ExitCode::SUCCESS)
+        }
+        Command::Data(DataCmd::Coverage {
+            format,
             deck,
             db,
             json,
+            ..
         }) => data_coverage(&format, deck.as_deref(), &db, json),
         Command::Deck(DeckCmd::Check {
             file,
