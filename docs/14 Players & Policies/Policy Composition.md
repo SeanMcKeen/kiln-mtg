@@ -2,7 +2,7 @@
 type: design
 status: proposed
 tags: [policies, composition]
-updated: 2026-10-20
+updated: 2026-10-27
 ---
 
 # Policy Composition
@@ -41,6 +41,12 @@ policies:
 ## Defaults
 - **Fair default:** every deck gets the same policy recipe, `compose[playbook?, search, greedy]`, to avoid asymmetric pilot strength ([[Validity & Caveats]]).
 - The report states each seat's policy recipe, and how often each component actually answered.
+
+## As implemented (M8)
+- `kiln-policy::Compose` is `Fallback` over a chain: each policy may defer (`Policy::try_decide`), and the last must always answer. Spec: `{ kind: compose, chain: [ … ] }`.
+- `{ kind: playbook, playbook: <file>, fallback: <policy> }` (greedy by default) wraps a Rhai playbook ([[B - Playbooks]]).
+- Reports list each deck's recipe and counters: `playbook:answered`, `fallback:answered`, `answered:<component>`, `playbook:errors`, `tag:<name>`.
+- Not yet: `ByDecisionKind`, `ByCondition`, `Budgeted`, `AutoPass`, `Guided` and `Escalate` (they need search, M9, or LLM policies, M10). A playbook already routes by decision kind through its function names.
 
 ## Related
 [[Policy Interface]] · [[Experiment Spec]] · [[A - Baseline Policies]] · [[B - Playbooks]] · [[C - LLM Live Decisions]] · [[D - Search AI]]

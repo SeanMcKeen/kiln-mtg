@@ -1,6 +1,6 @@
 ---
 type: milestone
-status: in-progress
+status: review
 milestone: M8
 tags: [milestone, agents]
 updated: 2026-10-27
@@ -9,13 +9,13 @@ updated: 2026-10-27
 # M8: Agent Integration & Playbooks
 
 ## Checklist
-- [ ] MCP server (`rmcp`, stdio and Streamable HTTP), core toolset ([[MCP Server Tool Catalog]]) → accept ADR-0008
-- [ ] Async jobs, concise/detailed responses, pagination, actionable errors
-- [ ] Playbook language decision (Rhai vs. Lua vs. declarative YAML) and runtime with limits ([[B - Playbooks]])
-- [ ] `kiln_playbook_validate`, plus example playbooks for the four test decks
-- [ ] Policy composition ([[Policy Composition]])
-- [ ] Agent docs: AGENT_GUIDE, llms.txt, Claude Code skill, example specs ([[Agent-Facing Docs Plan]])
-- [ ] Agent eval suite: about 15 tasks, measure and iterate
+- [x] MCP server (`rmcp`, stdio; Streamable HTTP deferred: Q40), core toolset ([[MCP Server Tool Catalog]]) → ADR-0008 accepted
+- [x] Async jobs, concise/detailed responses, pagination, actionable errors
+- [x] Playbook language decision (Rhai vs. Lua vs. declarative YAML) and runtime with limits ([[B - Playbooks]])
+- [x] `kiln_playbook_validate`, plus example playbooks for the four test decks
+- [x] Policy composition ([[Policy Composition]])
+- [x] Agent docs: AGENT_GUIDE, llms.txt, Claude Code skill, example specs ([[Agent-Facing Docs Plan]])
+- [~] Agent eval suite: 15 tasks written (`docs/agents/evals/`); running them with a live model waits for the user's go-ahead
 
 ## Exit criteria
 Claude completes US-1 end to end via MCP with no human help: it writes playbooks, runs the experiment, and interprets the CIs correctly.
@@ -45,3 +45,12 @@ Claude completes US-1 end to end via MCP with no human help: it writes playbooks
 | 8.3 | MCP server with the core tools, async runs, pagination, errors; `kiln mcp serve`. | Protocol tests over stdio |
 | 8.4 | Agent docs, skill, llms.txt; agent eval task suite. | Docs review |
 | 8.5 | Eval runs with a live model (after the user's go-ahead), ADR-0008 acceptance → merge. | Exit criterion |
+
+## Progress
+| Phase | Status | Evidence |
+|---|---|---|
+| 8.1 | ✅ 2026-10-27 | Q30 resolved: Rhai. `kiln-playbook`: compile errors with line:column; hooks named after decision kinds (or `decide`) get a lazily built redacted view and the labelled options; answers are an index, a label or `()` to defer. Limits (200,000 operations per call, call depth, sizes); errors, limit hits and invalid answers defer and are counted. `Policy::try_decide`, `Policy::stats`, `Compose`. Spec kinds `playbook` and `compose` (chains must end with a policy that always answers). Per-seat policy counters in game records. A playbook pod costs about 2× the greedy baseline's time. |
+| 8.2 | ✅ 2026-10-27 | `kiln playbook check` (compile errors exit 2; a goldfish dry run with rule counts, playbook share, wins and runtime errors). Reports show each deck's recipe, counters and errors (with a warning). Example playbooks for the four test decks plus a generic one. Found: closures capturing `view` fail as a data race (documented). Evidence over 400 games with the greedy pod's seed: with every deck on its playbook, Najeela +7.5 pp and Rograkh/Silas +6.5 pp; with only Kinnan's playbook, Kinnan −5.2 pp (p = 0.11), so that example doesn't beat greedy yet. |
+| 8.3 | ✅ 2026-10-27 | `kiln-mcp` on `rmcp` 3.8 with the nine core tools; `kiln mcp serve` (stdio). Async runs with status, ETA and cancel; concise/detailed/markdown reports with section filters and per-card pages; actionable errors with `isError`. Comparison and inspection moved into `kiln-sim` so CLI and MCP share them. `tools/mcp-smoke/smoke.py` exercised every tool over stdio; an in-crate test calls them directly. |
+| 8.4 | ✅ 2026-10-27 | `docs/agents/AGENT_GUIDE.md`, `llms.txt`, the `kiln-sim` Claude Code skill (`.claude/skills/kiln-sim/`), `examples/mcp.json`, and the 15-task eval suite (`docs/agents/evals/`). |
+| 8.5 | ⏳ | Running the eval suite with a live model (the exit criterion) waits for the user's go-ahead: it spends API usage. |

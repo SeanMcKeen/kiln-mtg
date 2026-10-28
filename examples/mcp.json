@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "kiln": {
+      "command": "/path/to/kiln/target/release/kiln",
+      "args": ["mcp", "serve", "--workdir", "/path/to/workspace", "--threads", "2"]
+    }
+  }
+}

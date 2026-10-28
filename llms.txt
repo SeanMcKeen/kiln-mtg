@@ -1,0 +1,23 @@
+# Kiln
+
+> Kiln is a rules-exact Magic: The Gathering engine (Commander-first, N players) with a simulation lab: give it decklists and an experiment spec, and it plays thousands of games and reports win rates with 95% confidence intervals, game shape, mulligans, per-card statistics, A/B comparisons and validity warnings. Agents drive it through an MCP server (`kiln mcp serve`) or the `kiln` CLI with `--json`.
+
+## Start here
+
+- [Agent guide](docs/agents/AGENT_GUIDE.md): setup, the deck-evaluation walkthrough, reading results, writing playbooks, pitfalls
+- [MCP tools](docs/07%20Interfaces/MCP%20Server%20Tool%20Catalog.md): the nine `kiln_*` tools
+- [CLI](docs/07%20Interfaces/CLI%20%26%20REPL.md): `kiln sim`, `kiln game`, `kiln playbook`, `kiln deck`
+
+## Reference
+
+- [Experiment spec (kiln-spec/1)](docs/13%20Simulation/Experiment%20Spec.md) and its [JSON Schema](crates/kiln-protocol/schemas/kiln-spec-1.schema.json)
+- [Report (kiln-report/1)](docs/13%20Simulation/Output%20Formats%20%26%20Report%20Schema.md), [schema](crates/kiln-protocol/schemas/kiln-report-1.schema.json), [concise schema](crates/kiln-protocol/schemas/kiln-report-concise-1.schema.json)
+- [Metrics](docs/13%20Simulation/Metrics%20Catalog.md) and [validity caveats](docs/13%20Simulation/Validity%20%26%20Caveats.md)
+- [Playbooks (Rhai)](docs/14%20Players%20%26%20Policies/B%20-%20Playbooks.md)
+- [Rules scenarios](docs/08%20Testing/Scenario%20File%20Format.md)
+
+## Examples
+
+- [Experiment specs](examples/specs/): pod, goldfish, opening hands, A/B, playbook pods
+- [Playbooks](examples/playbooks/)
+- [Test decks](tests/fixtures/decks/)

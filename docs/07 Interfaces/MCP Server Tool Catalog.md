@@ -2,7 +2,7 @@
 type: design
 status: draft
 tags: [interfaces, mcp, agents]
-updated: 2026-10-22
+updated: 2026-10-27
 ---
 
 # MCP Server Tool Catalog (draft)
@@ -35,6 +35,15 @@ These are workflow-shaped and namespaced `kiln_*` tools, served by `kiln mcp ser
 - **Errors** are actionable: `"Unknown card 'Thassas Oracle' — did you mean 'Thassa's Oracle'?"`, `"games must be ≤ 1,000,000; got 5e9"`.
 - **Long outputs** are written to disk as artifacts (Parquet/JSONL). The tool response gives a path and a summary.
 - **Safety:** runs can be cancelled (`kiln_sim_status` with `cancel: true`). There are resource caps (max concurrent runs, max games).
+
+## As implemented (M8)
+- `kiln mcp serve [--workdir DIR] [--threads N]` serves the nine core tools over **stdio** (`crates/kiln-mcp`, `rmcp` 3.8). The server instructions describe the US-1 workflow and how to read intervals.
+- Streamable HTTP is deferred (open question Q40): stdio covers Claude Code and Claude Desktop, and an HTTP stack is a large dependency for a laptop build. The live-play toolset is still planned (M10).
+- `kiln_deck_import` saves decks as `decks/<id>.txt` under the work directory, and `kiln_playbook_validate` saves `playbooks/<name>.rhai`. Specs refer to those paths. Runs go to `runs/<name>/`.
+- `kiln_sim_run` validates the spec and the decks (coverage gate) before returning, then plays on a background thread. `kiln_sim_status` reports `starting`, `running`, `complete`, `cancelled` or `failed: …`, with an ETA.
+- `kiln_sim_report` takes `format` (`concise`, `detailed`, `markdown`) and, for `detailed`, `sections` and per-card `page`/`page_size`.
+- Errors come back as tool errors (`isError`) with the fix: unknown spec keys name the closest key, unknown runs point to `kiln_sim_run`, and misspelled cards get suggestions.
+- `tools/mcp-smoke/smoke.py` drives every tool over stdio.
 
 ## Evaluation (M8)
 Write about 15 realistic agent tasks (US-1 through US-8 variants), run them with Claude, and measure success, tool calls, tokens and errors. Iterate on descriptions.
