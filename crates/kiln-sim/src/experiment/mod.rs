@@ -2,6 +2,7 @@
 //! batch runner, and summarised into a `kiln-report/1` report.
 //! Design: `docs/09 Roadmap/Milestones/M7 Simulation Lab v1.md` (plan S1–S14).
 
+pub mod check;
 pub mod decks;
 pub mod facts;
 pub mod play;
@@ -9,6 +10,7 @@ pub mod report;
 pub mod stats;
 pub mod store;
 
+pub use check::{PlaybookCheck, check_playbook};
 pub use decks::{ResolvedDeck, resolve_decks};
 pub use play::{Config, Experiment, OPPONENT, Played};
 pub use report::write_report;

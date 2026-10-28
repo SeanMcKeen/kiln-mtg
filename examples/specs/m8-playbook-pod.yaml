@@ -1,5 +1,7 @@
-# Playbook pilots: every deck uses the generic playbook with a greedy fallback.
-# Run: kiln sim run examples/specs/m8-playbook-pod.yaml --threads 2
+# Playbook pilots: each deck uses its own playbook with a greedy fallback.
+# Compare with examples/specs/m6-pod.yaml (same decks and seed, greedy pilots):
+#   kiln sim run examples/specs/m8-playbook-pod.yaml --threads 2
+#   kiln sim compare runs/m6-pod runs/m8-playbook-pod
 spec: kiln-spec/1
 name: m8-playbook-pod
 games: 400
@@ -10,5 +12,8 @@ decks:
   - { id: najeela, source: { file: ../../tests/fixtures/decks/najeela.txt } }
   - { id: rograkh_silas, source: { file: ../../tests/fixtures/decks/rograkh-silas.txt } }
 policies:
-  default: { kind: playbook, playbook: ../playbooks/generic-cedh.rhai, fallback: { kind: greedy } }
+  kinnan: { kind: playbook, playbook: ../playbooks/kinnan.rhai }
+  thrasios_tymna: { kind: playbook, playbook: ../playbooks/thrasios-tymna.rhai }
+  najeela: { kind: playbook, playbook: ../playbooks/najeela.rhai }
+  rograkh_silas: { kind: playbook, playbook: ../playbooks/rograkh-silas.rhai }
 limits: { max_turns: 100 }

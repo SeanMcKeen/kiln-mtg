@@ -36,6 +36,11 @@ pub trait Policy: Send {
     fn stats(&self) -> std::collections::BTreeMap<String, u64> {
         std::collections::BTreeMap::new()
     }
+
+    /// Runtime error messages since the last call (playbooks), for reports.
+    fn take_errors(&mut self) -> Vec<String> {
+        Vec::new()
+    }
 }
 
 /// Asks each policy in turn; the first that answers decides
@@ -97,6 +102,13 @@ impl Policy for Compose {
         let last = self.chain.len().saturating_sub(1);
         self.answered[last] += 1;
         self.chain[last].decide(view, decision)
+    }
+
+    fn take_errors(&mut self) -> Vec<String> {
+        self.chain
+            .iter_mut()
+            .flat_map(|p| p.take_errors())
+            .collect()
     }
 
     fn stats(&self) -> std::collections::BTreeMap<String, u64> {

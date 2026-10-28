@@ -15,6 +15,7 @@ use kiln_sim::deck::{DeckReport, ValidateOptions, parse_deck, validate_with};
 use serde::Serialize;
 
 mod game;
+mod playbook;
 mod sim;
 
 #[derive(Debug, Parser)]
@@ -41,6 +42,9 @@ enum Command {
     /// Single games: replay a replay file, inspect a game of a run.
     #[command(subcommand)]
     Game(game::GameCmd),
+    /// Playbooks: check an AI-written playbook against its deck.
+    #[command(subcommand)]
+    Playbook(playbook::PlaybookCmd),
 }
 
 #[derive(Debug, Args)]
@@ -307,6 +311,7 @@ fn run(cli: Cli) -> Result<ExitCode> {
         Command::Dev(DevCmd::Fuzz(args)) => fuzz(&args),
         Command::Sim(cmd) => sim::sim(cmd),
         Command::Game(cmd) => game::game(cmd),
+        Command::Playbook(cmd) => playbook::playbook(cmd),
         Command::Dev(DevCmd::VerifyCards { db, list, json }) => {
             let (db, _) = db.load()?;
             let r = kiln_testkit::real::verify(&db).map_err(|e| anyhow::anyhow!(e))?;

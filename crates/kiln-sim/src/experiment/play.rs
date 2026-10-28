@@ -384,6 +384,7 @@ impl Experiment {
             mana: None,
             hand: None,
             policy_stats: None,
+            policy_errors: None,
         };
         let mut game = match Game::new(Arc::clone(&self.pool), &setup) {
             Ok(g) => g,
@@ -522,6 +523,19 @@ impl Experiment {
         let stats: Vec<BTreeMap<String, u64>> = policies.iter().map(|p| p.stats()).collect();
         if stats.iter().any(|s| !s.is_empty()) {
             record.policy_stats = Some(stats);
+        }
+        let errors: Vec<String> = policies
+            .iter_mut()
+            .enumerate()
+            .flat_map(|(seat, p)| {
+                p.take_errors()
+                    .into_iter()
+                    .map(move |e| format!("seat {}: {e}", seat + 1))
+            })
+            .take(5)
+            .collect();
+        if !errors.is_empty() {
+            record.policy_errors = Some(errors);
         }
         let events = m.raw_events.then(|| game.events().to_vec());
         let replay = recorder.map(|r| r.finish(&game, setup));

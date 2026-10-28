@@ -87,6 +87,27 @@ pub struct ConfigReport {
     /// Wall-clock time: not deterministic (left out of bit-identical comparisons).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub timing: Option<TimingStats>,
+    /// Each deck's policy recipe and how often each component answered.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub policies: Vec<DeckPolicy>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DeckPolicy {
+    pub deck: String,
+    /// "playbook(kinnan.rhai) → greedy".
+    pub recipe: String,
+    /// Totals over its games: `playbook:answered`, `fallback:answered`,
+    /// `playbook:errors`, `tag:<name>`, ….
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub counters: BTreeMap<String, u64>,
+    /// Share of its decisions the playbook answered.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub playbook_share: Option<f64>,
+    /// A few runtime errors, if any.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub errors: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

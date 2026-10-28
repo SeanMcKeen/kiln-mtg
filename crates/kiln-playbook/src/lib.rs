@@ -10,6 +10,11 @@
 //!   `battlefield`, `stack`, `graveyards`, …
 //! - `decision` has `kind`, `options` (labels such as "Cast Sol Ring") and `count`.
 //!
+//! Copy view fields into locals before using them in closures
+//! (`let me = view.me; view.hand.filter(|c| c.owner == me)`): a closure that
+//! captures `view` itself shares it, and reading `view` again inside a call
+//! on it is refused as a data race.
+//!
 //! It returns an option index or an option label to choose, or nothing (`()`)
 //! to **defer** to the fallback policy. Errors, operation limits and invalid
 //! answers also defer, and are counted: a playbook can't crash a run or make
@@ -22,6 +27,39 @@ use kiln_engine::{DecisionKind, Game, PendingDecision, PlayerView};
 use kiln_policy::Policy;
 use kiln_types::PlayerId;
 use rhai::{AST, Array, Dynamic, Engine, Map, Scope};
+
+/// Decision kinds a playbook function can be named after (plus `decide`).
+pub const DECISION_KINDS: &[&str] = &[
+    "mulligan",
+    "bottom_card",
+    "priority",
+    "choose_target",
+    "pay_mana",
+    "mana_step",
+    "declare_attacker",
+    "declare_blocker",
+    "assign_damage",
+    "discard",
+    "legend_rule",
+    "commander_zone",
+    "optional",
+    "choose_card",
+    "choose_mana",
+    "choose_name",
+    "choose_number",
+    "choose_color",
+    "choose_player",
+    "choose_attacked",
+    "vote",
+    "choose_mode",
+    "order_triggers",
+    "choose_replacement",
+    "change_target",
+    "propose_shortcut",
+    "respond_shortcut",
+    "choose_cost",
+    "choose_symbol_pay",
+];
 
 /// Operations one call may take (Rhai's sandbox counter).
 pub const MAX_OPERATIONS: u64 = 200_000;
@@ -288,7 +326,9 @@ impl Playbook {
         })?;
         let hooks = ast
             .iter_functions()
-            .filter(|f| f.params.len() == 2)
+            .filter(|f| {
+                f.params.len() == 2 && (f.name == "decide" || DECISION_KINDS.contains(&f.name))
+            })
             .map(|f| f.name.to_owned())
             .collect();
         Ok(Self {
@@ -426,6 +466,7 @@ impl Policy for PlaybookPolicy {
     fn begin_game(&mut self, seat: PlayerId, seed: u64) {
         self.fallback.begin_game(seat, seed);
         self.stats.clear();
+        self.errors.clear();
     }
 
     fn try_decide(&mut self, view: &PlayerView<'_>, d: &PendingDecision) -> Option<u32> {
@@ -456,6 +497,12 @@ impl Policy for PlaybookPolicy {
         }
         self.count("fallback:answered");
         self.fallback.decide(view, d)
+    }
+
+    fn take_errors(&mut self) -> Vec<String> {
+        let mut out = std::mem::take(&mut self.errors);
+        out.extend(self.fallback.take_errors());
+        out
     }
 
     fn stats(&self) -> BTreeMap<String, u64> {

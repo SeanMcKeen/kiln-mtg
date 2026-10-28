@@ -253,3 +253,44 @@ fn playbook_policies_answer_and_report() {
     assert!(err.to_string().contains(":2:"), "{err}");
     let _ = std::fs::remove_file(bad);
 }
+
+#[test]
+fn playbook_check_reports_rules_and_compile_errors() {
+    let Some((db, lib)) = library() else {
+        return;
+    };
+    let root = repo_root();
+    let deck = root.join("tests/fixtures/decks/najeela.txt");
+    let check = experiment::check_playbook(
+        &deck,
+        &root.join("examples/playbooks/najeela.rhai"),
+        4,
+        db,
+        lib,
+    )
+    .unwrap_or_else(|e| panic!("{e}"));
+    assert_eq!(check.compile_error, None);
+    assert_eq!(check.games, 4);
+    assert!(check.hooks.contains(&"priority".to_owned()));
+    assert!(
+        check
+            .counters
+            .get("playbook:answered")
+            .copied()
+            .unwrap_or(0)
+            > 0
+    );
+    assert!(check.counters.contains_key("tag:land drop"));
+    assert!(check.errors.is_empty(), "{:?}", check.errors);
+
+    let bad = std::env::temp_dir().join(format!("kiln-check-{}.rhai", std::process::id()));
+    std::fs::write(&bad, "fn mulligan(view, d) {\n  return Keep\"\n}\n")
+        .unwrap_or_else(|e| panic!("{e}"));
+    let check =
+        experiment::check_playbook(&deck, &bad, 4, db, lib).unwrap_or_else(|e| panic!("{e}"));
+    let err = check
+        .compile_error
+        .unwrap_or_else(|| panic!("a syntax error"));
+    assert!(err.contains(":2:"), "{err}");
+    let _ = std::fs::remove_file(bad);
+}
