@@ -1,0 +1,15 @@
+scenario: kiln-scenario/1
+name: "Big Score can't be cast as the only card in hand: it can't discard itself for its own cost"
+cr: ["601.2a", "601.2b"]
+verifies: [Big Score]
+players:
+  - battlefield: [Mountain, Mountain, Mountain, Mountain]
+    hand: [Big Score]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - check:
+      decision: { player: P1, kind: priority, options_exclude: [Cast Big Score] }
+expect:
+  zones:
+    P1.hand: [Big Score]

@@ -3785,18 +3785,28 @@ impl Game {
                     .iter()
                     .any(|id| self.on_battlefield_now(*id)),
             },
+            // A spell can't discard itself for its own cost: it's on the stack
+            // by then (CR 601.2a); "discard this card" (channel) names it.
             CostPart::Discard(spec) => match spec {
                 DiscardSpec::Chosen { count, filter } => {
                     self.player(who)
                         .hand
                         .iter()
-                        .filter(|id| self.matches_card(ctx, **id, filter))
+                        .filter(|id| {
+                            (filter.this || **id != ctx.source)
+                                && self.matches_card(ctx, **id, filter)
+                        })
                         .count()
                         >= self.amount(ctx, count) as usize
                 }
                 DiscardSpec::Hand => true,
                 DiscardSpec::Random(q) => {
-                    self.player(who).hand.len() >= self.amount(ctx, q) as usize
+                    self.player(who)
+                        .hand
+                        .iter()
+                        .filter(|id| **id != ctx.source)
+                        .count()
+                        >= self.amount(ctx, q) as usize
                 }
             },
             // "another card" unless the filter is "this card" (Spirit Guides).
