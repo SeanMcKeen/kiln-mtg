@@ -1,0 +1,20 @@
+scenario: kiln-scenario/1
+name: "Springleaf Drum taps a creature that just arrived (its own {T} isn't being paid) for one mana of any color"
+cr: ["302.6", "701.26a", "605.1a"]
+verifies: [Springleaf Drum]
+players:
+  - battlefield: [Springleaf Drum, Forest]
+    hand: [Llanowar Elves]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Llanowar Elves
+  - choose: Pay with Forest
+  - pass_all
+  - check:
+      decision: { player: P1, kind: priority, options_exclude: ["Tap Llanowar Elves for {G}"] }
+  - choose: Activate Springleaf Drum for mana
+  - choose: Add {U}
+expect:
+  tapped: { Llanowar Elves: true, Springleaf Drum: true }
+  pool: { P1: "{U}" }

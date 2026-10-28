@@ -1314,6 +1314,14 @@ pub enum CostPart {
     Discard(DiscardSpec),
     /// Exile a card from your hand matching the filter ("exile a blue card from your hand").
     ExileFromHand(ObjectFilter),
+    /// Tap N untapped [objects] you control ("Tap an untapped creature you
+    /// control", Springleaf Drum). Summoning sickness doesn't apply: they
+    /// aren't paying their own {T} (CR 302.6).
+    TapUntapped {
+        what: ObjectFilter,
+        #[serde(default = "one")]
+        count: u32,
+    },
     /// Exile N other cards from your graveyard (escape).
     ExileFromGraveyard {
         count: u32,
@@ -1465,4 +1473,8 @@ fn max_target_ref(e: &Effect) -> Option<u8> {
         .filter_map(max_target_ref)
         .chain(own)
         .max()
+}
+
+fn one() -> u32 {
+    1
 }

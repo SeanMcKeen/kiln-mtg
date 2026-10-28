@@ -314,6 +314,7 @@ impl Game {
                         CardPurpose::Search => "Find",
                         CardPurpose::Discard => "Discard",
                         CardPurpose::Sacrifice => "Sacrifice",
+                        CardPurpose::Tap => "Tap",
                         CardPurpose::Exile => "Exile",
                         CardPurpose::PutOnTop => "Put on top",
                         CardPurpose::PutOnBottom => "Put on bottom",

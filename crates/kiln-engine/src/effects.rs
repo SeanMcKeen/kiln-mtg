@@ -259,6 +259,8 @@ pub(crate) enum AfterPick {
     Discard,
     /// All picks are sacrificed together (CR 701.21a).
     Sacrifice,
+    /// All picks are tapped (a cost, CR 701.26a).
+    Tap,
     /// All picks are exiled together, optionally remembered.
     Exile {
         remember: Option<String>,
@@ -3436,6 +3438,7 @@ impl Game {
             CardPurpose::Search => "701.23a",
             CardPurpose::Discard => "701.9a",
             CardPurpose::Sacrifice => "701.21a",
+            CardPurpose::Tap => "701.26a",
             CardPurpose::PutOnBottom if matches!(p.then, AfterPick::ScryBottom) => "701.22a",
             _ => "608.2d",
         };
@@ -3499,6 +3502,11 @@ impl Game {
                 }
             }
             AfterPick::Sacrifice => self.sacrifice_all(&mut t.ctx, &picked),
+            AfterPick::Tap => {
+                for id in picked {
+                    self.tap(id);
+                }
+            }
             AfterPick::Amass { n, subtype } => {
                 for id in picked {
                     self.amass_onto(id, n, &subtype);
@@ -3688,6 +3696,21 @@ impl Game {
 
     /// Whether `who` can pay every part of a cost (mana is checked against
     /// pool and untapped sources; mana is paid first, CR 601.2g–h).
+    /// Untapped permanents `who` controls matching `f` that can be tapped for a
+    /// cost; not the source if the cost also taps it.
+    fn untapped_for_cost(
+        &self,
+        ctx: &EffectCtx,
+        who: PlayerId,
+        f: &ObjectFilter,
+        except: Option<ObjectId>,
+    ) -> Vec<ObjectId> {
+        self.own_permanents(ctx, who, f)
+            .into_iter()
+            .filter(|id| Some(*id) != except && self.obj(*id).is_some_and(|o| !o.tapped))
+            .collect()
+    }
+
     pub(crate) fn can_pay(&self, ctx: &EffectCtx, who: PlayerId, cost: &[CostPart]) -> bool {
         let except = taps_source(cost).then_some(ctx.source);
         cost.iter().all(|part| match part {
@@ -3753,6 +3776,9 @@ impl Game {
             CostPart::Exile { what, .. } => !self.own_permanents(ctx, who, what).is_empty(),
             CostPart::RemoveCounters { counter, amount } => {
                 self.counters_on(ctx.source, *counter) >= *amount
+            }
+            CostPart::TapUntapped { what, count } => {
+                self.untapped_for_cost(ctx, who, what, except).len() >= *count as usize
             }
         })
     }
@@ -3828,6 +3854,17 @@ impl Game {
             }
             CostPart::Discard(spec) => {
                 self.discard(t, who, &spec);
+                Flow::Continue
+            }
+            CostPart::TapUntapped { what, count } => {
+                let candidates = self.untapped_for_cost(&t.ctx, who, &what, except);
+                t.frames.push(Frame::Pick(exact_pick(
+                    who,
+                    CardPurpose::Tap,
+                    candidates,
+                    count,
+                    AfterPick::Tap,
+                )));
                 Flow::Continue
             }
             CostPart::ExileFromHand(f) => {
