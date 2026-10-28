@@ -14,6 +14,7 @@ kiln-data.workspace = true
 kiln-engine.workspace = true
 kiln-policy.workspace = true
 kiln-playbook.workspace = true
+kiln-search.workspace = true
 kiln-protocol.workspace = true
 rayon.workspace = true
 csv.workspace = true

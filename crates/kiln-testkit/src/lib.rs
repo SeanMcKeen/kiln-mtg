@@ -6,6 +6,7 @@
 
 pub mod citations;
 pub mod cr;
+pub mod puzzle;
 pub mod real;
 pub mod scenario;
 

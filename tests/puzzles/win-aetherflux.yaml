@@ -1,0 +1,15 @@
+puzzle: kiln-puzzle/1
+name: "Two Sol Rings for Aetherflux life, then pay 50 life for 50 damage"
+kind: win_now
+solver: P1
+within_turns: 0
+opponents: greedy
+board:
+  scenario: kiln-scenario/1
+  name: "Two Sol Rings for Aetherflux life, then pay 50 life for 50 damage"
+  players:
+    - battlefield: [Aetherflux Reservoir, Island, Island]
+      hand: [Sol Ring, Sol Ring]
+      life: 48
+    - {}
+  script: []

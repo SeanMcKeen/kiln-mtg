@@ -252,9 +252,21 @@ fn check_policy(at: &str, p: &PolicySpec, errors: &mut Vec<String>) {
                 ));
             }
         }
-        PolicySpec::Search { .. } => errors.push(format!(
-            "`{at}`: kind `search` arrives in M9; use random, greedy, passive, playbook or compose"
-        )),
+        PolicySpec::Search { budget, guide } => {
+            if budget.iterations == 0 {
+                errors.push(format!("`{at}.budget.iterations` must be at least 1"));
+            }
+            if let Some(g) = guide {
+                let at = format!("{at}.guide");
+                if matches!(**g, PolicySpec::Search { .. }) || !always_answers(g) {
+                    errors.push(format!(
+                        "`{at}` must be a policy that always answers and doesn't search (random, greedy, passive, a playbook or a compose ending in one), not `{}`",
+                        g.kind()
+                    ));
+                }
+                check_policy(&at, g, errors);
+            }
+        }
         PolicySpec::Llm { .. } => errors.push(format!(
             "`{at}`: kind `llm` arrives in M10; use random, greedy, passive, playbook or compose"
         )),
@@ -266,9 +278,10 @@ fn always_answers(p: &PolicySpec) -> bool {
         PolicySpec::Random { .. }
         | PolicySpec::Greedy
         | PolicySpec::Passive
-        | PolicySpec::Playbook { .. } => true,
+        | PolicySpec::Playbook { .. }
+        | PolicySpec::Search { .. } => true,
         PolicySpec::Compose { chain } => chain.last().is_some_and(always_answers),
-        PolicySpec::Search { .. } | PolicySpec::Llm { .. } => false,
+        PolicySpec::Llm { .. } => false,
     }
 }
 
@@ -283,6 +296,7 @@ pub fn playbook_paths(spec: &Spec) -> Vec<String> {
                 }
             }
             PolicySpec::Compose { chain } => chain.iter().for_each(|q| walk(q, out)),
+            PolicySpec::Search { guide: Some(g), .. } => walk(g, out),
             _ => {}
         }
     }
@@ -365,7 +379,7 @@ policies:
 
     #[test]
     fn invalid_specs_list_every_problem() {
-        let text = POD.replace("a: { kind: greedy }", "zz: { kind: search }");
+        let text = POD.replace("a: { kind: greedy }", "zz: { kind: llm }");
         let Err(SpecError::Invalid(errors)) = load_spec(&text) else {
             panic!("expected errors")
         };
@@ -374,14 +388,44 @@ policies:
                 .iter()
                 .any(|e| e.contains("`policies.zz` isn't a deck id"))
         );
-        assert!(errors.iter().any(|e| e.contains("arrives in M9")));
+        assert!(errors.iter().any(|e| e.contains("arrives in M10")));
+    }
+
+    #[test]
+    fn search_specs() {
+        let ok = POD.replace(
+            "a: { kind: greedy }",
+            "a: { kind: search, budget: { iterations: 8 }, guide: { kind: playbook, playbook: p.rhai } }",
+        );
+        let r = load_spec(&ok).unwrap_or_else(|e| panic!("{e}"));
+        assert_eq!(playbook_paths(&r.spec), vec!["p.rhai".to_owned()]);
+        let PolicySpec::Search { budget, .. } = &r.spec.policies["a"] else {
+            panic!("expected search")
+        };
+        assert_eq!((budget.iterations, budget.rollout_depth), (8, 100));
+        let nested = POD.replace(
+            "a: { kind: greedy }",
+            "a: { kind: search, guide: { kind: search } }",
+        );
+        let Err(SpecError::Invalid(errors)) = load_spec(&nested) else {
+            panic!("expected errors")
+        };
+        assert!(
+            errors.iter().any(|e| e.contains("doesn't search")),
+            "{errors:?}"
+        );
+        let zero = POD.replace(
+            "a: { kind: greedy }",
+            "a: { kind: search, budget: { iterations: 0 } }",
+        );
+        assert!(load_spec(&zero).is_err());
     }
 
     #[test]
     fn compose_chains_must_end_with_an_answer() {
         let text = POD.replace(
             "a: { kind: greedy }",
-            "a: { kind: compose, chain: [{ kind: playbook, playbook: p.rhai }, { kind: search }] }",
+            "a: { kind: compose, chain: [{ kind: playbook, playbook: p.rhai }, { kind: llm }] }",
         );
         let Err(SpecError::Invalid(errors)) = load_spec(&text) else {
             panic!("expected errors")

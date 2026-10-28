@@ -13,11 +13,11 @@
 - [Experiment spec (kiln-spec/1)](docs/13%20Simulation/Experiment%20Spec.md) and its [JSON Schema](crates/kiln-protocol/schemas/kiln-spec-1.schema.json)
 - [Report (kiln-report/1)](docs/13%20Simulation/Output%20Formats%20%26%20Report%20Schema.md), [schema](crates/kiln-protocol/schemas/kiln-report-1.schema.json), [concise schema](crates/kiln-protocol/schemas/kiln-report-concise-1.schema.json)
 - [Metrics](docs/13%20Simulation/Metrics%20Catalog.md) and [validity caveats](docs/13%20Simulation/Validity%20%26%20Caveats.md)
-- [Playbooks (Rhai)](docs/14%20Players%20%26%20Policies/B%20-%20Playbooks.md)
+- [Playbooks (Rhai)](docs/14%20Players%20%26%20Policies/B%20-%20Playbooks.md) and the [search AI](docs/14%20Players%20%26%20Policies/D%20-%20Search%20AI.md) (`{ kind: search }`)
 - [Rules scenarios](docs/08%20Testing/Scenario%20File%20Format.md)
 
 ## Examples
 
-- [Experiment specs](examples/specs/): pod, goldfish, opening hands, A/B, playbook pods
+- [Experiment specs](examples/specs/): pod, goldfish, opening hands, A/B, playbook pods, search ladders
 - [Playbooks](examples/playbooks/)
 - [Test decks](tests/fixtures/decks/)

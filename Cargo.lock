@@ -956,6 +956,7 @@ dependencies = [
  "kiln-mcp",
  "kiln-policy",
  "kiln-protocol",
+ "kiln-search",
  "kiln-sim",
  "kiln-testkit",
  "kiln-types",
@@ -1005,6 +1006,13 @@ version = "0.1.0"
 [[package]]
 name = "kiln-search"
 version = "0.1.0"
+dependencies = [
+ "kiln-cards",
+ "kiln-engine",
+ "kiln-policy",
+ "kiln-testkit",
+ "kiln-types",
+]
 
 [[package]]
 name = "kiln-sim"
@@ -1018,6 +1026,7 @@ dependencies = [
  "kiln-playbook",
  "kiln-policy",
  "kiln-protocol",
+ "kiln-search",
  "kiln-types",
  "rayon",
  "serde",

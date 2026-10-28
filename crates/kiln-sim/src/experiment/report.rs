@@ -353,7 +353,15 @@ pub fn recipe(p: &PolicySpec) -> String {
             fallback.as_deref().map_or_else(|| "greedy".into(), recipe)
         ),
         PolicySpec::Compose { chain } => chain.iter().map(recipe).collect::<Vec<_>>().join(" → "),
-        PolicySpec::Search { .. } => "search".into(),
+        PolicySpec::Search { budget, guide } => format!(
+            "search({} iterations, depth {}{}; guide {})",
+            budget.iterations,
+            budget.rollout_depth,
+            budget
+                .ms
+                .map_or_else(String::new, |ms| format!(", {ms} ms cap")),
+            guide.as_deref().map_or_else(|| "greedy".into(), recipe)
+        ),
         PolicySpec::Llm { .. } => "llm".into(),
     }
 }
@@ -426,10 +434,32 @@ fn result_warnings(spec: &Spec, manifest: &RunManifest, configs: &[ConfigReport]
                 .map_or("greedy", PolicySpec::kind)
         })
         .collect();
-    w.push(format!(
-        "pilots are baseline policies ({}): results measure this play, not expert play (search AI arrives in M9)",
-        kinds.into_iter().collect::<Vec<_>>().join(", ")
-    ));
+    let policy_of = |d: &kiln_protocol::spec::DeckSpec| {
+        spec.policies
+            .get(&d.id)
+            .or_else(|| spec.policies.get("default"))
+            .cloned()
+            .unwrap_or_default()
+    };
+    if kinds.contains("search") {
+        w.push(format!(
+            "pilots: {}. Search looks ahead with sampled games but is no expert either: results measure this play",
+            kinds.iter().copied().collect::<Vec<_>>().join(", ")
+        ));
+        if !spec.open_decklists {
+            w.push("search samples opponents' hidden cards from their actual decks, which assumes open decklists (set open_decklists: true to say so)".into());
+        }
+        if spec.decks.iter().any(
+            |d| matches!(policy_of(d), PolicySpec::Search { budget, .. } if budget.ms.is_some()),
+        ) {
+            w.push("a search budget has an ms cap: how far it searches depends on the machine, so the run may not reproduce (ADR-0005)".into());
+        }
+    } else {
+        w.push(format!(
+            "pilots are baseline policies ({}): results measure this play, not expert play (try kind: search)",
+            kinds.into_iter().collect::<Vec<_>>().join(", ")
+        ));
+    }
     for c in configs {
         for p in &c.policies {
             if let Some(e) = p.errors.first() {

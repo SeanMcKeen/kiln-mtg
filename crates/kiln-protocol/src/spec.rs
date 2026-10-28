@@ -142,14 +142,15 @@ pub enum PolicySpec {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         fallback: Option<Box<PolicySpec>>,
     },
-    /// Search AI (M9).
+    /// The search AI (M9): looks ahead with determinized playouts. `guide`
+    /// (greedy by default; a playbook with a fallback for guided search)
+    /// answers the decisions search skips, gives its priors and pilots this
+    /// seat in playouts.
     Search {
+        #[serde(default)]
+        budget: SearchBudget,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        budget: Option<serde_json::Value>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        playbook: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        playbook_hints: Option<bool>,
+        guide: Option<Box<PolicySpec>>,
     },
     /// A language model (M10).
     Llm {
@@ -160,6 +161,40 @@ pub enum PolicySpec {
 
 fn default_pass() -> u64 {
     500
+}
+
+/// How hard the search AI looks (M9 plan S8).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SearchBudget {
+    /// Determinized playouts per searched decision (reproducible).
+    #[serde(default = "default_iterations")]
+    pub iterations: u32,
+    /// Playouts stop after this many real choices and the position is scored.
+    #[serde(default = "default_rollout_depth")]
+    pub rollout_depth: u32,
+    /// A wall-clock cap per decision in milliseconds. Results then depend on
+    /// the machine (ADR-0005), and the report warns.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ms: Option<u64>,
+}
+
+fn default_iterations() -> u32 {
+    32
+}
+
+fn default_rollout_depth() -> u32 {
+    100
+}
+
+impl Default for SearchBudget {
+    fn default() -> Self {
+        Self {
+            iterations: default_iterations(),
+            rollout_depth: default_rollout_depth(),
+            ms: None,
+        }
+    }
 }
 
 impl PolicySpec {

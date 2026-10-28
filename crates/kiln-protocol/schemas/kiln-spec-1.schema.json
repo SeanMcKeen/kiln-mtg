@@ -398,24 +398,28 @@
         },
         {
           "additionalProperties": false,
-          "description": "Search AI (M9).",
+          "description": "The search AI (M9): looks ahead with determinized playouts. `guide`\n(greedy by default; a playbook with a fallback for guided search)\nanswers the decisions search skips, gives its priors and pilots this\nseat in playouts.",
           "properties": {
-            "budget": true,
+            "budget": {
+              "$ref": "#/$defs/SearchBudget",
+              "default": {
+                "iterations": 32,
+                "rollout_depth": 100
+              }
+            },
+            "guide": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/PolicySpec"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
             "kind": {
               "const": "search",
               "type": "string"
-            },
-            "playbook": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "playbook_hints": {
-              "type": [
-                "boolean",
-                "null"
-              ]
             }
           },
           "required": [
@@ -457,6 +461,36 @@
           "default": 50,
           "description": "At most this many replays.",
           "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "SearchBudget": {
+      "additionalProperties": false,
+      "description": "How hard the search AI looks (M9 plan S8).",
+      "properties": {
+        "iterations": {
+          "default": 32,
+          "description": "Determinized playouts per searched decision (reproducible).",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "ms": {
+          "description": "A wall-clock cap per decision in milliseconds. Results then depend on\nthe machine (ADR-0005), and the report warns.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "rollout_depth": {
+          "default": 100,
+          "description": "Playouts stop after this many real choices and the position is scored.",
+          "format": "uint32",
           "minimum": 0,
           "type": "integer"
         }

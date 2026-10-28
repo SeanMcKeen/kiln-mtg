@@ -1,0 +1,16 @@
+puzzle: kiln-puzzle/1
+name: "Lightning Bolt the player at 3 life, not the creature"
+kind: win_now
+solver: P1
+within_turns: 0
+opponents: greedy
+board:
+  scenario: kiln-scenario/1
+  name: "Lightning Bolt the player at 3 life, not the creature"
+  players:
+    - battlefield: [Mountain]
+      hand: [Lightning Bolt]
+    - battlefield: [Grizzly Bears]
+      life: 3
+  turn: { number: 3, active: P1, step: precombat_main }
+  script: []

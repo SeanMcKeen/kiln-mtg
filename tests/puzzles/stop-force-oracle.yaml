@@ -1,0 +1,18 @@
+puzzle: kiln-puzzle/1
+name: "Force of Will, exiling a blue card, against Thassa's Oracle"
+kind: stop_the_win
+solver: P2
+within_turns: 0
+opponents: greedy
+board:
+  scenario: kiln-scenario/1
+  name: "Force of Will, exiling a blue card, against Thassa's Oracle"
+  players:
+    - battlefield: [Island, Island]
+      hand: ["Thassa's Oracle"]
+      library: []
+    - hand: [Force of Will, Opt]
+  script:
+    - choose: "Cast Thassa's Oracle"
+    - choose: "Pay with Island, Island"
+    - pass: 1

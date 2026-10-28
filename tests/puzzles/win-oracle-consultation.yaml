@@ -1,0 +1,15 @@
+puzzle: kiln-puzzle/1
+name: "Thassa's Oracle with Demonic Consultation in response to its trigger"
+kind: win_now
+solver: P1
+within_turns: 0
+opponents: greedy
+board:
+  scenario: kiln-scenario/1
+  name: "Thassa's Oracle with Demonic Consultation in response to its trigger"
+  players:
+    - battlefield: [Island, Island, Swamp]
+      hand: ["Thassa's Oracle", Demonic Consultation]
+      library: [Opt, Ponder, Preordain, Brainstorm, Island, Island, Swamp, Swamp]
+    - {}
+  script: []

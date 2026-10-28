@@ -1,0 +1,14 @@
+puzzle: kiln-puzzle/1
+name: "Walking Ballista with Heliod's lifelink: a loop to the opponent's death"
+kind: win_now
+solver: P1
+within_turns: 0
+opponents: greedy
+board:
+  scenario: kiln-scenario/1
+  name: "Walking Ballista with Heliod's lifelink: a loop to the opponent's death"
+  players:
+    - battlefield: ["Heliod, Sun-Crowned", Plains, Plains, Plains, Plains, Plains, Plains]
+      hand: [Walking Ballista]
+    - life: 40
+  script: []

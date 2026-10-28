@@ -20,7 +20,7 @@ use crate::state::{Step, Target, TurnState, ZoneId};
 /// A borrowed, redacted view of a game for one player.
 #[derive(Debug, Clone, Copy)]
 pub struct PlayerView<'g> {
-    game: &'g Game,
+    pub(crate) game: &'g Game,
     me: PlayerId,
 }
 

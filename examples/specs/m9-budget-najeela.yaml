@@ -1,0 +1,19 @@
+# Budget monotonicity (M9 plan S10): the same Najeela mirror with two seats
+# searching 32 iterations and two searching 8. More budget should never hurt:
+# the 32-iteration seats should win at least half.
+# Run: kiln sim run examples/specs/m9-budget-najeela.yaml --threads 2
+spec: kiln-spec/1
+name: m9-budget-najeela
+games: 200
+seed: 10
+seating: balanced_rotation
+open_decklists: true
+decks:
+  - { id: deep_a, source: { file: ../../tests/fixtures/decks/najeela.txt } }
+  - { id: shallow_a, source: { file: ../../tests/fixtures/decks/najeela.txt } }
+  - { id: deep_b, source: { file: ../../tests/fixtures/decks/najeela.txt } }
+  - { id: shallow_b, source: { file: ../../tests/fixtures/decks/najeela.txt } }
+policies:
+  default: { kind: search, budget: { iterations: 8 } }
+  deep_a: { kind: search, budget: { iterations: 32 } }
+  deep_b: { kind: search, budget: { iterations: 32 } }

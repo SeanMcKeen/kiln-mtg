@@ -1,0 +1,15 @@
+puzzle: kiln-puzzle/1
+name: "Laboratory Maniac, Demonic Consultation, then a draw"
+kind: win_now
+solver: P1
+within_turns: 0
+opponents: greedy
+board:
+  scenario: kiln-scenario/1
+  name: "Laboratory Maniac, Demonic Consultation, then a draw"
+  players:
+    - battlefield: [Laboratory Maniac, Swamp, Island]
+      hand: [Demonic Consultation, Gitaxian Probe]
+      library: [Opt, Ponder, Island, Swamp]
+    - {}
+  script: []
