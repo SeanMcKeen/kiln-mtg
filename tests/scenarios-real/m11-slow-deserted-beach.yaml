@@ -1,0 +1,15 @@
+scenario: kiln-scenario/1
+name: "Deserted Beach enters untapped with two other lands"
+cr: ["614.1c", "305.6"]
+verifies: ["Deserted Beach"]
+players:
+  - battlefield: [Plains, Island]
+    hand: ["Deserted Beach"]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Play Deserted Beach
+  - choose: Tap Deserted Beach for mana
+  - choose: "Add {W}"
+expect:
+  pool: { P1: "{W}" }

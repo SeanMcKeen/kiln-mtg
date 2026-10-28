@@ -1,0 +1,24 @@
+scenario: kiln-scenario/1
+name: "\"Spells your opponents cast cost {1} more\" applies to an opponent casting your exiled card (Ragavan): judged by the caster"
+cr: ["601.2f", "108.4"]
+verifies: [Grand Arbiter Augustin IV]
+players:
+  - battlefield: ["Ragavan, Nimble Pilferer"]
+  - battlefield: [Grand Arbiter Augustin IV]
+    library: [Gut Shot, Island]
+turn: { number: 3, active: P1, step: declare_attackers }
+script:
+  - choose: Ragavan, Nimble Pilferer attacks P2
+  - pass_all
+  - choose: Grand Arbiter Augustin IV doesn't block
+  - pass_all
+  - pass_all
+  - check:
+      zones: { exile: [Gut Shot] }
+      decision: { player: P1, kind: priority, options_exclude: [Cast Gut Shot] }
+  - choose: Activate Treasure for mana
+  - choose: "Add {R}"
+  - check:
+      decision: { player: P1, kind: priority, options_include: [Cast Gut Shot] }
+expect:
+  life: { P2: 18 }

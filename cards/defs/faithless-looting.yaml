@@ -1,0 +1,9 @@
+card: Faithless Looting
+faces:
+  - abilities:
+      - spell:
+          effect:
+            seq:
+              - draw: { who: you, amount: 2 }
+              - discard: { who: you, what: { chosen: { count: 2 } } }
+      - keyword: { flashback: [{ mana: "{2}{R}" }] }

@@ -288,6 +288,7 @@ pub(crate) fn is_rule_static(e: &StaticEffect) -> bool {
             | StaticEffect::PlayerRule { .. }
             | StaticEffect::GrantEscape { .. }
             | StaticEffect::CostIncrease { .. }
+            | StaticEffect::CostReduction { .. }
             | StaticEffect::SpellsCantBeCountered { .. }
             | StaticEffect::ActivationCostReduction { .. }
             | StaticEffect::Rule(
@@ -300,6 +301,7 @@ pub(crate) fn is_rule_static(e: &StaticEffect) -> bool {
                     | kiln_cards::ir::RuleMod::OpponentsSearchTopFour
                     | kiln_cards::ir::RuleMod::PlayFromTopPayingLife
                     | kiln_cards::ir::RuleMod::NoLegendRule
+                    | kiln_cards::ir::RuleMod::AbilitiesAsThoughHaste
             )
     )
 }

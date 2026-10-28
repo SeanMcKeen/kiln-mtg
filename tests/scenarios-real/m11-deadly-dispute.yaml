@@ -1,0 +1,19 @@
+scenario: kiln-scenario/1
+name: "Deadly Dispute: sacrifice an artifact or creature as an additional cost; draw two and make a Treasure"
+cr: ["601.2b", "601.2h", "111.10a"]
+verifies: [Deadly Dispute]
+players:
+  - battlefield: [Swamp, Swamp, Sol Ring]
+    hand: [Deadly Dispute]
+    library: [Opt, Ponder]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Deadly Dispute
+  - choose: "Pay with Swamp, Swamp"
+  - pass_all
+expect:
+  zones:
+    P1.hand: [Opt, Ponder]
+    P1.graveyard: [Sol Ring, Deadly Dispute]
+    P1.battlefield: [Swamp, Swamp, Treasure]

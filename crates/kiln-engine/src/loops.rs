@@ -285,7 +285,16 @@ impl Game {
         for (p, pool) in d.pools.iter().enumerate() {
             for (t, &per) in pool.iter().enumerate() {
                 if per < 0 {
-                    max = max.min(cap(i64::from(now.pools[p][t]), -per));
+                    // Restricted mana (CR 106.6) isn't what the loop spends:
+                    // its units stay in the pool.
+                    let restricted = self
+                        .restricted
+                        .iter()
+                        .filter(|r| usize::from(r.player.0) == p && r.mana.index() == t)
+                        .count();
+                    let have =
+                        i64::from(now.pools[p][t]) - i64::try_from(restricted).unwrap_or(i64::MAX);
+                    max = max.min(cap(have, -per));
                 }
             }
         }
@@ -305,8 +314,10 @@ impl Game {
                 max = max.min(cap(have, -per));
             }
         }
+        // A player who can't lose (Platinum Angel) isn't ended by the loop:
+        // their life or poison doesn't limit it (CR 104.4b may apply).
         for (p, &per) in d.life.iter().enumerate() {
-            if per < 0 && self.players[p].in_game() {
+            if per < 0 && self.players[p].in_game() && self.can_lose(self.players[p].id) {
                 // CR 704.5a: the iteration that takes them to 0 or less.
                 let life = now.life[p].max(0);
                 let n = u64::try_from((life + (-per) - 1) / (-per))
@@ -319,7 +330,7 @@ impl Game {
             }
         }
         for (p, &per) in d.poison.iter().enumerate() {
-            if per > 0 && self.players[p].in_game() {
+            if per > 0 && self.players[p].in_game() && self.can_lose(self.players[p].id) {
                 let left = (10 - i64::from(now.poison[p])).max(0);
                 let n = u64::try_from((left + per - 1) / per).unwrap_or(0).max(1);
                 if n <= max {

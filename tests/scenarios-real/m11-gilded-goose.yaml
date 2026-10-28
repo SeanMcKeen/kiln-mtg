@@ -1,0 +1,18 @@
+scenario: kiln-scenario/1
+name: "Gilded Goose makes a Food as it enters; another Goose taps and sacrifices it for mana"
+cr: ["603.2", "111.10b", "605.1a"]
+verifies: [Gilded Goose]
+players:
+  - battlefield: [Gilded Goose, Forest]
+    hand: [Gilded Goose]
+  - {}
+script:
+  - choose: Cast Gilded Goose
+  - choose: Pay with Forest
+  - pass_all
+  - pass_all
+  - choose: Activate Gilded Goose for mana
+  - choose: Add {U}
+expect:
+  zones:
+    P1.battlefield: [Gilded Goose, Gilded Goose, Forest]

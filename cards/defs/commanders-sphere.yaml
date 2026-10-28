@@ -1,0 +1,7 @@
+card: Commander's Sphere
+faces:
+  - abilities:
+      - activated: { cost: [tap], effect: { add_mana: { mana: commander_identity } } }
+      - activated:
+          cost: [{ sacrifice: { one: this } }]
+          effect: { draw: { who: you, amount: 1 } }

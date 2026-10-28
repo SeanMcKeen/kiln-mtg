@@ -1,0 +1,12 @@
+scenario: kiln-scenario/1
+name: "Morphic Pool enters tapped with one opponent"
+cr: ["614.1c", "102.2"]
+verifies: ["Morphic Pool"]
+players:
+  - hand: ["Morphic Pool"]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Play Morphic Pool
+expect:
+  tapped: { "Morphic Pool": true }

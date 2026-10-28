@@ -1,0 +1,15 @@
+card: Gilded Goose
+faces:
+  - abilities:
+      - keyword: flying
+      - triggered:
+          trigger: { enters: { this: true } }
+          effect: { create_token: { token: { predefined: Food }, count: 1, controller: you } }
+      - activated:
+          cost: [{ mana: "{1}{G}" }, tap]
+          effect: { create_token: { token: { predefined: Food }, count: 1, controller: you } }
+      - activated:
+          cost:
+            - tap
+            - sacrifice: { chosen_from: { who: you, zone: battlefield, filter: { subtypes: [Food] }, count: 1 } }
+          effect: { add_mana: { mana: { any_color: 1 } } }

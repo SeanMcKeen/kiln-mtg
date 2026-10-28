@@ -1,0 +1,26 @@
+scenario: kiln-scenario/1
+name: "Intuition: find three cards; target opponent chooses one for your hand, the rest go to your graveyard"
+cr: ["701.23a", "701.20a", "115.1"]
+verifies: [Intuition]
+players:
+  - battlefield: [Island, Island, Island]
+    hand: [Intuition]
+    library: [Opt, Ponder, Preordain, Brainstorm]
+  - {}
+  - {}
+script:
+  - choose: Cast Intuition
+  - choose: Target P3
+  - choose: "Pay with Island, Island, Island"
+  - pass_all
+  - choose: Find Opt
+  - choose: Find Ponder
+  - choose: Find Preordain
+  - check:
+      decision: { player: P3, options: [Return to hand Opt, Return to hand Ponder, Return to hand Preordain] }
+  - choose: Return to hand Ponder
+expect:
+  zones:
+    P1.hand: [Ponder]
+    P1.graveyard: [Intuition, Opt, Preordain]
+    P1.library: [Brainstorm]

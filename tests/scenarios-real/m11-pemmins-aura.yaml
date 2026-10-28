@@ -1,0 +1,23 @@
+scenario: kiln-scenario/1
+name: "Pemmin's Aura: a modal activated ability gives +1/-1 or -1/+1; flying and untap"
+cr: ["303.4", "700.2a"]
+verifies: [Pemmin's Aura]
+players:
+  - battlefield: [Grizzly Bears, Island, Island, Island, Island, Island]
+    hand: [Pemmin's Aura]
+  - {}
+script:
+  - choose: Cast Pemmin's Aura
+  - choose: Target Grizzly Bears (P1)
+  - choose: "Pay with Island, Island, Island"
+  - pass_all
+  - choose: Activate Pemmin's Aura ability 3
+  - choose: Pay with Island
+  - pass_all
+  - check: { decision: { player: P1, kind: priority } }
+  - choose: Activate Pemmin's Aura ability 5
+  - choose: Mode 1
+  - choose: Pay with Island
+  - pass_all
+expect:
+  pt: { Grizzly Bears: [3, 1] }

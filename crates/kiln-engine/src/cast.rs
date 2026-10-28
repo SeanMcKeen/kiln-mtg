@@ -244,6 +244,7 @@ fn cost_shape(def: &CardDef, ability: Option<u8>, cost: CastCost) -> Option<Cost
         // CR 118.9: no mana cost (and so X is 0, CR 107.3b); additional costs remain.
         CastCost::WithoutPaying => {}
         CastCost::Dash => add(def.dash_cost()?, &mut symbols),
+        CastCost::Flashback => add(def.flashback_cost()?, &mut symbols),
         // CR 702.138a: the mana cost plus the escape grant's extra cost
         // (added by the game, which knows the grant).
         CastCost::Escape => symbols.extend(def.mana_cost.as_ref()?.symbols().iter().cloned()),
@@ -364,7 +365,7 @@ impl Game {
             .map(symbol_options)
             .collect();
         let pool = self.usable_pool(p, shape.spell.then_some(ctx.source));
-        let sources = self.mana_sources(p, except);
+        let sources = self.mana_sources_for(p, except, shape.spell.then_some(ctx.source));
         let life = self.player(p).life;
         // Try every completion of the open symbols (a spell has only a few).
         let mut choice = vec![0usize; open.len()];
@@ -403,7 +404,11 @@ impl Game {
         let pool = self
             .usable_pool(p, shape.spell.then_some(ctx.source))
             .total();
-        let sources = u32::try_from(self.mana_sources(p, except).len()).unwrap_or(u32::MAX);
+        let sources = u32::try_from(
+            self.mana_sources_for(p, except, shape.spell.then_some(ctx.source))
+                .len(),
+        )
+        .unwrap_or(u32::MAX);
         let cap = if cost_uses_x(&shape.other) {
             1_000
         } else {
@@ -496,6 +501,13 @@ impl Game {
         if from_graveyard && escapable {
             candidates.push(CastCost::Escape);
         }
+        // CR 702.34a: flashback, from its owner's graveyard.
+        let own_graveyard = self
+            .obj(ctx.source)
+            .is_some_and(|o| o.zone == ZoneId::Graveyard(p) || o.zone == ZoneId::Stack);
+        if from_graveyard && own_graveyard && def.flashback_cost().is_some() {
+            candidates.push(CastCost::Flashback);
+        }
         let mut out = Vec::new();
         for c in candidates {
             if let CastCost::Alternative(i) = c {
@@ -512,7 +524,7 @@ impl Game {
             if !targets_ok && !overload {
                 continue;
             }
-            if let Some(shape) = self.spell_shape(def, None, c, ctx.source)
+            if let Some(shape) = self.spell_shape(def, None, c, ctx.source, p)
                 && self.shape_payable(p, ctx, &shape, 0, &[], None)
             {
                 out.push(c);
@@ -604,10 +616,7 @@ impl Game {
             return false;
         }
         // CR 302.6: a creature's {T}/{Q} abilities need it under control since the turn began.
-        if taps_source(def, Some(ability))
-            && self.is_creature(source)
-            && self.is_summoning_sick(source)
-        {
+        if taps_source(def, Some(ability)) && self.tap_sick(source) {
             return false;
         }
         if !x.targets.iter().all(|t| self.slot_ok(t, p, None, def)) {
@@ -622,7 +631,7 @@ impl Game {
             return false;
         }
         let except = taps_source(def, Some(ability)).then_some(source);
-        self.spell_shape(def, Some(ability), CastCost::Normal, source)
+        self.spell_shape(def, Some(ability), CastCost::Normal, source, p)
             .is_some_and(|shape| self.shape_payable(p, &ctx, &shape, 0, &[], except))
     }
 
@@ -745,7 +754,7 @@ impl Game {
         }
         let ctx = cast_ctx(def_id, def, None, id, p);
         // Cost increases and additional costs still apply (CR 601.2f).
-        self.spell_shape(def, None, CastCost::WithoutPaying, id)
+        self.spell_shape(def, None, CastCost::WithoutPaying, id, p)
             .is_some_and(|shape| self.shape_payable(p, &ctx, &shape, 0, &[], None))
     }
 
@@ -794,7 +803,7 @@ impl Game {
         else {
             return true;
         };
-        self.spell_shape(def, None, item.cost, item.object)
+        self.spell_shape(def, None, item.cost, item.object, item.controller)
             .map(|mut s| {
                 add_parts(&mut s, extra);
                 s
@@ -831,6 +840,10 @@ impl Game {
                     Some(i) => match def.abilities.get(usize::from(i)) {
                         Some(Ability::Triggered(ta)) => {
                             (Some(&ta.effect), CastStage::Targets, "700.2b")
+                        }
+                        // A modal activated ability: modes first, then costs (CR 700.2a, 602.2b).
+                        Some(Ability::Activated(aa)) => {
+                            (Some(&aa.effect), CastStage::Cost, "700.2a")
                         }
                         _ => (None, CastStage::Cost, "700.2a"),
                     },
@@ -880,6 +893,9 @@ impl Game {
                     if let Some(i) = self.item_mut(t.spell) {
                         i.cost = only;
                     }
+                    if only == CastCost::Flashback {
+                        self.flashback.push(t.spell);
+                    }
                     return self.advance(t, CastStage::Kicker);
                 }
                 self.tasks.push(Task::Cast(t));
@@ -897,7 +913,7 @@ impl Game {
             CastStage::Kicker => {
                 let kickable = kicker_cost(def).is_some()
                     && self
-                        .spell_shape(def, None, item.cost, item.object)
+                        .spell_shape(def, None, item.cost, item.object, item.controller)
                         .map(|mut s| {
                             add_parts(&mut s, kicker_cost(def).unwrap_or(&[]));
                             s
@@ -917,7 +933,8 @@ impl Game {
                 );
             }
             CastStage::X => {
-                let Some(shape) = self.spell_shape(def, item.ability, item.cost, item.object)
+                let Some(shape) =
+                    self.spell_shape(def, item.ability, item.cost, item.object, item.controller)
                 else {
                     return;
                 };
@@ -944,7 +961,8 @@ impl Game {
                 );
             }
             CastStage::Symbols => {
-                let Some(shape) = self.spell_shape(def, item.ability, item.cost, item.object)
+                let Some(shape) =
+                    self.spell_shape(def, item.ability, item.cost, item.object, item.controller)
                 else {
                     return;
                 };
@@ -1064,7 +1082,7 @@ impl Game {
                 let plans = enumerate_plans(
                     &req,
                     &self.usable_pool(t.caster, spell),
-                    &self.mana_sources(t.caster, except),
+                    &self.mana_sources_for(t.caster, except, spell),
                 );
                 self.tasks.push(Task::Cast(t));
                 self.decide(
@@ -1078,7 +1096,8 @@ impl Game {
             }
             CastStage::PayOther => {
                 self.advance(t, CastStage::Done);
-                let Some(shape) = self.spell_shape(def, item.ability, item.cost, item.object)
+                let Some(shape) =
+                    self.spell_shape(def, item.ability, item.cost, item.object, item.controller)
                 else {
                     return;
                 };
@@ -1160,12 +1179,15 @@ impl Game {
     /// [`cost_shape`] for a spell, with mana spent as though it were any
     /// color when an effect allows it (Opposition Agent): every colored
     /// symbol is then payable by any mana.
+    /// `caster`: who casts it (CR 601.2f: "spells you cast" means the
+    /// caster's, even before the card is on the stack).
     fn spell_shape(
         &self,
         def: &CardDef,
         ability: Option<u8>,
         cost: CastCost,
         object: ObjectId,
+        caster: PlayerId,
     ) -> Option<CostShape> {
         let mut shape = cost_shape(def, ability, cost)?;
         if ability.is_none() && cost == CastCost::Escape {
@@ -1234,7 +1256,7 @@ impl Game {
         }
         // CR 601.2f: cost increases apply whatever cost is paid (T24).
         if ability.is_none() {
-            let more = self.cost_increase(object);
+            let more = self.cost_increase(object, caster);
             if more > 0 {
                 shape.symbols.push(ManaSymbol::Generic(more));
             }
@@ -1245,6 +1267,36 @@ impl Game {
             if tax > 0 {
                 shape.symbols.push(ManaSymbol::Generic(tax));
             }
+        }
+        // CR 601.2f: cost reductions, after increases and additional costs;
+        // they reduce only the generic part, never below zero.
+        if ability.is_none() {
+            let mut left = self.cost_reduction(object, caster);
+            if let Some(o) = self.obj(object)
+                && let Some((i, q)) = def.abilities.iter().enumerate().find_map(|(i, a)| match a {
+                    Ability::Spell(s) => s.cost_reduction.as_ref().map(|q| (i, q)),
+                    _ => None,
+                })
+                && let Ok(i) = u8::try_from(i)
+            {
+                let ctx = crate::effects::EffectCtx::new(
+                    crate::effects::AbilityRef {
+                        def: o.def,
+                        ability: i,
+                    },
+                    object,
+                    o.controller,
+                );
+                left += self.amount(&ctx, q);
+            }
+            for s in &mut shape.symbols {
+                if let ManaSymbol::Generic(n) = s {
+                    let cut = (*n).min(left);
+                    *n -= cut;
+                    left -= cut;
+                }
+            }
+            shape.symbols.retain(|s| *s != ManaSymbol::Generic(0));
         }
         let any_color = ability.is_none()
             && (self.any_color_spells.contains(&object)
@@ -1266,7 +1318,7 @@ impl Game {
 
     /// The mana requirement and Phyrexian life of the chosen cost.
     pub(crate) fn cast_requirement(&self, def: &CardDef, item: &StackItem) -> (CostReq, i64) {
-        self.spell_shape(def, item.ability, item.cost, item.object)
+        self.spell_shape(def, item.ability, item.cost, item.object, item.controller)
             .map(|s| requirement(&s.symbols, item.x, &item.pays))
             .unwrap_or_default()
     }
@@ -1289,6 +1341,9 @@ impl Game {
             DecisionKind::ChooseCost { options, .. } => {
                 if let Some(i) = self.item_mut(t.spell) {
                     i.cost = options[option];
+                }
+                if options[option] == CastCost::Flashback {
+                    self.flashback.push(t.spell);
                 }
                 self.advance(t, CastStage::Kicker);
             }
@@ -1353,8 +1408,9 @@ impl Game {
 
     /// Manual payment steps that keep the payment completable.
     pub(crate) fn manual_steps(&self, t: &ManualPayTask) -> Vec<ManaStep> {
-        let pool = self.usable_pool(t.payer, self.spell_being_cast(t.spell).then_some(t.spell));
-        let sources = self.mana_sources(t.payer, t.except);
+        let spell = self.spell_being_cast(t.spell).then_some(t.spell);
+        let pool = self.usable_pool(t.payer, spell);
+        let sources = self.mana_sources_for(t.payer, t.except, spell);
         let mut steps = Vec::new();
         for m in ManaType::ALL {
             if pool.get(m) == 0 {
@@ -1643,10 +1699,7 @@ impl Game {
                         ));
                     }
                 }
-                if taps_source(def, Some(r.ability))
-                    && self.is_creature(source)
-                    && self.is_summoning_sick(source)
-                {
+                if taps_source(def, Some(r.ability)) && self.tap_sick(source) {
                     out.push(explain(
                         "302.6",
                         format!(
@@ -1671,7 +1724,7 @@ impl Game {
                 let except = taps_source(def, Some(r.ability)).then_some(source);
                 if out.is_empty()
                     && !self
-                        .spell_shape(def, Some(r.ability), CastCost::Normal, source)
+                        .spell_shape(def, Some(r.ability), CastCost::Normal, source, p)
                         .is_some_and(|shape| self.shape_payable(p, &ctx, &shape, 0, &[], except))
                 {
                     out.push(explain("601.2h", format!("{p} can't pay its cost")));

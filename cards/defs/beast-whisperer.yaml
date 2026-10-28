@@ -1,0 +1,6 @@
+card: Beast Whisperer
+faces:
+  - abilities:
+      - triggered:
+          trigger: { cast: { by: you, spell: { types: [creature] } } }
+          effect: { draw: { who: you, amount: 1 } }

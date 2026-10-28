@@ -1,0 +1,8 @@
+card: Springleaf Drum
+faces:
+  - abilities:
+      - activated:
+          cost:
+            - tap
+            - tap_untapped: { what: { types: [creature] } }
+          effect: { add_mana: { mana: { any_color: 1 } } }

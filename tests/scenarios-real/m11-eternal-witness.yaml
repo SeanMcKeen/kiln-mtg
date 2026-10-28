@@ -1,0 +1,21 @@
+scenario: kiln-scenario/1
+name: "Eternal Witness returns a card from its controller's graveyard to hand"
+cr: ["603.2", "608.2d"]
+verifies: [Eternal Witness]
+players:
+  - battlefield: [Forest, Forest, Forest]
+    hand: [Eternal Witness]
+    graveyard: [Swords to Plowshares]
+  - {}
+script:
+  - choose: Cast Eternal Witness
+  - choose: Pay with Forest, Forest, Forest
+  - pass_all
+  - choose: Target Swords to Plowshares
+  - pass_all
+  - choose: "Yes"
+expect:
+  zones:
+    P1.hand: [Swords to Plowshares]
+    P1.graveyard: []
+    P1.battlefield: [Eternal Witness, Forest, Forest, Forest]

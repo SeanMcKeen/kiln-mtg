@@ -1,0 +1,12 @@
+card: Eldritch Evolution
+faces:
+  - abilities:
+      - spell:
+          additional_costs:
+            - sacrifice: { chosen_from: { who: you, zone: battlefield, filter: { types: [creature] }, count: 1 } }
+          effect:
+            seq:
+              # "where X is 2 plus the sacrificed creature's mana value" (CR 400.7j: last known information).
+              - search: { who: you, filter: { types: [creature] }, count: 1, to: battlefield, reveal: false, max_mana_value: { plus: [{ mana_value_of: { remembered: sacrificed } }, 2] } }
+              - shuffle: you
+              - exile: { what: { one: this } }

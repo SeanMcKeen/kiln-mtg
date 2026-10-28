@@ -1,0 +1,19 @@
+scenario: kiln-scenario/1
+name: "Sulfur Falls enters untapped with a Island and taps for either color"
+cr: ["614.1c", "305.6"]
+verifies: ["Sulfur Falls"]
+players:
+  - battlefield: [Island]
+    hand: ["Sulfur Falls"]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: "Play Sulfur Falls"
+  - check:
+      tapped: { "Sulfur Falls": false }
+  - choose: "Tap Sulfur Falls for mana"
+  - check:
+      decision: { player: P1, kind: choose_mana, options_include: ["Add {U}", "Add {R}"] }
+  - choose: "Add {R}"
+expect:
+  pool: { P1: "{R}" }

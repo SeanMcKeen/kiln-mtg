@@ -1,0 +1,13 @@
+scenario: kiln-scenario/1
+name: "Overgrown Farmland enters tapped with only one other land"
+cr: ["614.1c", "305.6"]
+verifies: ["Overgrown Farmland"]
+players:
+  - battlefield: [Forest]
+    hand: ["Overgrown Farmland"]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Play Overgrown Farmland
+expect:
+  tapped: { "Overgrown Farmland": true }

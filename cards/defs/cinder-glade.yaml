@@ -1,0 +1,8 @@
+card: "Cinder Glade"
+faces:
+  - abilities:
+      # "This land enters tapped unless you control two or more basic lands" (CR 614.1c).
+      - replacement:
+          event: { would_enter: { this: true } }
+          condition: { not: { at_least: [{ count: { types: [land], supertypes: [basic], controller: you } }, 2] } }
+          instead: enters_tapped

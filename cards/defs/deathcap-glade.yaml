@@ -1,0 +1,9 @@
+card: "Deathcap Glade"
+faces:
+  - abilities:
+      # "This land enters tapped unless you control two or more other lands" (CR 614.1c).
+      - replacement:
+          event: { would_enter: { this: true } }
+          condition: { not: { at_least: [{ count: { types: [land], controller: you, other: true } }, 2] } }
+          instead: enters_tapped
+      - activated: { cost: [tap], effect: { add_mana: { mana: { one_of: ["{B}", "{G}"] } } } }

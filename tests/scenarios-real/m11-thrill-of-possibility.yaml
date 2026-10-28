@@ -1,0 +1,18 @@
+scenario: kiln-scenario/1
+name: "Thrill of Possibility: discard a card as an additional cost, draw two"
+cr: ["601.2b"]
+verifies: [Thrill of Possibility]
+players:
+  - battlefield: [Mountain, Mountain]
+    hand: [Thrill of Possibility, Island]
+    library: [Opt, Ponder]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Thrill of Possibility
+  - choose: "Pay with Mountain, Mountain"
+  - pass_all
+expect:
+  zones:
+    P1.hand: [Opt, Ponder]
+    P1.graveyard: [Island, Thrill of Possibility]

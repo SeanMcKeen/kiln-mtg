@@ -1,0 +1,13 @@
+card: Tireless Provisioner
+faces:
+  - abilities:
+      # Landfall: the mode is chosen as the trigger is put on the stack (CR 603.3c).
+      - triggered:
+          trigger: { enters: { types: [land], controller: you } }
+          effect:
+            modal:
+              min: 1
+              max: 1
+              modes:
+                - create_token: { token: { predefined: Food }, count: 1, controller: you }
+                - create_token: { token: { predefined: Treasure }, count: 1, controller: you }

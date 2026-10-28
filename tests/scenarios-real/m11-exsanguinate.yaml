@@ -1,0 +1,17 @@
+scenario: kiln-scenario/1
+name: "Exsanguinate: each opponent loses X; you gain the life lost this way"
+cr: ["107.3", "119.3"]
+verifies: [Exsanguinate]
+players:
+  - battlefield: [Swamp, Swamp, Swamp, Swamp, Swamp]
+    hand: [Exsanguinate]
+  - {}
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Exsanguinate
+  - choose: Choose 3
+  - choose: "Pay with Swamp, Swamp, Swamp, Swamp, Swamp"
+  - pass_all
+expect:
+  life: { P1: 26, P2: 17, P3: 17 }

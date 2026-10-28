@@ -1,0 +1,22 @@
+scenario: kiln-scenario/1
+name: "Sakura-Tribe Elder and Wayfarer's Bauble: sacrifice to put a basic land onto the battlefield tapped"
+cr: ["701.23a", "602.2"]
+verifies: [Sakura-Tribe Elder, "Wayfarer's Bauble"]
+players:
+  - battlefield: [Sakura-Tribe Elder, "Wayfarer's Bauble", Plains, Plains]
+    library: [Opt, Forest, Island]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Activate Sakura-Tribe Elder ability 1
+  - choose: Activate Wayfarer's Bauble ability 1
+  - choose: "Pay with Plains, Plains"
+  - pass_all
+  - choose: Find Island
+  - pass_all
+  - choose: Find Forest
+expect:
+  zones:
+    P1.battlefield: [Plains, Plains, Forest, Island]
+    P1.graveyard: [Sakura-Tribe Elder, "Wayfarer's Bauble"]
+  tapped: { Forest: true, Island: true }

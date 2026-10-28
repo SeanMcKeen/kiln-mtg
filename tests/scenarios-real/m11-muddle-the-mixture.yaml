@@ -1,0 +1,23 @@
+scenario: kiln-scenario/1
+name: "Muddle the Mixture counters an instant"
+cr: ["701.6a"]
+verifies: [Muddle the Mixture]
+players:
+  - battlefield: [Mountain]
+    hand: [Lightning Bolt]
+  - battlefield: [Island, Island]
+    hand: [Muddle the Mixture]
+script:
+  - choose: Cast Lightning Bolt
+  - choose: Target P2
+  - choose: Pay with Mountain
+  - pass: 1
+  - { player: P2, choose: Cast Muddle the Mixture }
+  - { player: P2, choose: Target Lightning Bolt }
+  - { player: P2, choose: "Pay with Island, Island" }
+  - pass_all
+expect:
+  life: { P2: 20 }
+  zones:
+    P1.graveyard: [Lightning Bolt]
+    P2.graveyard: [Muddle the Mixture]

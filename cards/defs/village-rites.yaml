@@ -1,0 +1,7 @@
+card: Village Rites
+faces:
+  - abilities:
+      - spell:
+          additional_costs:
+            - sacrifice: { chosen_from: { who: you, zone: battlefield, filter: { types: [creature] }, count: 1 } }
+          effect: { draw: { who: you, amount: 2 } }

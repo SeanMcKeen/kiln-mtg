@@ -1,0 +1,13 @@
+scenario: kiln-scenario/1
+name: "Phyrexian Arena: draw a card and lose 1 life at the beginning of its controller's upkeep"
+cr: ["503.1a", "603.2"]
+verifies: [Phyrexian Arena]
+players:
+  - battlefield: [Phyrexian Arena]
+    library: [Opt, Ponder]
+  - {}
+turn: { number: 3, active: P1, step: upkeep }
+script:
+  - pass_all
+expect:
+  life: { P1: 19 }

@@ -1,0 +1,7 @@
+card: Temple of the False God
+faces:
+  - abilities:
+      - activated:
+          cost: [tap]
+          condition: { at_least: [{ count: { types: [land], controller: you } }, 5] }
+          effect: { add_mana: { mana: { fixed: "{C}{C}" } } }

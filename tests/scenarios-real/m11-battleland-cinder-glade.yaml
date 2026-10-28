@@ -1,0 +1,13 @@
+scenario: kiln-scenario/1
+name: "Cinder Glade enters untapped with two basic lands"
+cr: ["614.1c", "305.6"]
+verifies: ["Cinder Glade"]
+players:
+  - battlefield: [Island, Forest]
+    hand: ["Cinder Glade"]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: "Play Cinder Glade"
+expect:
+  tapped: { "Cinder Glade": false }

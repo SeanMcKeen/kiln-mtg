@@ -1,0 +1,17 @@
+scenario: kiln-scenario/1
+name: "Bojuka Bog enters tapped and exiles target player's graveyard"
+cr: ["614.1c", "603.2"]
+verifies: [Bojuka Bog]
+players:
+  - hand: [Bojuka Bog]
+  - graveyard: [Animate Dead, Grizzly Bears]
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Play Bojuka Bog
+  - choose: Target P2
+  - pass_all
+expect:
+  tapped: { Bojuka Bog: true }
+  zones:
+    P2.graveyard: []
+    exile: [Animate Dead, Grizzly Bears]

@@ -1,0 +1,15 @@
+scenario: kiln-scenario/1
+name: "Woodland Cemetery enters untapped with a Forest"
+cr: ["614.1c", "305.6"]
+verifies: [Woodland Cemetery]
+players:
+  - battlefield: [Forest]
+    hand: [Woodland Cemetery]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Play Woodland Cemetery
+  - check:
+      tapped: { Woodland Cemetery: false }
+expect:
+  tapped: { Woodland Cemetery: false }

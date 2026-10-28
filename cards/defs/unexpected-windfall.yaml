@@ -1,0 +1,9 @@
+card: Unexpected Windfall
+faces:
+  - abilities:
+      - spell:
+          additional_costs: [{ discard: { chosen: { count: 1, filter: {} } } }]
+          effect:
+            seq:
+              - draw: { who: you, amount: 2 }
+              - create_token: { token: { predefined: Treasure }, count: 2, controller: you }

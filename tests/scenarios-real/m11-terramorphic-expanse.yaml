@@ -1,0 +1,18 @@
+scenario: kiln-scenario/1
+name: "Terramorphic Expanse: sacrifice it to fetch a basic land onto the battlefield tapped"
+cr: ["701.23a", "701.21a"]
+verifies: ["Terramorphic Expanse"]
+players:
+  - battlefield: ["Terramorphic Expanse"]
+    library: [Island, Forest]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: "Activate Terramorphic Expanse ability 1"
+  - pass_all
+  - choose: Find Forest
+expect:
+  zones:
+    P1.battlefield: [Forest]
+    P1.graveyard: ["Terramorphic Expanse"]
+  tapped: { Forest: true }

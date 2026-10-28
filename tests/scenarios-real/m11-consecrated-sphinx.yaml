@@ -1,0 +1,16 @@
+scenario: kiln-scenario/1
+name: "Consecrated Sphinx: whenever an opponent draws, its controller may draw two"
+cr: ["603.2", "608.2d"]
+verifies: [Consecrated Sphinx]
+players:
+  - battlefield: [Consecrated Sphinx]
+    library: [Opt, Ponder, Island]
+  - library: [Swamp, Swamp]
+turn: { number: 3, active: P2, step: upkeep }
+script:
+  - pass_all
+  - pass_all
+  - choose: "Yes"
+expect:
+  zones:
+    P1.hand: [Opt, Ponder]

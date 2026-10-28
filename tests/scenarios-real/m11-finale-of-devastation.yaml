@@ -1,0 +1,19 @@
+scenario: kiln-scenario/1
+name: "Finale of Devastation can find a creature in the graveyard"
+cr: ["107.3a", "701.23a"]
+verifies: [Finale of Devastation]
+players:
+  - battlefield: [Forest, Forest, Forest, Forest, Forest]
+    hand: [Finale of Devastation]
+    graveyard: [Eternal Witness]
+    library: [Island, Island]
+  - {}
+script:
+  - choose: Cast Finale of Devastation
+  - choose: Choose 3
+  - choose: "Pay with Forest, Forest, Forest, Forest, Forest"
+  - pass_all
+  - choose: Find Eternal Witness
+expect:
+  zones:
+    P1.battlefield: [Forest, Forest, Forest, Forest, Forest, Eternal Witness]

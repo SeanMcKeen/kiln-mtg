@@ -1,0 +1,17 @@
+scenario: kiln-scenario/1
+name: "Mishra's Workshop mana can't pay an artifact's activated ability: only the Monolith's own mana pays its untap"
+cr: ["106.6", "605.3a"]
+verifies: ["Mishra's Workshop"]
+players:
+  - battlefield: ["Mishra's Workshop", Basalt Monolith]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: "Activate Mishra's Workshop for {C}{C}{C}"
+  - choose: Activate Basalt Monolith ability 3
+  - choose: Pay with Basalt Monolith
+  - check:
+      pool: { P1: "{C}{C}{C}" }
+  - pass_all
+expect:
+  pool: { P1: "{C}{C}{C}" }

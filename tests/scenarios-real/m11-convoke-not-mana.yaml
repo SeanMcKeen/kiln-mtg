@@ -1,0 +1,28 @@
+scenario: kiln-scenario/1
+name: "Convoking with a mana creature isn't tapping it for mana: Kinnan adds nothing"
+cr: ["702.51a", "605.1b"]
+verifies: [Chord of Calling]
+players:
+  - battlefield: ["Kinnan, Bonder Prodigy", Forest, Forest, Forest, Llanowar Elves]
+    hand: [Chord of Calling]
+    library: [Opt, Gilded Goose]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Chord of Calling
+  - choose: Choose 1
+  - choose: Pay manually
+  - choose: "Convoke with Llanowar Elves for {C}"
+  - check:
+      pool: { P1: "{C}" }
+  - choose: "Spend {C}"
+  - choose: "Tap Forest for {G}"
+  - choose: "Spend {G}"
+  - choose: "Tap Forest for {G}"
+  - choose: "Spend {G}"
+  - choose: "Tap Forest for {G}"
+  - choose: "Spend {G}"
+  - pass_all
+  - choose: Find Gilded Goose
+expect:
+  pool: { P1: "" }

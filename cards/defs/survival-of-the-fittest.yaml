@@ -1,0 +1,11 @@
+card: Survival of the Fittest
+faces:
+  - abilities:
+      - activated:
+          cost:
+            - mana: "{G}"
+            - discard: { chosen: { count: 1, filter: { types: [creature] } } }
+          effect:
+            seq:
+              - search: { who: you, filter: { types: [creature] }, count: 1, to: hand, reveal: true }
+              - shuffle: you

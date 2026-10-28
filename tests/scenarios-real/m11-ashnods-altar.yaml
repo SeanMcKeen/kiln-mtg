@@ -1,0 +1,14 @@
+scenario: kiln-scenario/1
+name: "Ashnod's Altar: sacrifice a creature for {C}{C}, a mana ability"
+cr: ["605.1a", "106.1"]
+verifies: ["Ashnod's Altar"]
+players:
+  - battlefield: ["Ashnod's Altar", Grizzly Bears]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: "Activate Ashnod's Altar for {C}{C}"
+expect:
+  pool: { P1: "{C}{C}" }
+  zones:
+    P1.graveyard: [Grizzly Bears]

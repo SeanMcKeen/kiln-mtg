@@ -1,0 +1,16 @@
+scenario: kiln-scenario/1
+name: "Temple of the False God adds {C}{C} only with five or more lands"
+cr: ["602.5b", "605.1a"]
+verifies: [Temple of the False God]
+players:
+  - battlefield: [Temple of the False God, Island, Island, Island]
+    hand: [Forest]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - check:
+      decision: { player: P1, kind: priority, options_exclude: ["Tap Temple of the False God for {C}{C}"] }
+  - choose: Play Forest
+  - choose: "Tap Temple of the False God for {C}{C}"
+expect:
+  pool: { P1: "{C}{C}" }

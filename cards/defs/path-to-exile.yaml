@@ -1,0 +1,13 @@
+card: Path to Exile
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { object: { types: [creature] } } }]
+          effect:
+            seq:
+              - exile: { what: { one: { target: 0 } } }
+              - if_does:
+                  who: { controller_of: { target: 0 } }
+                  action:
+                    search: { who: { controller_of: { target: 0 } }, filter: { types: [land], supertypes: [basic] }, count: 1, to: battlefield_tapped, reveal: false }
+                  then: { shuffle: { controller_of: { target: 0 } } }

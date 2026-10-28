@@ -1,0 +1,9 @@
+card: Feed the Swarm
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { object: { types: [creature, enchantment], controller: opponent } } }]
+          effect:
+            seq:
+              - destroy: { one: { target: 0 } }
+              - lose_life: { who: you, amount: { mana_value_of: { target: 0 } } }

@@ -1,0 +1,14 @@
+scenario: kiln-scenario/1
+name: "Karplusan Forest: {C} painlessly, or {R}/{G} with 1 damage"
+cr: ["605.1a", "106.1"]
+verifies: ["Karplusan Forest"]
+players:
+  - battlefield: ["Karplusan Forest", "Karplusan Forest"]
+  - {}
+script:
+  - choose: "Tap Karplusan Forest for {C}"
+  - choose: Tap Karplusan Forest for mana
+  - choose: "Add {G}"
+expect:
+  life: { P1: 19 }
+  pool: { P1: "{G}{C}" }

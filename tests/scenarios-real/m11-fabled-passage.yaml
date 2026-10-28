@@ -1,0 +1,18 @@
+scenario: kiln-scenario/1
+name: "Fabled Passage: the basic land enters tapped, then untaps if you control four or more lands"
+cr: ["701.23a", "400.7j", "608.2c"]
+verifies: [Fabled Passage]
+players:
+  - battlefield: [Fabled Passage, Forest, Forest, Island]
+    library: [Opt, Plains, Ponder]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Activate Fabled Passage ability 1
+  - pass_all
+  - choose: Find Plains
+expect:
+  zones:
+    P1.battlefield: [Forest, Forest, Island, Plains]
+    P1.graveyard: [Fabled Passage]
+  tapped: { Plains: false }

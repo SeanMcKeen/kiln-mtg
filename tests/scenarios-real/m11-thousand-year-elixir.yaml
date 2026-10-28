@@ -1,0 +1,20 @@
+scenario: kiln-scenario/1
+name: "Thousand-Year Elixir: a creature that entered this turn can use {T} abilities; the Elixir untaps a creature"
+cr: ["302.6"]
+verifies: [Thousand-Year Elixir]
+players:
+  - battlefield: [Thousand-Year Elixir, Forest, Forest]
+    hand: [Llanowar Elves]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Llanowar Elves
+  - choose: Pay with Forest
+  - pass_all
+  - choose: "Tap Llanowar Elves for {G}"
+  - choose: Activate Thousand-Year Elixir ability 2
+  - choose: Target Llanowar Elves (P1)
+  - choose: Pay with 1 from pool
+  - pass_all
+expect:
+  tapped: { Llanowar Elves: false }

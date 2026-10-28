@@ -1,0 +1,22 @@
+card: Pemmin's Aura
+faces:
+  - abilities:
+      - keyword: { enchant: { object: { types: [creature] } } }
+      - activated:
+          cost: [{ mana: "{U}" }]
+          effect: { untap: { one: attached_to } }
+      - activated:
+          cost: [{ mana: "{U}" }]
+          effect: { gain_keyword: { what: { one: attached_to }, keyword: flying } }
+      - activated:
+          cost: [{ mana: "{U}" }]
+          effect: { gain_keyword: { what: { one: attached_to }, keyword: shroud } }
+      - activated:
+          cost: [{ mana: "{1}" }]
+          effect:
+            modal:
+              min: 1
+              max: 1
+              modes:
+                - pump: { what: { one: attached_to }, power: 1, toughness: -1 }
+                - pump: { what: { one: attached_to }, power: -1, toughness: 1 }

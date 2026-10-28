@@ -1,0 +1,18 @@
+scenario: kiln-scenario/1
+name: "Stroke of Midnight: destroy target nonland permanent; its controller makes a 1/1 Human"
+cr: ["701.8a", "608.2h"]
+verifies: [Stroke of Midnight]
+players:
+  - battlefield: [Plains, Plains, Plains]
+    hand: [Stroke of Midnight]
+  - battlefield: [Sol Ring]
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Stroke of Midnight
+  - choose: Target Sol Ring (P2)
+  - choose: "Pay with Plains, Plains, Plains"
+  - pass_all
+expect:
+  zones:
+    P2.graveyard: [Sol Ring]
+    P2.battlefield: [Human Token]

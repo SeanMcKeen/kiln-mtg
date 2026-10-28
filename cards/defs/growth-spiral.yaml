@@ -1,0 +1,8 @@
+card: Growth Spiral
+faces:
+  - abilities:
+      - spell:
+          effect:
+            seq:
+              - draw: { who: you, amount: 1 }
+              - may: { move: { what: { chosen_from: { who: you, zone: hand, filter: { types: [land] }, count: 1 } }, to: battlefield } }

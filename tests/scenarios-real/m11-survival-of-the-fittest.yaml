@@ -1,0 +1,18 @@
+scenario: kiln-scenario/1
+name: "Survival of the Fittest: discard a creature card to search for a creature card"
+cr: ["602.2", "701.23a"]
+verifies: [Survival of the Fittest]
+players:
+  - battlefield: [Survival of the Fittest, Forest]
+    hand: [Grizzly Bears]
+    library: [Island, Eternal Witness, Island]
+  - {}
+script:
+  - choose: Activate Survival of the Fittest ability 1
+  - choose: Pay with Forest
+  - pass_all
+  - choose: Find Eternal Witness
+expect:
+  zones:
+    P1.hand: [Eternal Witness]
+    P1.graveyard: [Grizzly Bears]

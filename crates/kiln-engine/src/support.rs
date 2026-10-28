@@ -16,7 +16,7 @@ use crate::card::{CardDef, Keywords, is_mana_ability};
 use crate::effects::simple_mana;
 
 /// Keywords whose rules the engine implements.
-const IMPLEMENTED_KEYWORDS: [Keywords; 15] = [
+const IMPLEMENTED_KEYWORDS: [Keywords; 16] = [
     Keywords::FLASH,
     Keywords::HEXPROOF,
     Keywords::SHROUD,
@@ -32,6 +32,7 @@ const IMPLEMENTED_KEYWORDS: [Keywords; 15] = [
     Keywords::TRAMPLE,
     Keywords::VIGILANCE,
     Keywords::MENACE,
+    Keywords::CANT_BE_BLOCKED,
 ];
 
 type Check = Result<(), String>;
@@ -70,6 +71,9 @@ pub(crate) fn check(def: &CardDef) -> Check {
             Ability::Keyword(kiln_cards::ir::Keyword::HexproofFrom(_)) => {}
             // CR 702.109: an alternative cost for a permanent card.
             Ability::Keyword(kiln_cards::ir::Keyword::Dash(c)) => cast_cost(c)?,
+            Ability::Keyword(kiln_cards::ir::Keyword::Flashback(c)) => cast_cost(c)?,
+            // CR 702.51a: creatures join the spell's mana sources.
+            Ability::Keyword(kiln_cards::ir::Keyword::Convoke) => {}
             // Works in exile (CR 113.6f); checked while offering casts.
             Ability::Static(StaticAbility {
                 effect: StaticEffect::Rule(RuleMod::MayCastFromExile),
@@ -104,9 +108,6 @@ pub(crate) fn check(def: &CardDef) -> Check {
             }
             Ability::Activated(x) => {
                 activated_extras(x)?;
-                if matches!(x.effect, Effect::Modal { .. }) {
-                    return Err("modal activated abilities".into());
-                }
                 if x.targets.iter().any(|t| t.up_to == Some(0)) {
                     return Err("a target slot that allows zero targets".into());
                 }
@@ -180,6 +181,9 @@ fn spell(s: &SpellAbility) -> Check {
     }
     cast_cost(&s.additional_costs)?;
     cast_cost(&s.per_extra_target)?;
+    if let Some(q) = &s.cost_reduction {
+        quantity(q)?;
+    }
     if s.targets.len() > 32 {
         return Err("more than 32 target slots".into());
     }
@@ -257,6 +261,7 @@ fn effect(e: &Effect) -> Check {
                 Recipient::Target(_) => {}
                 Recipient::Player(p) => player(p)?,
                 Recipient::Object(o) => object(o)?,
+                Recipient::Each(f) => set(&ObjectSet::All(f.clone()))?,
             }
             quantity(amount)
         }
@@ -282,6 +287,11 @@ fn effect(e: &Effect) -> Check {
         Effect::Counter(ObjectSet::One(ObjectRef::Target(_) | ObjectRef::Triggering))
         | Effect::CounterAndExile(ObjectSet::One(ObjectRef::Target(_))) => Ok(()),
         Effect::CounterAndExile(_) => Err("countering anything but a targeted spell".into()),
+        Effect::CounterAndSuspend {
+            what: ObjectSet::One(ObjectRef::Target(_)),
+            ..
+        } => Ok(()),
+        Effect::CounterAndSuspend { .. } => Err("countering anything but a targeted spell".into()),
         Effect::LookAtHand(p) => player(p),
         Effect::Counter(_) => Err("countering anything but a targeted or triggering spell".into()),
         Effect::Draw { who, amount }
@@ -546,6 +556,10 @@ fn replacement(r: &kiln_cards::ir::ReplacementAbility) -> Check {
     use kiln_cards::ir::ReplaceEvent as R;
     match (&r.event, &r.instead) {
         (R::WouldEnter(_), Effect::EntersTapped) if r.condition.is_none() => Ok(()),
+        // Its own "enters tapped unless …" (check lands, battle lands).
+        (R::WouldEnter(f), Effect::EntersTapped) if f.this => {
+            r.condition.as_ref().map_or(Ok(()), condition)
+        }
         (R::WouldEnter(f), Effect::EntersWithCounters { amount, .. })
             if f.this && r.condition.is_none() =>
         {
@@ -663,6 +677,7 @@ fn quantity(q: &Quantity) -> Check {
             | QuantityExpr::SpellsCastThisTurn { .. }
             | QuantityExpr::MostSpellsCastByAnOpponent
             | QuantityExpr::LifeOf(_)
+            | QuantityExpr::Opponents
             | QuantityExpr::TopOfLibraryManaValue(_)
             | QuantityExpr::Var(_) => Ok(()),
         },

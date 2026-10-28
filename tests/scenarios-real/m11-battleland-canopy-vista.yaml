@@ -1,0 +1,13 @@
+scenario: kiln-scenario/1
+name: "Canopy Vista enters untapped with two basic lands"
+cr: ["614.1c", "305.6"]
+verifies: ["Canopy Vista"]
+players:
+  - battlefield: [Island, Forest]
+    hand: ["Canopy Vista"]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: "Play Canopy Vista"
+expect:
+  tapped: { "Canopy Vista": false }

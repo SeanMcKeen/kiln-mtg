@@ -1,0 +1,21 @@
+scenario: kiln-scenario/1
+name: "Harrow: sacrifice a land as an additional cost; up to two basic lands onto the battlefield untapped"
+cr: ["601.2b", "701.23a"]
+verifies: [Harrow]
+players:
+  - battlefield: [Forest, Forest, Forest]
+    hand: [Harrow]
+    library: [Opt, Island, Plains]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Harrow
+  - choose: "Pay with Forest, Forest, Forest"
+  - choose: Sacrifice Forest (P1)
+  - pass_all
+  - choose: Find Island
+  - choose: Find Plains
+expect:
+  zones:
+    P1.battlefield: [Forest, Forest, Island, Plains]
+  tapped: { Island: false, Plains: false }

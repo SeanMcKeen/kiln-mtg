@@ -91,6 +91,9 @@ impl CostReq {
 /// Outcome bags of one mana ability.
 pub type Bags = SmallVec<[ManaBag; 1]>;
 
+/// The pseudo ability index of convoking a creature (CR 702.51a).
+pub const CONVOKE: u8 = u8::MAX;
+
 /// An untapped mana source a player may activate during payment.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Source {
@@ -419,7 +422,7 @@ impl Game {
             }
             let mana = self.mana_abilities_of(id);
             // CR 302.6: a creature's {T} abilities need it under control since the turn began.
-            if mana.is_empty() || (self.is_creature(id) && self.is_summoning_sick(id)) {
+            if mana.is_empty() || self.tap_sick(id) {
                 continue;
             }
             let abilities: SmallVec<[(u8, Bags); 2]> = mana
@@ -446,6 +449,60 @@ impl Game {
                 abilities,
                 key: (o.def.0, o.damage | (u32::from(in_combat) << 31)),
             });
+        }
+        out
+    }
+
+    /// [`Game::mana_sources`], plus for a spell with convoke each untapped
+    /// creature `p` controls (CR 702.51a): tapping it pays {1} (as {C}) or
+    /// one mana of one of its colors. Not a {T} ability, so summoning-sick
+    /// creatures may convoke (CR 302.6 doesn't apply).
+    pub(crate) fn mana_sources_for(
+        &self,
+        p: PlayerId,
+        except: Option<ObjectId>,
+        spell: Option<ObjectId>,
+    ) -> Vec<Source> {
+        let mut out = self.mana_sources(p, except);
+        let convoke = spell.and_then(|s| self.obj(s)).is_some_and(|o| {
+            self.def(o.def).abilities.iter().any(|a| {
+                matches!(
+                    a,
+                    kiln_cards::ir::Ability::Keyword(kiln_cards::ir::Keyword::Convoke)
+                )
+            })
+        });
+        if !convoke {
+            return out;
+        }
+        for &id in &self.battlefield {
+            if Some(id) == except {
+                continue;
+            }
+            let Some(o) = self.obj(id) else { continue };
+            let Some(c) = self.chars(id) else { continue };
+            if o.controller != p || o.tapped || !c.is(kiln_types::CardType::Creature) {
+                continue;
+            }
+            let mut bags: Bags = SmallVec::new();
+            let mut generic = [0u8; 6];
+            generic[ManaType::Colorless.index()] = 1;
+            bags.push(generic);
+            for (i, color) in kiln_types::Color::ALL.iter().enumerate() {
+                if c.colors().contains(*color) {
+                    let mut b = [0u8; 6];
+                    b[i] = 1;
+                    bags.push(b);
+                }
+            }
+            match out.iter_mut().find(|s| s.object == id) {
+                Some(s) => s.abilities.push((CONVOKE, bags)),
+                None => out.push(Source {
+                    object: id,
+                    abilities: SmallVec::from_elem((CONVOKE, bags), 1),
+                    key: (o.def.0, o.damage | (1 << 30)),
+                }),
+            }
         }
         out
     }
@@ -582,7 +639,7 @@ impl Game {
                 kiln_cards::ir::CostPart::Tap | kiln_cards::ir::CostPart::Untap
             )
         });
-        if taps && self.is_creature(source) && self.is_summoning_sick(source) {
+        if taps && self.tap_sick(source) {
             return false;
         }
         let ctx = EffectCtx::new(r, source, p);
@@ -604,6 +661,19 @@ impl Game {
         let Some(o) = self.obj(source).copied() else {
             return;
         };
+        // CR 702.51a: a convoking creature is tapped rather than paying that
+        // mana; it isn't tapped for mana (no mana ability, CR 605.1b).
+        if ability == CONVOKE {
+            self.tap(source);
+            if let Some(bag) = forced {
+                for t in ManaType::ALL {
+                    self.player_mut(o.controller)
+                        .pool
+                        .add(t, u32::from(bag[t.index()]));
+                }
+            }
+            return;
+        }
         let Some((r, _)) = self.mana_ability_at(source, ability) else {
             return;
         };

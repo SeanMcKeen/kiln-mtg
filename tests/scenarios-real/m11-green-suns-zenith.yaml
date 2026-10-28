@@ -1,0 +1,19 @@
+scenario: kiln-scenario/1
+name: "Green Sun's Zenith finds a green creature with mana value X or less, then shuffles itself into the library"
+cr: ["107.3a", "701.23a", "608.2n"]
+verifies: [Green Sun's Zenith]
+players:
+  - battlefield: [Forest, Forest, Forest]
+    hand: [Green Sun's Zenith]
+    library: [Eternal Witness, Birds of Paradise, Gilded Goose, Tireless Provisioner]
+  - {}
+script:
+  - choose: Cast Green Sun's Zenith
+  - choose: Choose 1
+  - choose: "Pay with Forest, Forest"
+  - pass_all
+  - choose: Find Birds of Paradise
+expect:
+  zones:
+    P1.battlefield: [Forest, Forest, Forest, Birds of Paradise]
+    P1.graveyard: []

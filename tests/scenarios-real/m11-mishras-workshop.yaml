@@ -1,0 +1,23 @@
+scenario: kiln-scenario/1
+name: "Mishra's Workshop: {C}{C}{C} spendable only on artifact spells"
+cr: ["106.6", "605.1a"]
+verifies: ["Mishra's Workshop"]
+players:
+  - battlefield: ["Mishra's Workshop", Forest]
+    hand: [Thought Vessel, Rampant Growth]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  # Restricted mana isn't in automatic payment plans (card.rs `tap_only`), so the
+  # Workshop is activated first; the outcome is the same as activating it mid-cast.
+  - choose: "Activate Mishra's Workshop for {C}{C}{C}"
+  - check:
+      decision: { player: P1, kind: priority, options_include: [Cast Thought Vessel], options_exclude: [Cast Rampant Growth] }
+  - choose: Cast Thought Vessel
+  - choose: Pay with 2 from pool
+  - pass_all
+  - check:
+      pool: { P1: "{C}" }
+expect:
+  zones:
+    P1.battlefield: ["Mishra's Workshop", Forest, Thought Vessel]

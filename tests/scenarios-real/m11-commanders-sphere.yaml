@@ -1,0 +1,15 @@
+scenario: kiln-scenario/1
+name: "Commander's Sphere: sacrifice it to draw a card"
+cr: ["701.21a"]
+verifies: [Commander's Sphere]
+players:
+  - battlefield: [Commander's Sphere]
+    library: [Opt]
+  - {}
+script:
+  - choose: Activate Commander's Sphere ability 2
+  - pass_all
+expect:
+  zones:
+    P1.hand: [Opt]
+    P1.graveyard: [Commander's Sphere]

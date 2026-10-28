@@ -1,0 +1,8 @@
+card: Farseek
+faces:
+  - abilities:
+      - spell:
+          effect:
+            seq:
+              - search: { who: you, filter: { subtypes: [Plains, Island, Swamp, Mountain] }, count: 1, to: battlefield_tapped, reveal: false }
+              - shuffle: you

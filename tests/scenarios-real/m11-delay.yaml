@@ -1,0 +1,86 @@
+scenario: kiln-scenario/1
+name: "Delay: the countered spell is exiled with three time counters and gains suspend; at its owner's third upkeep it may be cast free, with haste"
+cr: ["702.62a", "702.62b", "701.6a", "608.2g"]
+verifies: [Delay]
+players:
+  - battlefield: [Forest, Forest]
+    hand: [Grizzly Bears]
+    library: [Opt, Opt, Opt, Opt, Opt, Opt]
+  - battlefield: [Island, Island]
+    hand: [Delay]
+    library: [Opt, Opt, Opt, Opt, Opt, Opt]
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Grizzly Bears
+  - choose: "Pay with Forest, Forest"
+  - choose: Pass
+  - choose: Cast Delay
+  - choose: Target Grizzly Bears
+  - choose: "Pay with Island, Island"
+  - pass_all
+  - check:
+      zones: { exile: [Grizzly Bears] }
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - check:
+      decision: { player: P1, kind: optional }
+  - choose: "Yes"
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - pass_all
+  - check:
+      decision: { player: P1, kind: declare_attacker, options_include: [Grizzly Bears attacks P2] }
+  - choose: Grizzly Bears attacks P2
+expect:
+  zones:
+    P1.battlefield: [Forest, Forest, Grizzly Bears]

@@ -276,6 +276,15 @@ pub struct Game {
     /// Spells being cast from a graveyard with escape and the extra cost
     /// their escape grant adds (CR 702.138a; Underworld Breach).
     pub(crate) escaping: Vec<(ObjectId, Vec<ir::CostPart>)>,
+    /// Spells cast with flashback: exiled when they leave the stack (CR 702.34a).
+    pub(crate) flashback: Vec<ObjectId>,
+    /// Objects a spell's cost moved, by name, with last known information:
+    /// its effects can find them (CR 400.7j). (spell, name, object).
+    pub(crate) cost_paid: Vec<(ObjectId, String, crate::effects::Lki)>,
+    /// Exiled cards with suspend, given or printed (CR 702.62b).
+    pub(crate) suspended: Vec<ObjectId>,
+    /// Creature spells cast with suspend: their permanents have haste (CR 702.62a).
+    pub(crate) suspend_haste: Vec<ObjectId>,
     /// Spells being cast from the top of a library with Bolas's Citadel.
     pub(crate) library_casts: Vec<ObjectId>,
     /// Additional combat phases still to come this turn (CR 500.8; Najeela).
@@ -383,6 +392,10 @@ impl Game {
             player_rules_eot: Vec::new(),
             cast_permissions: Vec::new(),
             escaping: Vec::new(),
+            flashback: Vec::new(),
+            cost_paid: Vec::new(),
+            suspended: Vec::new(),
+            suspend_haste: Vec::new(),
             graveyard_casts: Vec::new(),
             drawn_this_turn: Vec::new(),
             library_casts: Vec::new(),
@@ -689,6 +702,18 @@ impl Game {
         if !self.escaping.is_empty() {
             self.escaping.hash(&mut h);
         }
+        if !self.flashback.is_empty() {
+            self.flashback.hash(&mut h);
+        }
+        if !self.cost_paid.is_empty() {
+            self.cost_paid.hash(&mut h);
+        }
+        if !self.suspended.is_empty() {
+            self.suspended.hash(&mut h);
+        }
+        if !self.suspend_haste.is_empty() {
+            self.suspend_haste.hash(&mut h);
+        }
         if !self.graveyard_casts.is_empty() {
             self.graveyard_casts.hash(&mut h);
         }
@@ -765,6 +790,30 @@ impl Game {
     pub(crate) fn is_summoning_sick(&self, id: ObjectId) -> bool {
         let Some(o) = self.obj(id) else { return true };
         o.control_since >= self.player(o.controller).last_turn
+    }
+
+    /// CR 302.6: whether a creature can't use its {T} or {Q} abilities yet: it
+    /// hasn't been under its controller's control since their turn began, it
+    /// lacks haste, and nothing lets it activate as though it had haste
+    /// (Thousand-Year Elixir).
+    pub(crate) fn tap_sick(&self, id: ObjectId) -> bool {
+        if !self.is_creature(id) || !self.is_summoning_sick(id) {
+            return false;
+        }
+        if self.keywords(id).has(crate::card::Keywords::HASTE) {
+            return false;
+        }
+        let Some(controller) = self.obj(id).map(|o| o.controller) else {
+            return true;
+        };
+        !(self.pool.has_rule_statics()
+            && self.active_rule_statics().iter().any(|(_, c, e)| {
+                *c == controller
+                    && matches!(
+                        e,
+                        ir::StaticEffect::Rule(ir::RuleMod::AbilitiesAsThoughHaste)
+                    )
+            }))
     }
 
     // ---- mutation primitives ----------------------------------------------
@@ -873,6 +922,13 @@ impl Game {
         let to = self.commander_destination(id, to);
         // CR 614.1a: mandatory "exile it instead" replacements.
         let to = self.zone_replacement(id, old.zone, to);
+        // CR 702.34a: a spell cast with flashback is exiled instead of going
+        // anywhere else as it leaves the stack.
+        let to = if old.zone == ZoneId::Stack && self.flashback.contains(&id) {
+            ZoneId::Exile
+        } else {
+            to
+        };
         // Last known information (CR 603.10, 608.2h) before the object leaves,
         // including what it was copying (CR 707.2).
         let (power, toughness) = (self.power(id), self.toughness(id));
@@ -894,7 +950,7 @@ impl Game {
         // CR 614.1c-d, 614.12: "enters tapped" modifies the event itself.
         let tapped = to == ZoneId::Battlefield
             && self.pool.has_replacements()
-            && self.enters_tapped(old.def, controller);
+            && self.enters_tapped(old.def, controller, id);
         let timestamp = self.next_timestamp();
         self.bump_layers();
         let new = self.objects.alloc(GameObject {
@@ -924,6 +980,18 @@ impl Game {
         }
         if !self.escaping.is_empty() {
             self.escaping.retain(|(x, _)| *x != id);
+        }
+        if !self.flashback.is_empty() {
+            self.flashback.retain(|x| *x != id);
+        }
+        if !self.cost_paid.is_empty() {
+            self.cost_paid.retain(|(x, _, _)| *x != id);
+        }
+        if !self.suspended.is_empty() {
+            self.suspended.retain(|x| *x != id);
+        }
+        if !self.suspend_haste.is_empty() {
+            self.suspend_haste.retain(|x| *x != id);
         }
         if !self.graveyard_casts.is_empty() {
             self.graveyard_casts.retain(|(x, _)| *x != id);
@@ -1011,12 +1079,14 @@ impl Game {
         }
     }
 
-    pub(crate) fn lose_life(&mut self, p: PlayerId, amount: u32) {
+    /// Returns the life actually lost.
+    pub(crate) fn lose_life(&mut self, p: PlayerId, amount: u32) -> u32 {
         if amount == 0 || self.has_player_rule(p, kiln_cards::ir::PlayerRuleKind::LifeCantChange) {
-            return;
+            return 0;
         }
         self.player_mut(p).life -= i64::from(amount);
         self.log(Event::LifeLost { player: p, amount });
+        amount
     }
 
     pub(crate) fn gain_life(&mut self, p: PlayerId, amount: u32) {
@@ -1408,6 +1478,11 @@ impl Game {
         if self.object_vars.iter().any(|v| v.0 == id && v.1 == store) {
             return None;
         }
+        // CR 303.4g: an Aura with nothing to enchant doesn't enter, so it
+        // makes no "as this enters" choice.
+        if self.aura_hosts(id).is_some_and(|h| h.is_empty()) {
+            return None;
+        }
         let kind = match spec {
             ir::ChoiceSpec::Color => DecisionKind::ChooseColor {
                 source: id,
@@ -1674,14 +1749,29 @@ impl Game {
                 // CR 502.3: untap all permanents the active player controls. No priority (CR 117.3a).
                 if self.active_in_game() {
                     let exempt = self.untap_exempt();
+                    // Seedborn Muse: other players untap theirs too; "doesn't
+                    // untap during your untap step" doesn't stop that.
+                    let others: SmallVec<[PlayerId; 4]> = self
+                        .turn_order_from(active)
+                        .into_iter()
+                        .filter(|p| {
+                            *p != active
+                                && self.player_has_rule(
+                                    *p,
+                                    kiln_cards::ir::PlayerRuleKind::UntapDuringOthersUntapSteps,
+                                )
+                        })
+                        .collect();
                     let ids: Vec<ObjectId> = self
                         .battlefield
                         .iter()
                         .copied()
                         .filter(|id| {
-                            self.obj(*id)
-                                .is_some_and(|o| o.controller == active && o.tapped)
-                                && !exempt.contains(id)
+                            self.obj(*id).is_some_and(|o| {
+                                o.tapped
+                                    && ((o.controller == active && !exempt.contains(id))
+                                        || others.contains(&o.controller))
+                            })
                         })
                         .collect();
                     for id in ids {
@@ -1835,7 +1925,9 @@ impl Game {
     /// CR 514: cleanup.
     fn cleanup(&mut self, discarded: bool) {
         let active = self.turn.active;
-        if !discarded && self.active_in_game() {
+        let no_maximum =
+            self.player_has_rule(active, kiln_cards::ir::PlayerRuleKind::NoMaximumHandSize);
+        if !discarded && !no_maximum && self.active_in_game() {
             // CR 514.1: discard down to maximum hand size, one card at a time (D1).
             let hand = self.player(active).hand.clone();
             let excess = u32::try_from(hand.len())
@@ -2061,7 +2153,10 @@ impl Game {
             if self.obj_def(id).is_none_or(|d| d.is(CardType::Land)) {
                 continue;
             }
-            if (self.cast_permitted(id, p) || self.escape_cost(id, p).is_some())
+            let flashback = self
+                .obj_def(id)
+                .is_some_and(|d| d.flashback_cost().is_some());
+            if (self.cast_permitted(id, p) || self.escape_cost(id, p).is_some() || flashback)
                 && self.can_cast(p, id, sorcery_timing)
             {
                 actions.push(Action::Cast(id));
@@ -2255,6 +2350,8 @@ impl Game {
             object: item.object,
             def: def_id,
         });
+        // Cast with suspend: the permanent has haste (CR 702.62a).
+        let suspend_haste = item.is_spell() && self.suspend_haste.contains(&item.object);
         let ability = match item.ability {
             Some(i) => {
                 // CR 608.2n: the ability is removed from the stack last.
@@ -2309,6 +2406,15 @@ impl Game {
                             && let Some(&host) = item.targets.first()
                         {
                             self.attach(new, host, false);
+                        }
+                        if suspend_haste {
+                            self.add_effect(
+                                SmallVec::from_elem(new, 1),
+                                crate::layers::LayerEffect::GrantKeyword(Box::new(
+                                    ir::Keyword::Haste,
+                                )),
+                                crate::layers::Duration::Permanent,
+                            );
                         }
                         // CR 702.109a: dashed, it has haste and returns to its
                         // owner's hand at the beginning of the next end step.
@@ -2379,6 +2485,17 @@ impl Game {
             }
             ctx.modes.clone_from(&item.modes);
             ctx.x = item.x;
+            if item.is_spell() {
+                for (_, name, k) in self.cost_paid.iter().filter(|(s, _, _)| *s == item.object) {
+                    match ctx.remembered.iter_mut().find(|(n, _)| n == name) {
+                        Some((_, ids)) => ids.push(k.id),
+                        None => ctx
+                            .remembered
+                            .push((name.clone(), SmallVec::from_elem(k.id, 1))),
+                    }
+                    ctx.lki.push(*k);
+                }
+            }
             if let Some(d) = &item.delayed {
                 // CR 603.7: a delayed trigger runs its effect in its creator's context.
                 let mut dctx = d.ctx.clone();

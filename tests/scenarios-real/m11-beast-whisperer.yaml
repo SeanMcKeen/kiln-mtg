@@ -1,0 +1,18 @@
+scenario: kiln-scenario/1
+name: "Beast Whisperer: whenever you cast a creature spell, draw a card"
+cr: ["603.2"]
+verifies: [Beast Whisperer]
+players:
+  - battlefield: [Beast Whisperer, Forest]
+    hand: [Llanowar Elves]
+    library: [Opt]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Llanowar Elves
+  - choose: Pay with Forest
+  - pass_all
+  - pass_all
+expect:
+  zones:
+    P1.hand: [Opt]

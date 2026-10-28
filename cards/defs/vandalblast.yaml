@@ -1,0 +1,10 @@
+card: Vandalblast
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { object: { types: [artifact], controller: opponent } } }]
+          effect: { destroy: { one: { target: 0 } } }
+          alternative_costs:
+            # Overload (CR 702.96): no targets; "target" becomes "each".
+            - cost: [{ mana: "{4}{R}" }]
+              effect: { destroy: { all: { types: [artifact], controller: opponent } } }

@@ -121,6 +121,14 @@ pub enum Keyword {
     Enchant(TargetKind),
     /// "Equip [cost]" (CR 702.6): attach to target creature you control, as a sorcery.
     Equip(Vec<CostPart>),
+    /// "Flashback [cost]" (CR 702.34a): cast from your graveyard for this
+    /// cost rather than its mana cost; then it's exiled when it leaves the stack.
+    Flashback(Vec<CostPart>),
+    /// "[This] can't be blocked": not a keyword ability, but an evasion
+    /// restriction tracked like one (CR 509.1b).
+    CantBeBlocked,
+    /// "Convoke" (CR 702.51a): creatures you tap help pay for this spell.
+    Convoke,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -139,6 +147,10 @@ pub struct SpellAbility {
     /// (CR 601.2f).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub per_extra_target: Vec<CostPart>,
+    /// "This spell costs {1} less to cast for each [quantity]" (Blasphemous
+    /// Act; CR 601.2f): generic mana only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cost_reduction: Option<Quantity>,
 }
 
 /// An alternative cost (CR 118.9), optionally conditional.
@@ -416,6 +428,9 @@ pub enum StaticEffect {
     },
     /// "[spells] cost {N} more to cast" (Thalia; CR 601.2f).
     CostIncrease { spells: ObjectFilter, amount: u32 },
+    /// "[spells] cost {N} less to cast" (Grand Arbiter Augustin IV;
+    /// CR 601.2f): generic mana only.
+    CostReduction { spells: ObjectFilter, amount: u32 },
     /// "[spells] can't be countered" (Allosaurus Shepherd; CR 101.2).
     SpellsCantBeCountered { spells: ObjectFilter },
     /// "Activated abilities of [objects] cost {N} less to activate. This
@@ -461,6 +476,9 @@ pub enum RuleMod {
     PlayFromTopPayingLife,
     /// "The 'legend rule' doesn't apply" (Mirror Gallery; CR 704.5j).
     NoLegendRule,
+    /// "You may activate abilities of creatures you control as though those
+    /// creatures had haste" (Thousand-Year Elixir; CR 302.6).
+    AbilitiesAsThoughHaste,
 }
 
 /// The exceptions to a copy effect (CR 707.9). They become part of the
@@ -484,6 +502,15 @@ pub struct CopyExcept {
     /// (Spark Double). Not a copiable value (CR 707.9).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub counters: Vec<TypedCounter>,
+}
+
+/// A player choosing among the cards a search found (Intuition).
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SearchSplit {
+    pub chooser: PlayerRef,
+    pub count: Quantity,
+    pub chosen_to: Destination,
 }
 
 /// A choice players can vote for, and what each vote for it does.
@@ -526,6 +553,11 @@ pub enum PlayerRuleKind {
     /// "Creatures [player] controls can't attack" (Orim's Chant kicked:
     /// "creatures can't attack this turn" applies to every player).
     CreaturesCantAttack,
+    /// "You have no maximum hand size" (Reliquary Tower; CR 402.2, 514.1).
+    NoMaximumHandSize,
+    /// "Untap all permanents you control during each other player's untap
+    /// step" (Seedborn Muse; CR 502.3).
+    UntapDuringOthersUntapSteps,
 }
 
 /// A base power or toughness set by a static ability (CR 613.4b).
@@ -639,6 +671,13 @@ pub enum Effect {
     /// "Counter ... If that spell is countered this way, exile it instead of
     /// putting it into its owner's graveyard" (Force of Negation).
     CounterAndExile(ObjectSet),
+    /// "Counter [spell]. If it's countered this way, exile it with N time
+    /// counters on it instead; if it doesn't have suspend, it gains suspend"
+    /// (Delay; CR 702.62).
+    CounterAndSuspend {
+        what: ObjectSet,
+        counters: u32,
+    },
     /// "Look at [player]'s hand" (Gitaxian Probe).
     LookAtHand(PlayerRef),
     Draw {
@@ -682,6 +721,31 @@ pub enum Effect {
         count: Quantity,
         to: Destination,
         reveal: bool,
+        /// "with mana value X or less": an amount worked out as the search
+        /// happens (Green Sun's Zenith).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max_mana_value: Option<Quantity>,
+        /// "Search your library and/or graveyard" (Finale of Devastation).
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        graveyard: bool,
+        /// "put one onto [to] and the other into [rest_to]" (Cultivate): the
+        /// first card found goes to `to`, the rest here.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        rest_to: Option<Destination>,
+        /// Name the found cards for later parts of the effect ("untap that
+        /// land"; CR 400.7j finds them in the public zone they went to).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        remember: Option<String>,
+        /// "up to N cards": finding fewer is allowed (CR 701.23d).
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        up_to: bool,
+        /// "cards with different names" (Gifts Ungiven).
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        different_names: bool,
+        /// "[player] chooses N of them. Put the chosen cards [there] and the
+        /// rest [`to`]" (Intuition, Gifts Ungiven).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        split: Option<SearchSplit>,
     },
     Shuffle(PlayerRef),
     /// CR 701.22
@@ -883,6 +947,8 @@ pub enum Recipient {
     Target(u8),
     Player(PlayerRef),
     Object(ObjectRef),
+    /// "each [permanent]" (Blasphemous Act: "deals 13 damage to each creature").
+    Each(ObjectFilter),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -986,6 +1052,9 @@ pub enum CounterKind {
     Wish,
     #[serde(rename = "chorus")]
     Chorus,
+    /// Suspend's counters (CR 702.62a).
+    #[serde(rename = "time")]
+    Time,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -1030,6 +1099,8 @@ pub enum ManaSpec {
     Times { mana: String, times: Quantity },
     /// One mana of the color chosen as the source entered (Utopia Sprawl).
     ChosenColor(String),
+    /// One mana of each color among [objects] (Bloom Tender's vivid).
+    EachColorAmong(ObjectFilter),
 }
 
 // ---- references, filters, quantities ----------------------------------------
@@ -1252,6 +1323,9 @@ pub enum QuantityExpr {
     },
     /// The negation of a quantity ("-X/-X").
     Neg(Box<Quantity>),
+    /// The number of opponents still in the game (bond lands: "two or more
+    /// opponents"; CR 102.2).
+    Opponents,
 }
 
 /// Conditions (intervening ifs, "if you control …").
@@ -1302,6 +1376,14 @@ pub enum CostPart {
     Discard(DiscardSpec),
     /// Exile a card from your hand matching the filter ("exile a blue card from your hand").
     ExileFromHand(ObjectFilter),
+    /// Tap N untapped [objects] you control ("Tap an untapped creature you
+    /// control", Springleaf Drum). Summoning sickness doesn't apply: they
+    /// aren't paying their own {T} (CR 302.6).
+    TapUntapped {
+        what: ObjectFilter,
+        #[serde(default = "one")]
+        count: u32,
+    },
     /// Exile N other cards from your graveyard (escape).
     ExileFromGraveyard {
         count: u32,
@@ -1453,4 +1535,8 @@ fn max_target_ref(e: &Effect) -> Option<u8> {
         .filter_map(max_target_ref)
         .chain(own)
         .max()
+}
+
+fn one() -> u32 {
+    1
 }

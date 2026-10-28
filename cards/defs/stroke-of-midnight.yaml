@@ -1,0 +1,9 @@
+card: Stroke of Midnight
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { object: { not_types: [land] } } }]
+          effect:
+            seq:
+              - destroy: { one: { target: 0 } }
+              - create_token: { token: { creature: { power: 1, toughness: 1, colors: W, subtypes: [Human] } }, count: 1, controller: { controller_of: { target: 0 } } }

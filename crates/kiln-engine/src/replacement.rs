@@ -194,21 +194,34 @@ impl Game {
     /// Whether a permanent with definition `def` entering under `controller`'s
     /// control enters tapped: its own "enters tapped" or another permanent's
     /// (CR 614.12: an effect from another source doesn't apply to itself).
-    pub(crate) fn enters_tapped(&self, def: DefId, controller: PlayerId) -> bool {
+    pub(crate) fn enters_tapped(&self, def: DefId, controller: PlayerId, id: ObjectId) -> bool {
         let taps = |r: &ir::ReplacementAbility| {
             matches!(r.instead, Effect::EntersTapped) && r.condition.is_none()
         };
-        self.replacements(def)
-            .any(|(_, r)| matches!(&r.event, ReplaceEvent::WouldEnter(f) if f.this) && taps(r))
-            || self.battlefield.iter().any(|&s| {
-                self.obj(s).is_some_and(|o| {
-                    self.abilities_of(s).iter().any(|(_, a)| {
-                        matches!(a, Ability::Replacement(r) if taps(r)
+        // Its own "enters tapped unless [condition]" (check lands, battle lands):
+        // the condition is checked as it would enter, so it doesn't count itself.
+        let self_taps = |i: u8, r: &ir::ReplacementAbility| {
+            matches!(r.instead, Effect::EntersTapped)
+                && r.condition.as_ref().is_none_or(|c| {
+                    let ctx = crate::effects::EffectCtx::new(
+                        crate::effects::AbilityRef { def, ability: i },
+                        id,
+                        controller,
+                    );
+                    self.condition(&ctx, c)
+                })
+        };
+        self.replacements(def).any(|(i, r)| {
+            matches!(&r.event, ReplaceEvent::WouldEnter(f) if f.this) && self_taps(i, r)
+        }) || self.battlefield.iter().any(|&s| {
+            self.obj(s).is_some_and(|o| {
+                self.abilities_of(s).iter().any(|(_, a)| {
+                    matches!(a, Ability::Replacement(r) if taps(r)
                             && matches!(&r.event, ReplaceEvent::WouldEnter(f)
                                 if !f.this && def_matches(self, def, controller, f, o.controller)))
-                    })
                 })
             })
+        })
     }
 
     /// A self-replacement that replaces this object entering ("If this would
@@ -453,9 +466,50 @@ impl Game {
                 .any(|(_, _, e)| matches!(e, StaticEffect::Rule(ir::RuleMod::NoLegendRule)))
     }
 
+    /// Whether spell `card`, cast by `caster`, matches a cost modifier's
+    /// filter: "spells you cast" / "your opponents cast" is about the caster
+    /// (a card in exile is controlled by its owner until someone casts it).
+    fn spell_matches_for_caster(
+        &self,
+        card: ObjectId,
+        spells: &ir::ObjectFilter,
+        you: PlayerId,
+        source: ObjectId,
+        caster: PlayerId,
+    ) -> bool {
+        let mut f = spells.clone();
+        let rel = std::mem::take(&mut f.controller);
+        self.matches_filter(card, &f, you, Some(source)) && self.player_rel(rel, you, caster)
+    }
+
+    /// CR 601.2f: generic mana taken off the cost of spell `card` by cost
+    /// reductions (Grand Arbiter Augustin IV).
+    pub(crate) fn cost_reduction(&self, card: ObjectId, caster: PlayerId) -> u32 {
+        if !self.pool.has_rule_statics() {
+            return 0;
+        }
+        self.active_rule_statics()
+            .iter()
+            .filter_map(|(source, controller, e)| match e {
+                StaticEffect::CostReduction { spells, amount }
+                    if self.spell_matches_for_caster(
+                        card,
+                        spells,
+                        *controller,
+                        *source,
+                        caster,
+                    ) =>
+                {
+                    Some(*amount)
+                }
+                _ => None,
+            })
+            .sum()
+    }
+
     /// CR 601.2f: generic mana added to the cost of spell `card` by cost
     /// increases (Thalia).
-    pub(crate) fn cost_increase(&self, card: ObjectId) -> u32 {
+    pub(crate) fn cost_increase(&self, card: ObjectId, caster: PlayerId) -> u32 {
         if !self.pool.has_rule_statics() {
             return 0;
         }
@@ -463,7 +517,13 @@ impl Game {
             .iter()
             .filter_map(|(source, controller, e)| match e {
                 StaticEffect::CostIncrease { spells, amount }
-                    if self.matches_filter(card, spells, *controller, Some(*source)) =>
+                    if self.spell_matches_for_caster(
+                        card,
+                        spells,
+                        *controller,
+                        *source,
+                        caster,
+                    ) =>
                 {
                     Some(*amount)
                 }

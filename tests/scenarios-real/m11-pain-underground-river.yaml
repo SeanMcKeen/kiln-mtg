@@ -1,0 +1,14 @@
+scenario: kiln-scenario/1
+name: "Underground River: {C} painlessly, or {U}/{B} with 1 damage"
+cr: ["605.1a", "106.1"]
+verifies: ["Underground River"]
+players:
+  - battlefield: ["Underground River", "Underground River"]
+  - {}
+script:
+  - choose: "Tap Underground River for {C}"
+  - choose: Tap Underground River for mana
+  - choose: "Add {B}"
+expect:
+  life: { P1: 19 }
+  pool: { P1: "{B}{C}" }

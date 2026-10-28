@@ -1,0 +1,5 @@
+card: Thought Vessel
+faces:
+  - abilities:
+      - static: { effect: { player_rule: { who: you, rule: no_maximum_hand_size } } }
+      - activated: { cost: [tap], effect: { add_mana: { mana: { fixed: "{C}" } } } }

@@ -1,0 +1,15 @@
+scenario: kiln-scenario/1
+name: "Rockfall Vale enters untapped with two other lands"
+cr: ["614.1c", "305.6"]
+verifies: ["Rockfall Vale"]
+players:
+  - battlefield: [Mountain, Forest]
+    hand: ["Rockfall Vale"]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Play Rockfall Vale
+  - choose: Tap Rockfall Vale for mana
+  - choose: "Add {R}"
+expect:
+  pool: { P1: "{R}" }

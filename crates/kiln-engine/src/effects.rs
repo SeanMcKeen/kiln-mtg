@@ -90,6 +90,8 @@ pub(crate) struct EffectCtx {
     /// This effect is a mana ability whose cost taps its source, so the
     /// mana it adds is "tapped for mana" (CR 106.12, 605.1b triggers).
     pub tapped_for_mana: bool,
+    /// This task pays a cost (`EffectTask::paying`), not an effect.
+    pub paying: bool,
     /// Replacement effects already applied to the event this effect replaces
     /// (CR 614.5, 616.1f).
     pub applied: crate::replacement::Applied,
@@ -117,6 +119,7 @@ impl EffectCtx {
             triggering_ability: None,
             triggering_amount: None,
             tapped_for_mana: false,
+            paying: false,
             applied: SmallVec::new(),
         }
     }
@@ -141,7 +144,10 @@ impl EffectTask {
     /// Only pays costs (casting or activation costs, CR 601.2h, 602.2b).
     pub(crate) fn paying(ctx: EffectCtx, who: PlayerId, cost: &[CostPart]) -> Self {
         Self {
-            ctx,
+            ctx: EffectCtx {
+                paying: true,
+                ..ctx
+            },
             frames: vec![pay_frame(who, cost)],
         }
     }
@@ -259,6 +265,8 @@ pub(crate) enum AfterPick {
     Discard,
     /// All picks are sacrificed together (CR 701.21a).
     Sacrifice,
+    /// All picks are tapped (a cost, CR 701.26a).
+    Tap,
     /// All picks are exiled together, optionally remembered.
     Exile {
         remember: Option<String>,
@@ -273,7 +281,24 @@ pub(crate) enum AfterPick {
         /// An Opposition Agent whose controller controls the search.
         agent: Option<ObjectId>,
         to: Destination,
+        /// Where the cards after the first go (Cultivate).
+        rest_to: Option<Destination>,
         reveal: bool,
+        /// Remember the found cards under this name (Fabled Passage).
+        remember: Option<String>,
+        /// Each pick removes the candidates sharing its name (Gifts Ungiven).
+        different_names: bool,
+        /// A player chooses this many found cards for this destination;
+        /// the rest go `to` (Intuition).
+        split: Option<(PlayerId, u32, Destination)>,
+    },
+    /// The picks go `to`, the other cards of `all` go `rest_to`; `owner`
+    /// puts them there.
+    Split {
+        to: Destination,
+        rest_to: Destination,
+        owner: PlayerId,
+        all: Vec<ObjectId>,
     },
     /// Put this many +1/+1 counters on the pick (amass, CR 701.47a).
     PutCounters(u32),
@@ -329,9 +354,40 @@ static DASH_RETURN_EFFECT: Effect = Effect::Move {
     under_owners: false,
 };
 
+/// Suspend's upkeep trigger and last-counter trigger (CR 702.62a), as
+/// pseudo abilities of the suspended card.
+pub(crate) const SUSPEND_UPKEEP: u8 = 254;
+pub(crate) const SUSPEND_CAST: u8 = 253;
+static SUSPEND_UPKEEP_EFFECT: std::sync::LazyLock<Effect> = std::sync::LazyLock::new(|| {
+    Effect::Escape(kiln_cards::ir::Escape {
+        function: "suspend_upkeep".into(),
+        text: "remove a time counter from this suspended card".into(),
+    })
+});
+/// "You may play it without paying its mana cost if able. If you don't, it
+/// remains exiled. If you cast a creature spell this way, it gains haste."
+static SUSPEND_CAST_EFFECT: std::sync::LazyLock<Effect> = std::sync::LazyLock::new(|| {
+    Effect::May(Box::new(Effect::Seq(vec![
+        Effect::Cast {
+            what: ObjectSet::One(ObjectRef::This),
+            without_paying: true,
+        },
+        Effect::Escape(kiln_cards::ir::Escape {
+            function: "suspend_haste".into(),
+            text: "a creature spell cast this way gains haste".into(),
+        }),
+    ])))
+});
+
 pub(crate) fn root(pool: &CardPool, a: AbilityRef) -> Option<&Effect> {
     if a.ability == DASH_RETURN {
         return Some(&DASH_RETURN_EFFECT);
+    }
+    if a.ability == SUSPEND_UPKEEP {
+        return Some(&SUSPEND_UPKEEP_EFFECT);
+    }
+    if a.ability == SUSPEND_CAST {
+        return Some(&SUSPEND_CAST_EFFECT);
     }
     if a.ability >= ALT_EFFECT_BASE {
         return alt_effect(pool.get(a.def), a.ability - ALT_EFFECT_BASE);
@@ -354,6 +410,22 @@ fn follow_source(ctx: &mut EffectCtx, old: ObjectId, new: Option<ObjectId>, to: 
         && !matches!(to, ZoneId::Hand(_) | ZoneId::Library(_))
     {
         ctx.source = new;
+    }
+}
+
+/// CR 400.7j: an object an effect moved to a public zone can be found by
+/// other parts of that effect, so a remembered object follows the move.
+fn follow_remembered(ctx: &mut EffectCtx, old: ObjectId, new: Option<ObjectId>, to: ZoneId) {
+    let Some(new) = new else { return };
+    if matches!(to, ZoneId::Hand(_) | ZoneId::Library(_)) {
+        return;
+    }
+    for (_, ids) in &mut ctx.remembered {
+        for id in ids.iter_mut() {
+            if *id == old {
+                *id = new;
+            }
+        }
     }
 }
 
@@ -576,6 +648,21 @@ impl Game {
                 None => self.finish_pick(&mut t, p),
                 Some(id) => {
                     p.candidates.retain(|c| *c != id);
+                    // "different names": no other card with the picked one's name.
+                    if matches!(
+                        p.then,
+                        AfterPick::Search {
+                            different_names: true,
+                            ..
+                        }
+                    ) && let Some(def) = self.obj(id).map(|o| o.def)
+                    {
+                        p.candidates
+                            .retain(|c| self.obj(*c).is_some_and(|o| o.def != def));
+                        p.max = p
+                            .max
+                            .min(u32::try_from(p.candidates.len()).unwrap_or(u32::MAX) + 1);
+                    }
                     p.max -= 1;
                     p.min = p.min.saturating_sub(1);
                     match &p.then {
@@ -652,8 +739,9 @@ impl Game {
                 DecisionKind::Optional { .. },
             ) => {
                 if option == 1 {
+                    // CR 903.9b: a commander's owner may choose the command zone.
                     let who = t.ctx.controller;
-                    self.place(&mut t.ctx, card, Destination::Hand, who);
+                    self.place_or_defer(&mut t, card, Destination::Hand, who);
                 } else {
                     t.frames.push(Frame::TaintedPact { names, last: None });
                 }
@@ -962,6 +1050,15 @@ impl Game {
                         },
                         "303.4f",
                     );
+                }
+                // Auras first: they choose among permanents already there, not
+                // ones entering with them (the hosts asked about above).
+                let mut ids = ids;
+                if matches!(
+                    to,
+                    Destination::Battlefield | Destination::BattlefieldTapped
+                ) {
+                    ids.sort_by_key(|id| self.aura_hosts(*id).is_none());
                 }
                 for id in ids {
                     self.place(&mut t.ctx, id, to, who);
@@ -1286,6 +1383,14 @@ impl Game {
                     self.counter_to(&mut t.ctx, id, true);
                 }
             }
+            Effect::CounterAndSuspend { what, counters } => {
+                for id in self.set_now(&t.ctx, what) {
+                    if let Some(new) = self.counter_to(&mut t.ctx, id, true) {
+                        self.add_counters(new, kiln_cards::ir::CounterKind::Time, *counters);
+                        self.suspend(new);
+                    }
+                }
+            }
             Effect::LookAtHand(who) => {
                 // No game state changes; the look is logged (who saw whose hand).
                 if let Some(p) = self.player_ref(&t.ctx, who) {
@@ -1316,7 +1421,12 @@ impl Game {
             Effect::LoseLife { who, amount } => {
                 let n = self.amount(&t.ctx, amount);
                 if let Some(p) = self.player_ref(&t.ctx, who) {
-                    self.lose_life(p, n);
+                    // "the life lost this way" (Gray Merchant): `var: life_lost`.
+                    let lost = i64::from(self.lose_life(p, n));
+                    match t.ctx.vars.iter_mut().find(|(k, _)| k == "life_lost") {
+                        Some((_, v)) => *v += lost,
+                        None => t.ctx.vars.push(("life_lost".to_owned(), lost)),
+                    }
                 }
             }
             Effect::AddMana { mana, to, .. } => {
@@ -1366,9 +1476,25 @@ impl Game {
                 count,
                 to,
                 reveal,
+                max_mana_value,
+                graveyard,
+                rest_to,
+                remember,
+                up_to,
+                different_names,
+                split,
             } => {
                 let Some(p) = self.player_ref(&t.ctx, who) else {
                     return Flow::Continue;
+                };
+                let split = match split {
+                    Some(s) => match self.player_ref(&t.ctx, &s.chooser) {
+                        Some(chooser) => {
+                            Some((chooser, self.amount(&t.ctx, &s.count), s.chosen_to))
+                        }
+                        None => None,
+                    },
+                    None => None,
                 };
                 let count = self.amount(&t.ctx, count);
                 let library = self.player(p).library.clone();
@@ -1383,16 +1509,29 @@ impl Game {
                         )
                 });
                 let searched = if top_four { 4 } else { library.len() };
-                let candidates: Vec<ObjectId> = library
+                // "with mana value X or less", worked out now.
+                let cap = max_mana_value.as_ref().map(|q| self.amount(&t.ctx, q));
+                let fits = |id: &ObjectId| cap.is_none_or(|c| self.mana_value_of(*id) <= c);
+                let mut candidates: Vec<ObjectId> = library
                     .iter()
                     .rev()
                     .take(searched)
                     .copied()
-                    .filter(|id| self.matches_card(&t.ctx, *id, filter))
+                    .filter(|id| self.matches_card(&t.ctx, *id, filter) && fits(id))
                     .collect();
+                // "your library and/or graveyard" (Finale of Devastation).
+                if *graveyard {
+                    candidates.extend(
+                        self.player(p)
+                            .graveyard
+                            .iter()
+                            .copied()
+                            .filter(|id| self.matches_card(&t.ctx, *id, filter) && fits(id)),
+                    );
+                }
                 // CR 701.23b/d: a search for a stated quality may fail to find;
                 // a search for a quantity of cards must find as many as possible.
-                let quality = *filter != ObjectFilter::default();
+                let quality = *filter != ObjectFilter::default() || cap.is_some() || *up_to;
                 let n = count.min(u32::try_from(candidates.len()).unwrap_or(u32::MAX));
                 // CR 723.5: a player controlling the searcher makes the choices.
                 let agent = self.search_controller(p);
@@ -1407,7 +1546,11 @@ impl Game {
                         searcher: p,
                         agent: agent.map(|(a, _)| a),
                         to: *to,
+                        rest_to: *rest_to,
                         reveal: *reveal,
+                        remember: remember.clone(),
+                        different_names: *different_names,
+                        split,
                     },
                 }));
             }
@@ -2012,6 +2155,11 @@ impl Game {
                 .into_iter()
                 .map(Target::Object)
                 .collect(),
+            Recipient::Each(f) => self
+                .set_now(ctx, &ObjectSet::All(f.clone()))
+                .into_iter()
+                .map(Target::Object)
+                .collect(),
         }
     }
 
@@ -2089,6 +2237,13 @@ impl Game {
                 QuantityExpr::LifeOf(p) => {
                     self.player_ref(ctx, p).map_or(0, |p| self.player(p).life)
                 }
+                QuantityExpr::Opponents => i64::try_from(
+                    self.players
+                        .iter()
+                        .filter(|p| p.id != ctx.controller && self.in_game(p.id))
+                        .count(),
+                )
+                .unwrap_or(0),
                 QuantityExpr::TopOfLibraryManaValue(p) => self
                     .player_ref(ctx, p)
                     .and_then(|p| self.player(p).library.last().copied())
@@ -2231,6 +2386,24 @@ impl Game {
                     .fold(kiln_types::Colors::COLORLESS, kiln_types::Colors::union),
             ),
             ManaSpec::OpponentLandColors => one_each(self.opponent_land_colors(ctx.controller)),
+            // Vivid: one of each color at once, a single outcome.
+            ManaSpec::EachColorAmong(f) => {
+                let colors = self
+                    .battlefield
+                    .iter()
+                    .filter(|id| self.matches_filter(**id, f, ctx.controller, Some(ctx.source)))
+                    .filter_map(|id| self.chars(*id).map(|c| c.colors()))
+                    .fold(kiln_types::Colors::COLORLESS, kiln_types::Colors::union);
+                let mut bag = [0u8; 6];
+                for c in colors.iter() {
+                    bag[ManaType::of_color(c).index()] = 1;
+                }
+                if bag.iter().all(|x| *x == 0) {
+                    Vec::new()
+                } else {
+                    vec![bag]
+                }
+            }
             ManaSpec::ChosenColor(name) => self
                 .object_var(ctx.source, name)
                 .and_then(|i| Color::ALL.get(usize::try_from(i).ok()?).copied())
@@ -2528,6 +2701,7 @@ impl Game {
         }
         let new = self.move_object(id, to, top);
         follow_source(ctx, id, new, to);
+        follow_remembered(ctx, id, new, to);
         new
     }
 
@@ -2641,6 +2815,7 @@ impl Game {
                     self.attach(new, h, false);
                 }
                 follow_source(ctx, id, new, ZoneId::Battlefield);
+                follow_remembered(ctx, id, new, ZoneId::Battlefield);
             }
         }
     }
@@ -2692,6 +2867,14 @@ impl Game {
     }
 
     fn sacrifice_all(&mut self, ctx: &mut EffectCtx, ids: &[ObjectId]) {
+        // A spell's effects can find what its cost sacrificed (CR 400.7j):
+        // remembered as "sacrificed", with last known information
+        // (Eldritch Evolution).
+        let for_spell = ctx.paying
+            && self
+                .stack
+                .iter()
+                .any(|i| i.is_spell() && i.object == ctx.source);
         self.begin_leaving(ids);
         for &id in ids {
             let Some(o) = self.obj(id).copied() else {
@@ -2699,6 +2882,10 @@ impl Game {
             };
             if o.zone != ZoneId::Battlefield {
                 continue;
+            }
+            if for_spell && let Some(k) = self.known(ctx, id) {
+                self.cost_paid
+                    .push((ctx.source, "sacrificed".to_owned(), k));
             }
             self.log(Event::Sacrificed { object: id });
             self.fx_move(ctx, id, ZoneId::Graveyard(o.owner), true);
@@ -2712,10 +2899,8 @@ impl Game {
     }
 
     /// Counters spell `id`, into exile if `exile` (Force of Negation).
-    fn counter_to(&mut self, ctx: &mut EffectCtx, id: ObjectId, exile: bool) {
-        let Some(o) = self.obj(id).copied() else {
-            return;
-        };
+    fn counter_to(&mut self, ctx: &mut EffectCtx, id: ObjectId, exile: bool) -> Option<ObjectId> {
+        let o = self.obj(id).copied()?;
         // CR 101.2: "can't be countered" takes precedence.
         if o.zone != ZoneId::Stack
             || self.def(o.def).cant_be_countered()
@@ -2726,7 +2911,7 @@ impl Game {
                 kiln_cards::ir::PlayerRuleKind::SpellsCantBeCountered,
             )
         {
-            return;
+            return None;
         }
         self.log(Event::Countered { object: id });
         let to = if exile {
@@ -2734,7 +2919,107 @@ impl Game {
         } else {
             ZoneId::Graveyard(o.owner)
         };
-        self.fx_move(ctx, id, to, true);
+        self.fx_move(ctx, id, to, true)
+    }
+
+    /// CR 702.62a-b: `id`, in exile, is suspended: at the beginning of its
+    /// owner's upkeep a time counter comes off.
+    pub(crate) fn suspend(&mut self, id: ObjectId) {
+        let Some(o) = self.obj(id).copied() else {
+            return;
+        };
+        if !self.suspended.contains(&id) {
+            self.suspended.push(id);
+        }
+        self.delayed.push(crate::triggers::DelayedTrigger {
+            trigger: kiln_cards::ir::Trigger::BeginningOf {
+                step: kiln_cards::ir::StepName::Upkeep,
+                whose: kiln_cards::ir::PlayerRel::You,
+            },
+            path: SmallVec::new(),
+            ctx: EffectCtx::new(
+                AbilityRef {
+                    def: o.def,
+                    ability: SUSPEND_UPKEEP,
+                },
+                id,
+                o.owner,
+            ),
+        });
+    }
+
+    /// Suspend's upkeep trigger (CR 702.62a): "if this card is suspended,
+    /// remove a time counter from it"; removing the last one triggers its
+    /// cast ability, otherwise it waits for the next upkeep.
+    pub(crate) fn suspend_upkeep(&mut self, t: &mut EffectTask) {
+        let id = t.ctx.source;
+        let Some(o) = self.obj(id).copied() else {
+            return;
+        };
+        let time = kiln_cards::ir::CounterKind::Time;
+        // CR 702.62b: suspended = exiled, has suspend, has a time counter.
+        if o.zone != ZoneId::Exile
+            || !self.suspended.contains(&id)
+            || self.counters_on(id, time) == 0
+        {
+            return;
+        }
+        self.remove_counters(id, time, 1);
+        if self.counters_on(id, time) > 0 {
+            self.suspend(id);
+            return;
+        }
+        let ctx = EffectCtx::new(
+            AbilityRef {
+                def: o.def,
+                ability: SUSPEND_CAST,
+            },
+            id,
+            o.owner,
+        );
+        self.log(Event::Triggered {
+            source: id,
+            def: o.def,
+            ability: SUSPEND_CAST,
+            controller: o.owner,
+        });
+        self.pending_triggers.push(crate::triggers::PendingTrigger {
+            source: id,
+            source_def: o.def,
+            ability: SUSPEND_CAST,
+            controller: o.owner,
+            info: crate::triggers::TriggerInfo {
+                object: None,
+                player: None,
+                lki: None,
+                mana: None,
+                stack_ability: None,
+                amount: None,
+            },
+            delayed: Some(Box::new(crate::triggers::DelayedTrigger {
+                trigger: kiln_cards::ir::Trigger::BeginningOf {
+                    step: kiln_cards::ir::StepName::Upkeep,
+                    whose: kiln_cards::ir::PlayerRel::You,
+                },
+                path: SmallVec::new(),
+                ctx,
+            })),
+        });
+    }
+
+    /// After suspend's free cast: a creature spell cast this way gains
+    /// haste (CR 702.62a).
+    pub(crate) fn suspend_haste(&mut self, _t: &mut EffectTask) {
+        if let Some(item) = self.stack.last()
+            && item.is_spell()
+            && item.cost == crate::decision::CastCost::WithoutPaying
+            && self
+                .chars(item.object)
+                .is_some_and(|c| c.is(kiln_types::CardType::Creature))
+        {
+            let id = item.object;
+            self.suspend_haste.push(id);
+        }
     }
 
     /// CR 701.6a: an ability is countered by removing it from the stack (the
@@ -3371,7 +3656,15 @@ impl Game {
             self.finish_pick(t, p);
             return Flow::Continue;
         }
-        let ordered = matches!(p.then, AfterPick::Place(_) | AfterPick::ScryBottom);
+        let ordered = matches!(p.then, AfterPick::Place(_) | AfterPick::ScryBottom)
+            // Taking every candidate could break "different names".
+            || matches!(
+                p.then,
+                AfterPick::Search {
+                    different_names: true,
+                    ..
+                }
+            );
         // No choice exists when every remaining candidate must be taken and
         // their order doesn't matter, or only one card is left to place.
         if p.min == left && (!ordered || left == 1) {
@@ -3401,6 +3694,7 @@ impl Game {
             CardPurpose::Search => "701.23a",
             CardPurpose::Discard => "701.9a",
             CardPurpose::Sacrifice => "701.21a",
+            CardPurpose::Tap => "701.26a",
             CardPurpose::PutOnBottom if matches!(p.then, AfterPick::ScryBottom) => "701.22a",
             _ => "608.2d",
         };
@@ -3427,6 +3721,17 @@ impl Game {
         } = p;
         match then {
             AfterPick::Place(_) => {}
+            AfterPick::Split {
+                to,
+                rest_to,
+                owner,
+                all,
+            } => {
+                for id in all {
+                    let dest = if picked.contains(&id) { to } else { rest_to };
+                    self.place_or_defer(t, id, dest, owner);
+                }
+            }
             AfterPick::ScryBottom => {
                 // The rest go on top in any order (CR 701.22a).
                 let n = u32::try_from(candidates.len()).unwrap_or(0);
@@ -3464,6 +3769,11 @@ impl Game {
                 }
             }
             AfterPick::Sacrifice => self.sacrifice_all(&mut t.ctx, &picked),
+            AfterPick::Tap => {
+                for id in picked {
+                    self.tap(id);
+                }
+            }
             AfterPick::Amass { n, subtype } => {
                 for id in picked {
                     self.amass_onto(id, n, &subtype);
@@ -3518,9 +3828,21 @@ impl Game {
                 searcher,
                 agent,
                 to,
+                rest_to,
                 reveal,
+                remember,
+                split,
+                ..
             } => {
                 let who = searcher;
+                // The found cards are followed into the public zone they go
+                // to (CR 400.7j; see `follow_remembered`).
+                if let Some(name) = remember {
+                    t.ctx.remembered.retain(|(k, _)| *k != name);
+                    t.ctx
+                        .remembered
+                        .push((name, picked.iter().copied().collect()));
+                }
                 self.log(Event::Searched {
                     player: who,
                     found: u32::try_from(picked.len()).unwrap_or(0),
@@ -3550,6 +3872,22 @@ impl Game {
                         objects: picked.clone(),
                     });
                 }
+                // Intuition: the chooser splits the revealed cards.
+                if let Some((chooser, n, chosen_to)) = split {
+                    t.frames.push(Frame::Pick(exact_pick(
+                        chooser,
+                        purpose_for(chosen_to),
+                        picked.clone(),
+                        n,
+                        AfterPick::Split {
+                            to: chosen_to,
+                            rest_to: to,
+                            owner: who,
+                            all: picked,
+                        },
+                    )));
+                    return;
+                }
                 if to == Destination::TopOfLibrary {
                     // CR 701.24b: search, shuffle, then put the found cards on top.
                     for &id in &picked {
@@ -3560,8 +3898,9 @@ impl Game {
                         self.player_mut(who).library.push(id);
                     }
                 } else {
-                    for id in picked {
-                        self.place_or_defer(t, id, to, who);
+                    for (i, id) in picked.into_iter().enumerate() {
+                        let dest = if i == 0 { to } else { rest_to.unwrap_or(to) };
+                        self.place_or_defer(t, id, dest, who);
                     }
                 }
             }
@@ -3653,6 +3992,21 @@ impl Game {
 
     /// Whether `who` can pay every part of a cost (mana is checked against
     /// pool and untapped sources; mana is paid first, CR 601.2g–h).
+    /// Untapped permanents `who` controls matching `f` that can be tapped for a
+    /// cost; not the source if the cost also taps it.
+    fn untapped_for_cost(
+        &self,
+        ctx: &EffectCtx,
+        who: PlayerId,
+        f: &ObjectFilter,
+        except: Option<ObjectId>,
+    ) -> Vec<ObjectId> {
+        self.own_permanents(ctx, who, f)
+            .into_iter()
+            .filter(|id| Some(*id) != except && self.obj(*id).is_some_and(|o| !o.tapped))
+            .collect()
+    }
+
     pub(crate) fn can_pay(&self, ctx: &EffectCtx, who: PlayerId, cost: &[CostPart]) -> bool {
         let except = taps_source(cost).then_some(ctx.source);
         cost.iter().all(|part| match part {
@@ -3687,18 +4041,28 @@ impl Game {
                     .iter()
                     .any(|id| self.on_battlefield_now(*id)),
             },
+            // A spell can't discard itself for its own cost: it's on the stack
+            // by then (CR 601.2a); "discard this card" (channel) names it.
             CostPart::Discard(spec) => match spec {
                 DiscardSpec::Chosen { count, filter } => {
                     self.player(who)
                         .hand
                         .iter()
-                        .filter(|id| self.matches_card(ctx, **id, filter))
+                        .filter(|id| {
+                            (filter.this || **id != ctx.source)
+                                && self.matches_card(ctx, **id, filter)
+                        })
                         .count()
                         >= self.amount(ctx, count) as usize
                 }
                 DiscardSpec::Hand => true,
                 DiscardSpec::Random(q) => {
-                    self.player(who).hand.len() >= self.amount(ctx, q) as usize
+                    self.player(who)
+                        .hand
+                        .iter()
+                        .filter(|id| **id != ctx.source)
+                        .count()
+                        >= self.amount(ctx, q) as usize
                 }
             },
             // "another card" unless the filter is "this card" (Spirit Guides).
@@ -3718,6 +4082,9 @@ impl Game {
             CostPart::Exile { what, .. } => !self.own_permanents(ctx, who, what).is_empty(),
             CostPart::RemoveCounters { counter, amount } => {
                 self.counters_on(ctx.source, *counter) >= *amount
+            }
+            CostPart::TapUntapped { what, count } => {
+                self.untapped_for_cost(ctx, who, what, except).len() >= *count as usize
             }
         })
     }
@@ -3793,6 +4160,17 @@ impl Game {
             }
             CostPart::Discard(spec) => {
                 self.discard(t, who, &spec);
+                Flow::Continue
+            }
+            CostPart::TapUntapped { what, count } => {
+                let candidates = self.untapped_for_cost(&t.ctx, who, &what, except);
+                t.frames.push(Frame::Pick(exact_pick(
+                    who,
+                    CardPurpose::Tap,
+                    candidates,
+                    count,
+                    AfterPick::Tap,
+                )));
                 Flow::Continue
             }
             CostPart::ExileFromHand(f) => {

@@ -125,8 +125,10 @@ impl Keywords {
         Keywords(1 << 18),
         Keywords(1 << 19),
     ];
+    /// CR 509.1b: "can't be blocked" (an evasion restriction, not a keyword).
+    pub const CANT_BE_BLOCKED: Keywords = Keywords(1 << 20);
 
-    const NAMES: [(&'static str, Keywords); 15] = [
+    const NAMES: [(&'static str, Keywords); 16] = [
         ("deathtouch", Self::DEATHTOUCH),
         ("defender", Self::DEFENDER),
         ("double strike", Self::DOUBLE_STRIKE),
@@ -142,6 +144,7 @@ impl Keywords {
         ("hexproof", Self::HEXPROOF),
         ("shroud", Self::SHROUD),
         ("indestructible", Self::INDESTRUCTIBLE),
+        ("can't be blocked", Self::CANT_BE_BLOCKED),
     ];
 
     pub fn has(self, k: Keywords) -> bool {
@@ -185,6 +188,7 @@ impl Keywords {
             K::Hexproof => Self::HEXPROOF,
             K::Shroud => Self::SHROUD,
             K::Indestructible => Self::INDESTRUCTIBLE,
+            K::CantBeBlocked => Self::CANT_BE_BLOCKED,
             K::HexproofFrom(colors) => Color::ALL
                 .iter()
                 .enumerate()
@@ -215,6 +219,7 @@ impl Keywords {
             (Self::HEXPROOF, K::Hexproof),
             (Self::SHROUD, K::Shroud),
             (Self::INDESTRUCTIBLE, K::Indestructible),
+            (Self::CANT_BE_BLOCKED, K::CantBeBlocked),
         ];
         all.into_iter().find(|(b, _)| *b == self).map(|(_, k)| k)
     }
@@ -471,10 +476,16 @@ impl CardDef {
                         mode_slots.extend(modes.iter().map(target_slots));
                     }
                 }
-                Ability::Triggered(t) => {
-                    if let ir::Effect::Modal { modes, .. } = &t.effect
-                        && let Ok(i) = u8::try_from(i)
-                    {
+                // Modal triggered and activated abilities (CR 700.2a-b), by ability index.
+                Ability::Triggered(ir::TriggeredAbility {
+                    effect: ir::Effect::Modal { modes, .. },
+                    ..
+                })
+                | Ability::Activated(ir::ActivatedAbility {
+                    effect: ir::Effect::Modal { modes, .. },
+                    ..
+                }) => {
+                    if let Ok(i) = u8::try_from(i) {
                         trigger_mode_slots.push((i, modes.iter().map(target_slots).collect()));
                     }
                 }
@@ -539,6 +550,14 @@ impl CardDef {
     }
 
     /// Its dash cost (CR 702.109a), if it has one.
+    /// Its flashback cost (CR 702.34a).
+    pub fn flashback_cost(&self) -> Option<&[CostPart]> {
+        self.abilities.iter().find_map(|a| match a {
+            Ability::Keyword(ir::Keyword::Flashback(c)) => Some(c.as_slice()),
+            _ => None,
+        })
+    }
+
     pub fn dash_cost(&self) -> Option<&[CostPart]> {
         self.abilities.iter().find_map(|a| match a {
             Ability::Keyword(ir::Keyword::Dash(c)) => Some(c.as_slice()),
@@ -696,6 +715,7 @@ pub(crate) fn is_dynamic_spec(spec: &ManaSpec) -> bool {
         ManaSpec::CommanderIdentity
         | ManaSpec::ColorOf(_)
         | ManaSpec::ColorsAmong(_)
+        | ManaSpec::EachColorAmong(_)
         | ManaSpec::OpponentLandColors
         | ManaSpec::ChosenColor(_)
         | ManaSpec::Times { .. } => true,
@@ -767,6 +787,7 @@ pub(crate) fn mana_output(spec: &ManaSpec) -> Result<ManaAlternatives, String> {
         ManaSpec::CommanderIdentity
         | ManaSpec::ColorOf(_)
         | ManaSpec::ColorsAmong(_)
+        | ManaSpec::EachColorAmong(_)
         | ManaSpec::OpponentLandColors
         | ManaSpec::ChosenColor(_)
         | ManaSpec::Times { .. } => unreachable!("dynamic specs return above"),
@@ -1685,6 +1706,7 @@ fn spell(targets: Vec<TargetSpec>, effect: ir::Effect) -> SpellAbility {
         alternative_costs: Vec::new(),
         additional_costs: Vec::new(),
         per_extra_target: Vec::new(),
+        cost_reduction: None,
     }
 }
 

@@ -1,0 +1,8 @@
+card: Heroic Intervention
+faces:
+  - abilities:
+      - spell:
+          effect:
+            seq:
+              - gain_keyword: { what: { all: { controller: you } }, keyword: hexproof }
+              - gain_keyword: { what: { all: { controller: you } }, keyword: indestructible }

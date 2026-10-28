@@ -248,6 +248,11 @@ impl Game {
                 }
             },
             DecisionKind::ManaStep { steps, .. } => match steps[i] {
+                ManaStep::Activate {
+                    source,
+                    bag,
+                    ability: crate::mana::CONVOKE,
+                } => format!("Convoke with {} for {}", name(source), bag_text(&bag)),
                 ManaStep::Activate { source, bag, .. } => {
                     format!("Tap {} for {}", name(source), bag_text(&bag))
                 }
@@ -314,6 +319,7 @@ impl Game {
                         CardPurpose::Search => "Find",
                         CardPurpose::Discard => "Discard",
                         CardPurpose::Sacrifice => "Sacrifice",
+                        CardPurpose::Tap => "Tap",
                         CardPurpose::Exile => "Exile",
                         CardPurpose::PutOnTop => "Put on top",
                         CardPurpose::PutOnBottom => "Put on bottom",
@@ -418,6 +424,7 @@ impl Game {
                 CastCost::WithoutPaying => "Cast without paying its mana cost".into(),
                 CastCost::Dash => "Pay the dash cost".into(),
                 CastCost::Escape => "Pay the escape cost".into(),
+                CastCost::Flashback => "Pay the flashback cost".into(),
                 CastCost::LifeInsteadOfMana => "Pay life equal to its mana value".into(),
             },
             DecisionKind::ChooseSymbolPay {

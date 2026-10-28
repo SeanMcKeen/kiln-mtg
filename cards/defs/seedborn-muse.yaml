@@ -1,0 +1,4 @@
+card: Seedborn Muse
+faces:
+  - abilities:
+      - static: { effect: { player_rule: { who: you, rule: untap_during_others_untap_steps } } }

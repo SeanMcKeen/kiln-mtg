@@ -1,0 +1,11 @@
+card: Bojuka Bog
+faces:
+  - abilities:
+      - replacement:
+          event: { would_enter: { this: true } }
+          instead: enters_tapped
+      - triggered:
+          trigger: { enters: { this: true } }
+          targets: [{ what: { player: any } }]
+          effect: { exile: { what: { zone: { owner: { target: 0 }, zone: graveyard } } } }
+      - activated: { cost: [tap], effect: { add_mana: { mana: { fixed: "{B}" } } } }

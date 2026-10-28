@@ -1,0 +1,22 @@
+scenario: kiln-scenario/1
+name: "Heroic Intervention makes its controller's permanents indestructible"
+cr: ["702.12b"]
+verifies: [Heroic Intervention]
+players:
+  - battlefield: [Forest, Forest, Grizzly Bears]
+    hand: [Heroic Intervention]
+  - battlefield: [Swamp, Swamp]
+    hand: [Feed the Swarm]
+turn: { number: 3, active: P2, step: precombat_main }
+script:
+  - { player: P2, choose: Cast Feed the Swarm }
+  - { player: P2, choose: Target Grizzly Bears (P1) }
+  - { player: P2, choose: "Pay with Swamp, Swamp" }
+  - pass: 1
+  - choose: Cast Heroic Intervention
+  - choose: "Pay with Forest, Forest"
+  - pass_all
+  - pass_all
+expect:
+  zones:
+    P1.battlefield: [Forest, Forest, Grizzly Bears]

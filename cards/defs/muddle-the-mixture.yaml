@@ -1,0 +1,18 @@
+card: Muddle the Mixture
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { spell: { types: [instant, sorcery] } } }]
+          effect: { counter: { one: { target: 0 } } }
+      # Transmute {1}{U}{U} (CR 702.53): from the hand, as a sorcery; a card
+      # with the same mana value as this one (2).
+      - activated:
+          zone: hand
+          timing: sorcery
+          cost:
+            - mana: "{1}{U}{U}"
+            - discard: { chosen: { count: 1, filter: { this: true } } }
+          effect:
+            seq:
+              - search: { who: you, filter: { min_mana_value: 2, max_mana_value: 2 }, count: 1, to: hand, reveal: true }
+              - shuffle: you

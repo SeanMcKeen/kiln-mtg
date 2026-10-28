@@ -1,0 +1,12 @@
+scenario: kiln-scenario/1
+name: "Vault of Champions enters tapped with one opponent"
+cr: ["614.1c", "102.2"]
+verifies: ["Vault of Champions"]
+players:
+  - hand: ["Vault of Champions"]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Play Vault of Champions
+expect:
+  tapped: { "Vault of Champions": true }

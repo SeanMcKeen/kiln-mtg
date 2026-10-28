@@ -1,0 +1,15 @@
+scenario: kiln-scenario/1
+name: "Dreamroot Cascade enters untapped with two other lands"
+cr: ["614.1c", "305.6"]
+verifies: ["Dreamroot Cascade"]
+players:
+  - battlefield: [Forest, Island]
+    hand: ["Dreamroot Cascade"]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Play Dreamroot Cascade
+  - choose: Tap Dreamroot Cascade for mana
+  - choose: "Add {U}"
+expect:
+  pool: { P1: "{U}" }

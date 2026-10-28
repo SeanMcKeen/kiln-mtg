@@ -134,6 +134,9 @@ fn keyword(k: &Keyword) -> String {
         Keyword::Kicker(c) => format!("kicker {}", costs(c)),
         Keyword::HexproofFrom(c) => format!("hexproof from {c}"),
         Keyword::Dash(c) => format!("dash {}", costs(c)),
+        Keyword::Flashback(c) => format!("flashback {}", costs(c)),
+        Keyword::CantBeBlocked => "can't be blocked".into(),
+        Keyword::Convoke => "convoke".into(),
         Keyword::Partner => "partner".into(),
         Keyword::PartnerWith(n) => format!("partner with {n}"),
         Keyword::Protection(f) => format!(
@@ -318,6 +321,7 @@ fn effect(e: &Effect, t: &[TargetSpec]) -> String {
                 Recipient::Target(i) => target_phrase(t, *i),
                 Recipient::Player(p) => player(p, t),
                 Recipient::Object(_) => "<object>".into(),
+                Recipient::Each(f) => format!("each {}", filter_phrase(f, false)),
             };
             format!("~ deals {} damage to {to}", qty(amount))
         }
@@ -354,6 +358,10 @@ fn effect(e: &Effect, t: &[TargetSpec]) -> String {
             ..
         } => format!("return {} to its owner's hand", objects(what, t)),
         Effect::Counter(o) | Effect::CounterAndExile(o) => format!("counter {}", objects(o, t)),
+        Effect::CounterAndSuspend { what, counters } => format!(
+            "counter {}; exile it with {counters} time counters, and it gains suspend",
+            objects(what, t)
+        ),
         Effect::Unless {
             payer,
             cost,

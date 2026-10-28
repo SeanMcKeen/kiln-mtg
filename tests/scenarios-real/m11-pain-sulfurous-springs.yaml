@@ -1,0 +1,14 @@
+scenario: kiln-scenario/1
+name: "Sulfurous Springs: {C} painlessly, or {B}/{R} with 1 damage"
+cr: ["605.1a", "106.1"]
+verifies: ["Sulfurous Springs"]
+players:
+  - battlefield: ["Sulfurous Springs", "Sulfurous Springs"]
+  - {}
+script:
+  - choose: "Tap Sulfurous Springs for {C}"
+  - choose: Tap Sulfurous Springs for mana
+  - choose: "Add {R}"
+expect:
+  life: { P1: 19 }
+  pool: { P1: "{R}{C}" }

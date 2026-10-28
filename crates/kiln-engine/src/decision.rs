@@ -245,6 +245,8 @@ pub enum CastCost {
     Escape,
     /// Life equal to its mana value rather than its mana cost (Bolas's Citadel).
     LifeInsteadOfMana,
+    /// The flashback cost, from its owner's graveyard (CR 702.34a).
+    Flashback,
 }
 
 /// How one hybrid or Phyrexian mana symbol is paid (CR 107.4e–f).
@@ -306,6 +308,8 @@ pub enum CardPurpose {
     Enchant,
     /// Take its opening-hand action: begin the game with it on the battlefield (CR 103.6).
     BeginOnBattlefield,
+    /// Tap it to pay a cost ("Tap an untapped creature you control", CR 701.26a).
+    Tap,
 }
 
 pub use crate::card::ManaBag;

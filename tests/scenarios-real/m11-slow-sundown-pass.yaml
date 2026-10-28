@@ -1,0 +1,13 @@
+scenario: kiln-scenario/1
+name: "Sundown Pass enters tapped with only one other land"
+cr: ["614.1c", "305.6"]
+verifies: ["Sundown Pass"]
+players:
+  - battlefield: [Mountain]
+    hand: ["Sundown Pass"]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Play Sundown Pass
+expect:
+  tapped: { "Sundown Pass": true }

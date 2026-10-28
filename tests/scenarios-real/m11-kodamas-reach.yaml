@@ -1,0 +1,21 @@
+scenario: kiln-scenario/1
+name: "Kodama's Reach: two basic lands, one onto the battlefield tapped and the other into the hand"
+cr: ["701.23a", "701.20a"]
+verifies: ["Kodama's Reach"]
+players:
+  - battlefield: [Forest, Forest, Forest]
+    hand: ["Kodama's Reach"]
+    library: [Island, Swamp, Grizzly Bears]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: "Cast Kodama's Reach"
+  - choose: "Pay with Forest, Forest, Forest"
+  - pass_all
+  - choose: Find Island
+  - choose: Find Swamp
+expect:
+  zones:
+    P1.battlefield: [Forest, Forest, Forest, Island]
+    P1.hand: [Swamp]
+  tapped: { Island: true }

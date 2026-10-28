@@ -1,0 +1,6 @@
+card: "Mishra's Workshop"
+faces:
+  - abilities:
+      - activated:
+          cost: [tap]
+          effect: { add_mana: { mana: { fixed: "{C}{C}{C}" }, spend_only_on: { types: [artifact] } } }

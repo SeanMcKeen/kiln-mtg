@@ -1,0 +1,14 @@
+scenario: kiln-scenario/1
+name: "Braids, Cabal Minion: at each player's upkeep, that player sacrifices an artifact, creature, or land of their choice"
+cr: ["503.1a", "603.2", "701.21a"]
+verifies: ["Braids, Cabal Minion"]
+players:
+  - battlefield: ["Braids, Cabal Minion"]
+  - battlefield: [Sol Ring, Forest, Phyrexian Arena]
+turn: { number: 3, active: P2, step: upkeep }
+script:
+  - pass_all
+  - choose: Sacrifice Forest (P2)
+expect:
+  zones:
+    P2.graveyard: [Forest]

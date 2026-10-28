@@ -1,0 +1,22 @@
+scenario: kiln-scenario/1
+name: "Freed from the Real taps and untaps the enchanted creature"
+cr: ["303.4", "602.2"]
+verifies: [Freed from the Real]
+players:
+  - battlefield: [Grizzly Bears, Island, Island, Island, Island, Island]
+    hand: [Freed from the Real]
+  - {}
+script:
+  - choose: Cast Freed from the Real
+  - choose: Target Grizzly Bears (P1)
+  - choose: "Pay with Island, Island, Island"
+  - pass_all
+  - choose: Activate Freed from the Real ability 2
+  - choose: Pay with Island
+  - pass_all
+  - check: { tapped: { Grizzly Bears: true } }
+  - choose: Activate Freed from the Real ability 3
+  - choose: Pay with Island
+  - pass_all
+expect:
+  tapped: { Grizzly Bears: false }

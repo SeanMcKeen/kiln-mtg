@@ -1,0 +1,19 @@
+scenario: kiln-scenario/1
+name: "Farseek puts a land from the library onto the battlefield tapped"
+cr: ["701.23a"]
+verifies: ["Farseek"]
+players:
+  - battlefield: [Forest, Forest]
+    hand: ["Farseek"]
+    library: [Island, Forest, Grizzly Bears]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: "Cast Farseek"
+  - choose: "Pay with Forest, Forest"
+  - pass_all
+  - choose: Find Island
+expect:
+  zones:
+    P1.battlefield: [Forest, Forest, Island]
+  tapped: { Island: true }
