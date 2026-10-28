@@ -15,6 +15,7 @@ use kiln_sim::deck::{DeckReport, ValidateOptions, parse_deck, validate_with};
 use serde::Serialize;
 
 mod game;
+mod judge;
 mod mcp;
 mod playbook;
 mod sim;
@@ -49,6 +50,8 @@ enum Command {
     /// The MCP server for AI agents.
     #[command(subcommand)]
     Mcp(mcp::McpCmd),
+    /// Rules judge: load a scenario, step through it, ask `why-not` and `why`.
+    Judge(judge::JudgeArgs),
 }
 
 #[derive(Debug, Args)]
@@ -336,6 +339,7 @@ fn run(cli: Cli) -> Result<ExitCode> {
         Command::Game(cmd) => game::game(cmd),
         Command::Playbook(cmd) => playbook::playbook(cmd),
         Command::Mcp(cmd) => mcp::mcp(cmd),
+        Command::Judge(args) => judge::judge(&args),
         Command::Dev(DevCmd::Puzzles {
             db,
             policy,

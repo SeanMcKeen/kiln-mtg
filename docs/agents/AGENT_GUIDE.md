@@ -111,6 +111,12 @@ fn priority(view, d) {
 
 `kiln_rules_scenario` runs a board you describe ([[Scenario File Format]]): each player's zones, an optional starting turn and step, a script of choices by label, and expectations. It returns the event log with card names and whether the expectations held. `tests/scenarios-real/` has hundreds of examples.
 
+Add `commands` to keep going like a judge: `why-not Cast <card>` explains with CR rules why an action isn't offered ("601.2h: P1 can't pay its total cost", "101.2: Grand Abolisher: …"), `why <event #>` gives an event's rule and cause, and a number or label makes a choice. Trust these over memory: they come from the engine's own checks.
+
+## Playing a seat yourself
+
+With `kiln mcp serve --live`, `kiln_live_start` deals a pod game with you on one deck; each reply is your decision (its CR rule and options), the board as you see it, what happened, and the Oracle text of the cards involved. Answer with `kiln_live_decide` (an option and a one-line rationale), or `option: auto` to let the deck's spec policy play on. `kiln_live_view why_not=["Cast X"]` explains missing options. A game in a new session resumes with `moves`. Finished games save an annotated replay. For many games without you in the loop, `{ kind: llm }` asks Claude through the API (paid; needs `ANTHROPIC_API_KEY`).
+
 ## Pitfalls checklist
 
 - Report intervals, not just point estimates. Flag overlaps.

@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
-use kiln_data::CardDb;
+use kiln_data::{CardDb, NameMatch};
 use kiln_engine::rng::{GameRng, game_seed, splitmix64};
 use kiln_engine::{
     CardPool, DefId, Event, Game, GameResult, GameRules, GameSetup, LossReason, PlayerStatus,
@@ -16,13 +16,15 @@ use kiln_engine::{
 use kiln_playbook::{Playbook, PlaybookPolicy};
 use kiln_policy::{Compose, GreedyPolicy, PassivePolicy, Policy, RandomPolicy};
 use kiln_protocol::record::{BASE_CONFIG, Elimination, GameRecord, Outcome, Timing};
-use kiln_protocol::spec::{Mode, PolicySpec, Seating};
+use kiln_protocol::spec::{Mode, PolicySpec, Seating, Spec};
 use kiln_protocol::{ResolvedSpec, parse};
 use kiln_search::{PolicyFactory, SearchConfig, SearchPolicy};
 use kiln_types::{OracleId, PlayerId};
 
 use super::{ExperimentError, ResolvedDeck, facts, resolve_decks};
 use crate::library::Library;
+use crate::live::CardText;
+use crate::llm::{LlmConfig, LlmPolicy, SharedOracle};
 use crate::runner::policy_seed;
 
 /// The deck id of a goldfish opponent.
@@ -66,7 +68,7 @@ pub struct Experiment {
     pool: Arc<CardPool>,
     play: Vec<PlayDeck>,
     configs: Vec<Config>,
-    /// Compiled playbooks by their path in the spec.
+    /// Compiled playbooks and card text, for building policies.
     books: Books,
 }
 
@@ -93,6 +95,15 @@ impl Experiment {
         }
         warnings.splice(0..0, resolved.warnings.iter().cloned());
         let (pool, ids) = lib.pool();
+        // Card text for LLM payloads, only when an LLM plays.
+        let pool_names: Vec<String> = if uses_llm(spec) {
+            pool.iter()
+                .filter(|(_, d)| !d.token)
+                .map(|(_, d)| d.name.clone())
+                .collect()
+        } else {
+            Vec::new()
+        };
         let def = |o: &OracleId, deck: &str| -> Result<DefId, ExperimentError> {
             ids.get(o).copied().ok_or_else(|| ExperimentError::Deck {
                 id: deck.to_owned(),
@@ -207,7 +218,10 @@ impl Experiment {
             pool: Arc::new(pool),
             play,
             configs,
-            books: Arc::new(books),
+            books: Arc::new(PolicyCtx {
+                books,
+                oracle: card_texts(db, &pool_names),
+            }),
         })
     }
 
@@ -271,7 +285,8 @@ impl Experiment {
             rules.starting_life = life;
         }
         rules.turn_limit = Some(spec.limits.max_turns);
-        rules.log_events = spec.metrics.needs_events();
+        // An LLM is shown what happened since it last decided.
+        rules.log_events = spec.metrics.needs_events() || uses_llm(spec);
         let setup = GameSetup {
             rules,
             decks: seats.iter().map(|d| self.play[*d].cards.clone()).collect(),
@@ -286,15 +301,22 @@ impl Experiment {
         (setup, seats)
     }
 
-    fn policies(&self, seats: &[usize]) -> Vec<Box<dyn Policy>> {
+    /// The deck id of play deck `d` (a seat entry of [`Experiment::setup`]).
+    pub fn deck_id(&self, d: usize) -> &str {
+        &self.play[d].id
+    }
+
+    /// A fresh policy for each seat, from its deck's recipe.
+    pub fn policies(&self, seats: &[usize]) -> Vec<Box<dyn Policy>> {
+        let decks: Vec<String> = seats.iter().map(|d| self.play[*d].id.clone()).collect();
         seats
             .iter()
-            .map(|d| self.build_policy(&self.play[*d].policy))
+            .map(|d| build_policy(&self.play[*d].policy, &self.books, &decks))
             .collect()
     }
 
     fn build_policy(&self, p: &PolicySpec) -> Box<dyn Policy> {
-        build_policy(p, &self.books)
+        build_policy(p, &self.books, &[])
     }
 
     /// The policy recipe of each deck, for reports.
@@ -424,6 +446,7 @@ impl Experiment {
                 *k.entry(kind_name(&d.kind)).or_default() += 1;
             }
             let count = d.option_count();
+            let mut asked = None;
             let option = if count == 1 {
                 0
             } else {
@@ -434,10 +457,18 @@ impl Experiment {
                 let t = Instant::now();
                 let choice = policies[seat].decide(&game.view(decider), &d);
                 policy_us[seat] += u64::try_from(t.elapsed().as_micros()).unwrap_or(u64::MAX);
+                asked = Some(seat);
                 choice.min(u32::try_from(count - 1).unwrap_or(0))
             };
             let applied = match &mut recorder {
-                Some(r) => r.apply(&mut game, option),
+                Some(r) => {
+                    let applied = r.apply(&mut game, option);
+                    // Annotated replays (M10 plan L5): why the policy chose it.
+                    if let Some(why) = asked.and_then(|s| policies[s].rationale()) {
+                        r.annotate(why);
+                    }
+                    applied
+                }
                 None => game.apply_option(option),
             };
             if applied.is_err() {
@@ -555,32 +586,99 @@ impl Experiment {
     }
 }
 
-/// Compiled playbooks by their path in the spec.
-type Books = Arc<BTreeMap<String, Arc<Playbook>>>;
+/// What building a policy needs: compiled playbooks by their path in the
+/// spec, and card text for LLM payloads.
+struct PolicyCtx {
+    books: BTreeMap<String, Arc<Playbook>>,
+    oracle: SharedOracle,
+}
+
+impl std::fmt::Debug for PolicyCtx {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PolicyCtx")
+            .field("books", &self.books.keys().collect::<Vec<_>>())
+            .finish_non_exhaustive()
+    }
+}
+
+type Books = Arc<PolicyCtx>;
+
+/// Whether any policy in the spec asks an LLM.
+fn uses_llm(spec: &Spec) -> bool {
+    fn walk(p: &PolicySpec) -> bool {
+        match p {
+            PolicySpec::Llm { .. } => true,
+            PolicySpec::Compose { chain } => chain.iter().any(walk),
+            PolicySpec::Playbook {
+                fallback: Some(f), ..
+            } => walk(f),
+            PolicySpec::Search { guide: Some(g), .. } => walk(g),
+            _ => false,
+        }
+    }
+    spec.policies.values().any(walk)
+}
+
+/// Card text by name for the pool's cards, from the card DB.
+fn card_texts(db: &CardDb, names: &[String]) -> SharedOracle {
+    let mut m: BTreeMap<String, CardText> = BTreeMap::new();
+    for n in names {
+        if let NameMatch::Exact(i) | NameMatch::Loose(i) = db.resolve(n, "commander") {
+            let c = &db.cards()[i];
+            m.insert(
+                n.clone(),
+                CardText {
+                    mana_cost: c
+                        .faces
+                        .first()
+                        .and_then(|f| f.mana_cost.as_ref())
+                        .map(ToString::to_string),
+                    type_line: c
+                        .faces
+                        .iter()
+                        .map(|f| f.type_line.to_string())
+                        .collect::<Vec<_>>()
+                        .join(" // "),
+                    oracle_text: c
+                        .faces
+                        .iter()
+                        .map(|f| f.oracle_text.clone())
+                        .collect::<Vec<_>>()
+                        .join("\n//\n"),
+                },
+            );
+        }
+    }
+    Arc::new(move |n: &str| m.get(n).cloned())
+}
 
 /// A policy from its recipe (M8 plan P4).
-fn build_policy(p: &PolicySpec, books: &Books) -> Box<dyn Policy> {
+fn build_policy(p: &PolicySpec, books: &Books, decks: &[String]) -> Box<dyn Policy> {
     match p {
         PolicySpec::Random { pass } => Box::new(RandomPolicy::new(*pass)),
         PolicySpec::Passive => Box::new(PassivePolicy),
         PolicySpec::Playbook { playbook, fallback } => {
             let fallback = fallback.as_deref().map_or_else(
-                || build_policy(&PolicySpec::Greedy, books),
-                |f| build_policy(f, books),
+                || build_policy(&PolicySpec::Greedy, books, decks),
+                |f| build_policy(f, books, decks),
             );
-            match books.get(playbook) {
+            match books.books.get(playbook) {
                 Some(b) => Box::new(PlaybookPolicy::new(Arc::clone(b), fallback)),
                 None => fallback,
             }
         }
         PolicySpec::Compose { chain } => Box::new(Compose::new(
-            chain.iter().map(|q| build_policy(q, books)).collect(),
+            chain
+                .iter()
+                .map(|q| build_policy(q, books, decks))
+                .collect(),
         )),
         PolicySpec::Search { budget, guide } => {
             let guide = guide.as_deref().cloned().unwrap_or(PolicySpec::Greedy);
-            let name = build_policy(&guide, books).name();
+            let name = build_policy(&guide, books, decks).name();
             let books = Arc::clone(books);
-            let make: PolicyFactory = Arc::new(move || build_policy(&guide, &books));
+            let decks = decks.to_vec();
+            let make: PolicyFactory = Arc::new(move || build_policy(&guide, &books, &decks));
             Box::new(SearchPolicy::guided(
                 SearchConfig {
                     iterations: budget.iterations,
@@ -592,8 +690,32 @@ fn build_policy(p: &PolicySpec, books: &Books) -> Box<dyn Policy> {
                 make,
             ))
         }
-        // Rejected by validation until M10.
-        PolicySpec::Greedy | PolicySpec::Llm { .. } => Box::new(GreedyPolicy::default()),
+        PolicySpec::Llm {
+            model,
+            ask,
+            max_calls,
+            effort,
+            fallback,
+        } => {
+            let fallback = fallback.as_deref().map_or_else(
+                || build_policy(&PolicySpec::Greedy, books, decks),
+                |f| build_policy(f, books, decks),
+            );
+            let defaults = LlmConfig::default();
+            Box::new(LlmPolicy::new(
+                LlmConfig {
+                    model: model.clone().unwrap_or(defaults.model),
+                    ask_all: ask.as_deref() == Some("all"),
+                    max_calls: max_calls.unwrap_or(defaults.max_calls),
+                    effort: effort.clone(),
+                    ..LlmConfig::default()
+                },
+                Arc::clone(&books.oracle),
+                decks.to_vec(),
+                fallback,
+            ))
+        }
+        PolicySpec::Greedy => Box::new(GreedyPolicy::default()),
     }
 }
 

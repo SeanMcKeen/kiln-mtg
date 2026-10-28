@@ -27,6 +27,11 @@ pub struct Replay {
     pub concessions: Vec<(usize, kiln_types::PlayerId)>,
     pub final_hash: u64,
     pub result: Option<GameResult>,
+    /// Why a player made a choice (M10 plan L5): `(k, text)` annotates
+    /// choice `k`. From an LLM's or a live player's stated reason, or the
+    /// options search weighed. Not part of the game: replaying ignores it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub annotations: Vec<(usize, String)>,
 }
 
 /// Where a replay stopped matching.
@@ -62,6 +67,7 @@ pub fn pool_hash(pool: &CardPool) -> u64 {
 pub struct Recorder {
     choices: Vec<(u64, u32)>,
     concessions: Vec<(usize, kiln_types::PlayerId)>,
+    annotations: Vec<(usize, String)>,
 }
 
 impl Default for Recorder {
@@ -75,6 +81,14 @@ impl Recorder {
         Self {
             choices: Vec::new(),
             concessions: Vec::new(),
+            annotations: Vec::new(),
+        }
+    }
+
+    /// Attaches why the last recorded choice was made.
+    pub fn annotate(&mut self, text: impl Into<String>) {
+        if let Some(k) = self.choices.len().checked_sub(1) {
+            self.annotations.push((k, text.into()));
         }
     }
 
@@ -112,6 +126,7 @@ impl Recorder {
             concessions: self.concessions,
             final_hash: game.state_hash(),
             result: game.result().copied(),
+            annotations: self.annotations,
         }
     }
 }
@@ -119,6 +134,16 @@ impl Recorder {
 impl Replay {
     /// Replays against `pool`, returning the final game or the first divergence.
     pub fn run(&self, pool: Arc<CardPool>) -> Result<Game, Divergence> {
+        self.walk(pool, |_, _, _| {})
+    }
+
+    /// Like [`Replay::run`], calling `visit(game, k, option)` before each
+    /// choice `k` is applied (to print a replay with its labels and annotations).
+    pub fn walk(
+        &self,
+        pool: Arc<CardPool>,
+        mut visit: impl FnMut(&Game, usize, u32),
+    ) -> Result<Game, Divergence> {
         let actual = pool_hash(&pool);
         if actual != self.pool_hash {
             return Err(Divergence::Pool {
@@ -143,6 +168,7 @@ impl Replay {
                     actual: pending,
                 });
             }
+            visit(&game, index, option);
             game.apply(Choice {
                 decision: DecisionId(id),
                 option,

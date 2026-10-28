@@ -267,9 +267,33 @@ fn check_policy(at: &str, p: &PolicySpec, errors: &mut Vec<String>) {
                 check_policy(&at, g, errors);
             }
         }
-        PolicySpec::Llm { .. } => errors.push(format!(
-            "`{at}`: kind `llm` arrives in M10; use random, greedy, passive, playbook or compose"
-        )),
+        PolicySpec::Llm {
+            ask,
+            effort,
+            fallback,
+            ..
+        } => {
+            if let Some(a) = ask
+                && a != "key"
+                && a != "all"
+            {
+                errors.push(format!("`{at}.ask` must be key or all, not {a:?}"));
+            }
+            if let Some(e) = effort
+                && !["low", "medium", "high", "xhigh", "max"].contains(&e.as_str())
+            {
+                errors.push(format!(
+                    "`{at}.effort` must be low, medium, high, xhigh or max, not {e:?}"
+                ));
+            }
+            if let Some(f) = fallback {
+                let at = format!("{at}.fallback");
+                if matches!(**f, PolicySpec::Llm { .. }) {
+                    errors.push(format!("`{at}` can't be another llm"));
+                }
+                check_policy(&at, f, errors);
+            }
+        }
     }
 }
 
@@ -279,9 +303,9 @@ fn always_answers(p: &PolicySpec) -> bool {
         | PolicySpec::Greedy
         | PolicySpec::Passive
         | PolicySpec::Playbook { .. }
-        | PolicySpec::Search { .. } => true,
+        | PolicySpec::Search { .. }
+        | PolicySpec::Llm { .. } => true,
         PolicySpec::Compose { chain } => chain.last().is_some_and(always_answers),
-        PolicySpec::Llm { .. } => false,
     }
 }
 
@@ -297,6 +321,9 @@ pub fn playbook_paths(spec: &Spec) -> Vec<String> {
             }
             PolicySpec::Compose { chain } => chain.iter().for_each(|q| walk(q, out)),
             PolicySpec::Search { guide: Some(g), .. } => walk(g, out),
+            PolicySpec::Llm {
+                fallback: Some(f), ..
+            } => walk(f, out),
             _ => {}
         }
     }
@@ -379,7 +406,7 @@ policies:
 
     #[test]
     fn invalid_specs_list_every_problem() {
-        let text = POD.replace("a: { kind: greedy }", "zz: { kind: llm }");
+        let text = POD.replace("a: { kind: greedy }", "zz: { kind: llm, ask: sometimes }");
         let Err(SpecError::Invalid(errors)) = load_spec(&text) else {
             panic!("expected errors")
         };
@@ -388,7 +415,7 @@ policies:
                 .iter()
                 .any(|e| e.contains("`policies.zz` isn't a deck id"))
         );
-        assert!(errors.iter().any(|e| e.contains("arrives in M10")));
+        assert!(errors.iter().any(|e| e.contains("must be key or all")));
     }
 
     #[test]
@@ -423,19 +450,22 @@ policies:
 
     #[test]
     fn compose_chains_must_end_with_an_answer() {
-        let text = POD.replace(
-            "a: { kind: greedy }",
-            "a: { kind: compose, chain: [{ kind: playbook, playbook: p.rhai }, { kind: llm }] }",
-        );
+        // Every kind answers since M10 (llm has a fallback); an empty chain doesn't.
+        let text = POD.replace("a: { kind: greedy }", "a: { kind: compose, chain: [] }");
         let Err(SpecError::Invalid(errors)) = load_spec(&text) else {
             panic!("expected errors")
         };
         assert!(
             errors
                 .iter()
-                .any(|e| e.contains("must end with a policy that always answers")),
+                .any(|e| e.contains("`policies.a.chain` is empty")),
             "{errors:?}"
         );
+        let llm = POD.replace(
+            "a: { kind: greedy }",
+            "a: { kind: llm, effort: low, fallback: { kind: search } }",
+        );
+        load_spec(&llm).unwrap_or_else(|e| panic!("{e}"));
         let ok = POD.replace(
             "a: { kind: greedy }",
             "a: { kind: compose, chain: [{ kind: playbook, playbook: p.rhai }, { kind: random }] }",

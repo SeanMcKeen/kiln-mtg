@@ -21,6 +21,10 @@ pub enum McpCmd {
         /// Worker threads per run unless a call asks for more.
         #[arg(long, default_value_t = 2)]
         threads: usize,
+        /// Also serve the live-play tools (kiln_live_start / _decide / _view):
+        /// play a seat yourself, one decision at a time.
+        #[arg(long)]
+        live: bool,
         #[command(flatten)]
         db: DbArgs,
     },
@@ -30,6 +34,7 @@ pub fn mcp(cmd: McpCmd) -> Result<ExitCode> {
     let McpCmd::Serve {
         workdir,
         threads,
+        live,
         db,
     } = cmd;
     // stdout carries the protocol: progress goes to stderr.
@@ -44,6 +49,7 @@ pub fn mcp(cmd: McpCmd) -> Result<ExitCode> {
         scenario_pool: Arc::new(scenario_pool),
         workdir: std::fs::canonicalize(&workdir).unwrap_or(workdir),
         default_threads: threads,
+        live,
     };
     eprintln!("kiln mcp: serving on stdio");
     tokio::runtime::Builder::new_multi_thread()

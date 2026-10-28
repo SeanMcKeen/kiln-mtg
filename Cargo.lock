@@ -937,6 +937,7 @@ dependencies = [
  "kiln-protocol",
  "kiln-sim",
  "kiln-testkit",
+ "kiln-types",
  "rmcp",
  "schemars",
  "serde",
@@ -1033,6 +1034,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "thiserror",
+ "ureq",
  "yaml_serde",
 ]
 

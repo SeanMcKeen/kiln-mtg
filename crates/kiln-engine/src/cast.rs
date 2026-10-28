@@ -1437,3 +1437,299 @@ impl Game {
         }
     }
 }
+
+/// Why an action isn't available (FR-E10, the judge tool): the rule and the
+/// reason, naming the card responsible.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Explanation {
+    pub cr: kiln_types::CrRef,
+    pub reason: String,
+}
+
+fn explain(cr: &str, reason: impl Into<String>) -> Explanation {
+    Explanation {
+        cr: cr
+            .parse()
+            .unwrap_or_else(|e| panic!("engine CR literal {cr:?}: {e}")),
+        reason: reason.into(),
+    }
+}
+
+impl Game {
+    /// Why `p` can't take `action` now: the checks the engine makes before
+    /// offering it, in order, each with its rule (FR-E10). Empty when the
+    /// action is offered now. Explanations come from the engine's own
+    /// checks, never from a policy ([[Judge Tool UX]]).
+    pub fn why_not(&self, p: PlayerId, action: &crate::decision::Action) -> Vec<Explanation> {
+        use crate::decision::Action;
+        let mut out = Vec::new();
+        let name = |id: ObjectId| self.object_name(id).unwrap_or("that object").to_owned();
+        match &self.pending {
+            Some(d) if self.decider_for(d.player) == p => match &d.kind {
+                DecisionKind::Priority { actions } if actions.contains(action) => return out,
+                DecisionKind::Priority { .. } => {}
+                _ => out.push(explain(
+                    "117.1",
+                    "the game is waiting for another kind of decision, not a priority action",
+                )),
+            },
+            _ => out.push(explain("117.1", format!("{p} doesn't have priority now"))),
+        }
+        if self.split_second_on_stack() && !matches!(action, Action::ActivateMana { .. }) {
+            out.push(explain(
+                "702.61a",
+                "a spell with split second is on the stack: only mana abilities can be activated",
+            ));
+        }
+        let sorcery_timing =
+            self.turn.active == p && self.turn.step.is_main() && self.stack.is_empty();
+        let timing = |out: &mut Vec<Explanation>, cr: &str, what: &str| {
+            let why = if self.turn.active != p {
+                "it isn't this player's turn"
+            } else if !self.turn.step.is_main() {
+                "it isn't a main phase"
+            } else {
+                "the stack isn't empty"
+            };
+            out.push(explain(
+                cr,
+                format!("{what} only at sorcery timing, and {why}"),
+            ));
+        };
+        match *action {
+            Action::Pass => {}
+            Action::PlayLand(id) => {
+                let Some(o) = self.obj(id) else {
+                    out.push(explain("305.1", "no such card"));
+                    return out;
+                };
+                if !self.obj_def(id).is_some_and(|d| d.is(CardType::Land)) {
+                    out.push(explain("305.1", format!("{} isn't a land", name(id))));
+                }
+                if o.zone != ZoneId::Hand(p) {
+                    out.push(explain(
+                        "305.1",
+                        format!("{} isn't in {p}'s hand", name(id)),
+                    ));
+                }
+                if !sorcery_timing {
+                    timing(&mut out, "305.1", "a land can be played");
+                }
+                if self.player(p).lands_played >= 1 {
+                    out.push(explain(
+                        "305.2",
+                        format!("{p} has already played a land this turn"),
+                    ));
+                }
+            }
+            Action::Cast(id) => {
+                let Some(o) = self.obj(id) else {
+                    out.push(explain("601.3", "no such card"));
+                    return out;
+                };
+                let def_id = o.def;
+                let def = self.def(def_id);
+                if def.is(CardType::Land) {
+                    out.push(explain(
+                        "305.1",
+                        format!("{} is a land: it's played, not cast", name(id)),
+                    ));
+                    return out;
+                }
+                let from_hand = o.zone == ZoneId::Hand(p);
+                let from_command = o.zone == ZoneId::Command && self.is_commander(id);
+                let permitted = self.cast_permitted(id, p)
+                    || self.exile_permission(id).is_some_and(|(who, _)| who == p)
+                    || self.escape_cost(id, p).is_some()
+                    || self.top_card_visible(p) == Some(id);
+                if !from_hand && !from_command && !permitted {
+                    out.push(explain(
+                        "601.3",
+                        format!(
+                            "{} is in {}, and nothing lets {p} cast it from there",
+                            name(id),
+                            crate::describe::zone(o.zone)
+                        ),
+                    ));
+                }
+                if let Some((source, what)) = self.cast_blocker(p, id) {
+                    let by = source.map_or_else(String::new, |s| format!("{}: ", name(s)));
+                    out.push(explain("101.2", format!("{by}{what}")));
+                }
+                if !(def.is(CardType::Instant) || def.keywords.has(Keywords::FLASH))
+                    && !sorcery_timing
+                {
+                    timing(&mut out, "117.1a", "a noninstant spell can be cast");
+                }
+                if let Some(spell) = def.spell()
+                    && let Effect::Modal { min, .. } = &spell.effect
+                    && self.ok_modes(def, None, p, None).len() < *min as usize
+                {
+                    out.push(explain(
+                        "700.2",
+                        "not enough of its modes can be chosen (they lack legal targets)",
+                    ));
+                }
+                if let Some(spec) = &def.enchant
+                    && !self.slot_ok(spec, p, None, def)
+                {
+                    out.push(explain(
+                        "303.4a",
+                        "an Aura needs something to enchant, and nothing can be",
+                    ));
+                }
+                if !self.spell_targets_ok(def, p) {
+                    out.push(explain("601.2c", "it has no legal target"));
+                }
+                let ctx = cast_ctx(def_id, def, None, id, p);
+                if out.is_empty() && self.cost_options(def, &ctx, p).is_empty() {
+                    out.push(explain("601.2h", format!("{p} can't pay its total cost")));
+                }
+            }
+            Action::Activate { source, ability } => {
+                let Some(o) = self.obj(source) else {
+                    out.push(explain("602.2", "no such object"));
+                    return out;
+                };
+                if o.controller != p {
+                    out.push(explain(
+                        "602.2",
+                        format!(
+                            "only {}'s controller can activate its abilities",
+                            name(source)
+                        ),
+                    ));
+                }
+                if let Some(by) = self.activation_blocker(p, source) {
+                    out.push(explain(
+                        "101.2",
+                        format!("{}: its abilities can't be activated", name(by)),
+                    ));
+                }
+                let Some(&(r, _)) = self.abilities_of(source).get(usize::from(ability)) else {
+                    out.push(explain(
+                        "602.2",
+                        format!("{} has no ability {}", name(source), ability + 1),
+                    ));
+                    return out;
+                };
+                let def = self.def(r.def);
+                let Some(x) = activated(def, r.ability) else {
+                    out.push(explain("602.2", "that isn't an activated ability"));
+                    return out;
+                };
+                if !ability_works_in(x, o.zone) {
+                    out.push(explain(
+                        "113.6b",
+                        "the ability doesn't work from the zone its source is in",
+                    ));
+                }
+                if x.timing == Timing::Sorcery && !sorcery_timing {
+                    timing(&mut out, "602.5d", "it can be activated");
+                }
+                if x.once_per_turn && self.activated_this_turn.contains(&(source, r.ability)) {
+                    out.push(explain(
+                        "602.5b",
+                        "it can be activated only once each turn, and already was",
+                    ));
+                }
+                if is_loyalty(x) {
+                    if !sorcery_timing {
+                        timing(&mut out, "606.3", "a loyalty ability can be activated");
+                    } else if self.activated_this_turn.contains(&(source, LOYALTY_USED)) {
+                        out.push(explain(
+                            "606.3",
+                            "a loyalty ability of this permanent was already activated this turn",
+                        ));
+                    }
+                }
+                if taps_source(def, Some(r.ability))
+                    && self.is_creature(source)
+                    && self.is_summoning_sick(source)
+                {
+                    out.push(explain(
+                        "302.6",
+                        format!(
+                            "{} hasn't been under its controller's control since the turn began",
+                            name(source)
+                        ),
+                    ));
+                }
+                if !x.targets.iter().all(|t| self.slot_ok(t, p, None, def)) {
+                    out.push(explain("601.2c", "it has no legal target"));
+                }
+                let ctx = cast_ctx(r.def, def, Some(r.ability), source, p);
+                if x.condition
+                    .as_ref()
+                    .is_some_and(|c| !self.condition(&ctx, c))
+                {
+                    out.push(explain(
+                        "602.5b",
+                        "its \"activate only if\" condition isn't met",
+                    ));
+                }
+                let except = taps_source(def, Some(r.ability)).then_some(source);
+                if out.is_empty()
+                    && !self
+                        .spell_shape(def, Some(r.ability), CastCost::Normal, source)
+                        .is_some_and(|shape| self.shape_payable(p, &ctx, &shape, 0, &[], except))
+                {
+                    out.push(explain("601.2h", format!("{p} can't pay its cost")));
+                }
+            }
+            Action::ActivateMana { source, ability } => {
+                if !self.can_activate_mana(p, source, ability) {
+                    out.push(explain("605.3a", format!("{} can't be activated for mana now (its cost can't be paid, or it's restricted)", name(source))));
+                }
+            }
+        }
+        out
+    }
+}
+
+impl Game {
+    /// The action `text` names for `p`, so tools can ask [`Game::why_not`]
+    /// by label: "Cast <card>", "Play <land>", "Activate <card> ability <n>"
+    /// (as option labels read), or a bare card name (cast, or play a land).
+    /// The card is looked for in `p`'s hand, the command zone, the
+    /// battlefield, `p`'s graveyard and exile, in that order.
+    pub fn action_for(&self, p: PlayerId, text: &str) -> Option<crate::decision::Action> {
+        use crate::decision::Action;
+        let text = text.trim();
+        let find = |name: &str| -> Option<ObjectId> {
+            let name = name.trim().to_lowercase();
+            let pl = self.player(p);
+            pl.hand
+                .iter()
+                .chain(&self.cmd.zone)
+                .chain(&self.battlefield)
+                .chain(&pl.graveyard)
+                .chain(&self.exile)
+                .copied()
+                .find(|id| {
+                    self.object_name(*id)
+                        .is_some_and(|n| n.to_lowercase() == name)
+                })
+        };
+        if let Some(rest) = text.strip_prefix("Activate ") {
+            let (card, n) = rest.rsplit_once(" ability ")?;
+            let n: u8 = n.trim().parse().ok()?;
+            return Some(Action::Activate {
+                source: find(card)?,
+                ability: n.checked_sub(1)?,
+            });
+        }
+        if let Some(card) = text.strip_prefix("Cast ") {
+            return Some(Action::Cast(find(card)?));
+        }
+        if let Some(card) = text.strip_prefix("Play ") {
+            return Some(Action::PlayLand(find(card)?));
+        }
+        let id = find(text)?;
+        Some(if self.obj_def(id).is_some_and(|d| d.is(CardType::Land)) {
+            Action::PlayLand(id)
+        } else {
+            Action::Cast(id)
+        })
+    }
+}

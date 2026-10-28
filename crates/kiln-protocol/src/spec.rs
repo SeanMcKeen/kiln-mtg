@@ -152,10 +152,24 @@ pub enum PolicySpec {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         guide: Option<Box<PolicySpec>>,
     },
-    /// A language model (M10).
+    /// A language model through the Anthropic API (M10): `ask: key` (the
+    /// default) asks only about key decisions; everything else, and anything
+    /// it fails to answer, goes to `fallback` (greedy by default). Calls a
+    /// paid API with `ANTHROPIC_API_KEY`; results aren't reproducible.
     Llm {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         model: Option<String>,
+        /// `key` or `all`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        ask: Option<String>,
+        /// At most this many requests per game (default 200).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max_calls: Option<u32>,
+        /// `low`, `medium`, `high`, `xhigh` or `max`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        effort: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        fallback: Option<Box<PolicySpec>>,
     },
 }
 

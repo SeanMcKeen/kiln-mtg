@@ -6,6 +6,8 @@
 pub mod deck;
 pub mod experiment;
 pub mod library;
+pub mod live;
+pub mod llm;
 pub mod runner;
 
 pub mod vanilla;

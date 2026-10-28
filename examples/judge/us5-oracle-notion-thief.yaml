@@ -1,0 +1,13 @@
+# US-5: "If I cast Thassa's Oracle with Notion Thief on the battlefield and my
+# library is empty, do I win?" Notion Thief replaces opponents' draws; the
+# Oracle's trigger compares devotion with the library and draws nothing.
+# Run: kiln judge examples/judge/us5-oracle-notion-thief.yaml
+scenario: kiln-scenario/1
+name: "US-5: Thassa's Oracle with an empty library while an opponent controls Notion Thief"
+players:
+  - battlefield: [Island, Island]
+    hand: ["Thassa's Oracle"]
+    library: []
+  - battlefield: [Notion Thief]
+turn: { number: 3, active: P1, step: precombat_main }
+script: []
