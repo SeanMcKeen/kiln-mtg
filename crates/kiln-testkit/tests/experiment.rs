@@ -214,3 +214,83 @@ opening_hands: { features: { fast_mana: [Sol Ring, Mana Vault, Chrome Mox] } }
         let _ = std::fs::remove_dir_all(d);
     }
 }
+
+#[test]
+fn playbook_policies_answer_and_report() {
+    if library().is_none() {
+        return;
+    }
+    let spec = POD.replace(
+        "default: { kind: greedy }",
+        "default: { kind: playbook, playbook: examples/playbooks/generic-cedh.rhai, fallback: { kind: greedy } }",
+    );
+    let dir = scratch("playbook");
+    let records = play(&spec, &dir, 2).unwrap_or_else(|e| panic!("{e}"));
+    let mut answered = 0;
+    for r in &records {
+        let stats = r
+            .policy_stats
+            .as_ref()
+            .unwrap_or_else(|| panic!("playbooks report stats"));
+        for s in stats {
+            answered += s.get("playbook:answered").copied().unwrap_or(0);
+            assert_eq!(s.get("playbook:errors"), None, "{s:?}");
+        }
+    }
+    assert!(answered > 0);
+    let _ = std::fs::remove_dir_all(dir);
+
+    // A compile error stops the run before any game, with its line.
+    let bad = std::env::temp_dir().join(format!("kiln-bad-{}.rhai", std::process::id()));
+    std::fs::write(&bad, "fn priority(view, d) {\n  let = 3;\n}\n")
+        .unwrap_or_else(|e| panic!("{e}"));
+    let spec = POD.replace(
+        "default: { kind: greedy }",
+        &format!("default: {{ kind: playbook, playbook: {} }}", bad.display()),
+    );
+    let err = play(&spec, &scratch("bad"), 1).expect_err("a broken playbook");
+    assert_eq!(err.exit_code(), 2);
+    assert!(err.to_string().contains(":2:"), "{err}");
+    let _ = std::fs::remove_file(bad);
+}
+
+#[test]
+fn playbook_check_reports_rules_and_compile_errors() {
+    let Some((db, lib)) = library() else {
+        return;
+    };
+    let root = repo_root();
+    let deck = root.join("tests/fixtures/decks/najeela.txt");
+    let check = experiment::check_playbook(
+        &deck,
+        &root.join("examples/playbooks/najeela.rhai"),
+        4,
+        db,
+        lib,
+    )
+    .unwrap_or_else(|e| panic!("{e}"));
+    assert_eq!(check.compile_error, None);
+    assert_eq!(check.games, 4);
+    assert!(check.hooks.contains(&"priority".to_owned()));
+    assert!(
+        check
+            .counters
+            .get("playbook:answered")
+            .copied()
+            .unwrap_or(0)
+            > 0
+    );
+    assert!(check.counters.contains_key("tag:land drop"));
+    assert!(check.errors.is_empty(), "{:?}", check.errors);
+
+    let bad = std::env::temp_dir().join(format!("kiln-check-{}.rhai", std::process::id()));
+    std::fs::write(&bad, "fn mulligan(view, d) {\n  return Keep\"\n}\n")
+        .unwrap_or_else(|e| panic!("{e}"));
+    let check =
+        experiment::check_playbook(&deck, &bad, 4, db, lib).unwrap_or_else(|e| panic!("{e}"));
+    let err = check
+        .compile_error
+        .unwrap_or_else(|| panic!("a syntax error"));
+    assert!(err.contains(":2:"), "{err}");
+    let _ = std::fs::remove_file(bad);
+}

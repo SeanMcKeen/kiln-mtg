@@ -9,7 +9,7 @@ Crate and packages: `kiln-mtg` (crates.io, PyPI, npm). CLI binary: `kiln`.
 
 ## Status
 
-**Milestone M7 (Simulation Lab v1) is in review.** The N-player Commander engine runs 278 verified real cards (the curated cEDH pool) with layers, triggers, replacement effects, loops and shortcuts, and the simulation lab runs declarative experiments: `kiln sim run spec.yaml` plays thousands of games of real decklists with balanced seating and reports win rates with 95% intervals, game shape, mulligans, per-card statistics, A/B comparisons and validity warnings. Pilots are baseline policies (random, greedy) until playbooks (M8) and search AI (M9). All scope, research, architecture and decisions live in the Obsidian vault under [`docs/`](docs/00%20Home.md). Start at **[docs/00 Home.md](docs/00%20Home.md)**.
+**Milestone M8 (agent integration) is in review.** The N-player Commander engine runs 278 verified real cards (the curated cEDH pool). The simulation lab runs declarative experiments (`kiln sim run spec.yaml`) and reports win rates with 95% intervals, game shape, mulligans, per-card statistics, A/B comparisons and validity warnings. Decks can be piloted by AI-written Rhai playbooks, and agents drive everything through an MCP server (`kiln mcp serve`) or the CLI; see [docs/agents/AGENT_GUIDE.md](docs/agents/AGENT_GUIDE.md). Search AI arrives in M9. All scope, research, architecture and decisions live in the Obsidian vault under [`docs/`](docs/00%20Home.md). Start at **[docs/00 Home.md](docs/00%20Home.md)**.
 
 ## Quick start
 

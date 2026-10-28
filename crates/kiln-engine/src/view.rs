@@ -444,9 +444,13 @@ impl<'g> PlayerView<'g> {
         self.game.players.len()
     }
 
-    /// The pending decision, if it's this viewer's.
+    /// The pending decision, if this viewer makes it (their own, or the
+    /// player they control's, CR 723.5).
     pub fn pending(&self) -> Option<&'g PendingDecision> {
-        self.game.pending.as_ref().filter(|d| d.player == self.me)
+        self.game
+            .pending
+            .as_ref()
+            .filter(|d| self.game.decider_for(d.player) == self.me)
     }
 
     pub fn option_label(&self, i: usize) -> Option<String> {
@@ -540,6 +544,23 @@ impl<'g> PlayerView<'g> {
             token: def.token,
             commander: self.game.is_commander(id),
         })
+    }
+
+    /// An owned copy of the game behind this view, for sandboxes that need
+    /// a `'static` handle (playbooks). Read it only through
+    /// [`Game::view`] for the same viewer, so nothing hidden leaks.
+    pub fn game_copy(&self) -> Game {
+        self.game.clone()
+    }
+
+    /// A player's graveyard (public, CR 404.2).
+    pub fn graveyard(&self, p: PlayerId) -> &'g [ObjectId] {
+        &self.game.player(p).graveyard
+    }
+
+    /// The command zone (public, CR 408).
+    pub fn command(&self) -> &'g [ObjectId] {
+        &self.game.cmd.zone
     }
 
     pub fn hand(&self) -> &'g [ObjectId] {

@@ -1,0 +1,16 @@
+# Isolating one playbook: only Kinnan uses its playbook; the others stay greedy.
+# Compare with examples/specs/m6-pod.yaml (same decks and seed, all greedy):
+#   kiln sim compare runs/m6-pod runs/m8-kinnan-playbook-only
+spec: kiln-spec/1
+name: m8-kinnan-playbook-only
+games: 400
+seed: 20261027
+decks:
+  - { id: kinnan, source: { file: ../../tests/fixtures/decks/kinnan-verified.txt } }
+  - { id: thrasios_tymna, source: { file: ../../tests/fixtures/decks/thrasios-tymna.txt } }
+  - { id: najeela, source: { file: ../../tests/fixtures/decks/najeela.txt } }
+  - { id: rograkh_silas, source: { file: ../../tests/fixtures/decks/rograkh-silas.txt } }
+policies:
+  default: { kind: greedy }
+  kinnan: { kind: playbook, playbook: ../playbooks/kinnan.rhai }
+limits: { max_turns: 100 }

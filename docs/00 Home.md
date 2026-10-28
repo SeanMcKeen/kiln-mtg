@@ -2,7 +2,7 @@
 type: hub
 status: living
 tags: [hub, moc]
-updated: 2026-10-22
+updated: 2026-10-27
 ---
 
 # Kiln: Home
@@ -27,7 +27,7 @@ updated: 2026-10-22
 | Rules map | [[CR to Subsystem Map]] | [[CR Structure]], [[Tricky Interactions Catalog]], [[CR Update Process]], `Rules Coverage.base` |
 | Card definitions | [[Card Definitions Problem Statement]] | Options, [[Oracle Text Corpus Analysis]], [[Evaluation Criteria]], [[Card Definition Spike Plan]] |
 | Card data | [[Card Data Sources]] | [[Ingestion Pipeline]], [[Card Data Model]], [[Legal & Licensing]] |
-| Interfaces | [[AI-Agent Integration Research]] | [[Library API]], [[CLI & REPL]], [[MCP Server Tool Catalog]], [[Python Package]], [[WASM Build]], [[Judge Tool UX]], [[Agent-Facing Docs Plan]] |
+| Interfaces | [[AI-Agent Integration Research]] | [[Library API]], [[CLI & REPL]], [[MCP Server Tool Catalog]], [[Python Package]], [[WASM Build]], [[Judge Tool UX]], [[Agent-Facing Docs Plan]], [[AGENT_GUIDE]] |
 | Simulation | [[Simulation Harness]] | [[Experiment Spec]], [[Deck Import]], [[Batch Runner & Parallelism]], [[Metrics Catalog]], [[Output Formats & Report Schema]], [[Reproducibility]], [[Validity & Caveats]] |
 | Players & policies | [[Policy Interface]] | [[A - Baseline Policies]], [[B - Playbooks]], [[C - LLM Live Decisions]], [[D - Search AI]], [[Policy Composition]], [[Measuring Play Quality]] |
 | Testing | [[Testing Strategy]] | [[CR-Cited Scenario Tests]], [[Scenario File Format]], [[Golden Replays]], [[Invariants & Property Tests]], [[Fuzzing via Random Play]] |

@@ -1,0 +1,152 @@
+# Kiln agent eval suite (M8 plan P8; MCP Server Tool Catalog, "Evaluation").
+# Each task is a user request given to an agent connected to `kiln mcp serve`
+# (workdir: a fresh directory; the test decks are under tests/fixtures/decks/).
+# `checks` are what a grader verifies from the transcript and the run
+# directories; `max_tool_calls` is a soft budget.
+version: 1
+tasks:
+  - id: us1-pod
+    story: US-1
+    prompt: >
+      Evaluate my Kinnan list (tests/fixtures/decks/kinnan-verified.txt) against
+      thrasios-tymna.txt, najeela.txt and rograkh-silas.txt in the same folder
+      over 2,000 games and tell me how it performs.
+    checks:
+      - imports all four decks and confirms they're legal and fully verified
+      - starts one pod run with 2,000 games and balanced seating
+      - polls status until complete instead of guessing results
+      - reports Kinnan's win rate with its 95% interval and by-seat rates
+      - says which decks can't be ranked because intervals overlap
+      - mentions that the pilots are baseline policies
+    max_tool_calls: 15
+
+  - id: us1-playbooks
+    story: US-1 (exit criterion)
+    prompt: >
+      Same four decks, but write a playbook for Kinnan first so it's piloted
+      sensibly, validate it, then run 2,000 games and compare against greedy
+      pilots.
+    checks:
+      - writes a Rhai playbook that compiles (kiln_playbook_validate, no compile error)
+      - fixes any runtime errors the validation reports
+      - runs a spec where only Kinnan's policy changes (others stay greedy)
+      - compares with a greedy run and reads the difference with its p-value/intervals
+      - doesn't claim an improvement the intervals don't support
+    max_tool_calls: 25
+
+  - id: us2-goldfish
+    story: US-2
+    prompt: How fast does najeela.txt win with no interaction? What's its typical win turn?
+    checks:
+      - uses mode goldfish with passive opponents
+      - reports the median win turn as Najeela's own turn, with its interval
+      - mentions the capped-game rate if games hit the turn limit
+    max_tool_calls: 8
+
+  - id: us4-hands
+    story: US-4
+    prompt: >
+      What fraction of kinnan-verified.txt's opening hands are kept, and how often
+      does a kept hand have fast mana (Sol Ring, Mana Vault, Grim Monolith, Chrome
+      Mox, Mox Diamond, Lotus Petal)?
+    checks:
+      - uses mode opening_hands with a fast_mana feature listing those cards
+      - reports keep rate at 7 and the feature rate with intervals
+    max_tool_calls: 8
+
+  - id: ab-swap
+    story: A/B
+    prompt: Should najeela.txt play Sol Ring instead of Abrupt Decay? Test it.
+    checks:
+      - uses mode ab with a swap out Abrupt Decay / in Sol Ring
+      - reports the paired difference and its interval
+      - concludes "can't tell" if the interval includes zero
+    max_tool_calls: 10
+
+  - id: coverage-gate
+    story: deck import
+    prompt: Run 1,000 games of tests/fixtures/decks/kinnan.txt against najeela.txt.
+    checks:
+      - imports kinnan.txt and notices unsupported cards
+      - tells the user which cards the engine can't run and doesn't silently substitute
+      - offers a fix (a verified list, or coverage warn for parsed-only cards)
+    max_tool_calls: 8
+
+  - id: misspelled-card
+    story: card lookup
+    prompt: Does the engine support Thassas Oracle and Demonic Consultaton?
+    checks:
+      - uses kiln_card_lookup and reports the corrected names
+      - reports each card's engine support level
+    max_tool_calls: 4
+
+  - id: bad-spec-recovery
+    story: errors
+    prompt: >
+      Run this spec: "spec: kiln-spec/1\nname: quick\ngmaes: 100\ndecks: [...]"
+      with the four test decks.
+    checks:
+      - reads the "did you mean `games`" error and fixes the key
+      - the corrected run completes
+    max_tool_calls: 10
+
+  - id: inspect-fast-win
+    story: game inspection
+    prompt: In the last pod run, show me the fastest win and explain how it happened.
+    checks:
+      - finds the fastest win (from the report's next hints or records)
+      - calls kiln_game_inspect for that game
+      - explains the game from the events, citing cards by name
+    max_tool_calls: 6
+
+  - id: seat-bias
+    story: statistics
+    prompt: Does seat order matter in these simulations?
+    checks:
+      - reads by-seat win rates from a balanced-rotation run
+      - reports seat 1 vs seat 4 with intervals
+      - notes that real cEDH has a strong seat-1 edge and baseline pilots may not show it
+    max_tool_calls: 6
+
+  - id: per-card
+    story: per-card metrics
+    prompt: Which cards in kinnan-verified.txt matter most?
+    checks:
+      - enables per_card for Kinnan and reads the detailed report (paginated)
+      - explains that per-card numbers are correlational (IWD confounding)
+      - suggests A/B runs for causal answers
+    max_tool_calls: 10
+
+  - id: rules-oracle
+    story: rules judge
+    prompt: >
+      If I cast Thassa's Oracle with Demonic Consultation exiling my library in
+      response to its trigger, do I win? Show it in the engine.
+    checks:
+      - writes a kiln-scenario/1 board and runs kiln_rules_scenario
+      - reports the result (a win) from the engine, not from memory
+    max_tool_calls: 8
+
+  - id: cancel-resume
+    story: async runs
+    prompt: Start a 20,000-game pod of the four test decks, then stop it, then resume it.
+    checks:
+      - starts the run, cancels with kiln_sim_status cancel=true
+      - resumes by running the same spec again and it completes
+    max_tool_calls: 12
+
+  - id: compare-runs
+    story: compare
+    prompt: Compare the greedy pod with the playbook pod you ran earlier.
+    checks:
+      - uses kiln_sim_compare and reports differences with p-values
+      - warns that independent runs changed several things at once
+    max_tool_calls: 5
+
+  - id: small-sample
+    story: statistics
+    prompt: Run 50 games of the four test decks and tell me which deck is best.
+    checks:
+      - runs it but reports that intervals are wide and overlap
+      - refuses to name a best deck without more games, or recommends ~5,000
+    max_tool_calls: 6

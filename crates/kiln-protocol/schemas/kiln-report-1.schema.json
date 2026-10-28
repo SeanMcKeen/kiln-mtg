@@ -203,6 +203,13 @@
             }
           ]
         },
+        "policies": {
+          "description": "Each deck's policy recipe and how often each component answered.",
+          "items": {
+            "$ref": "#/$defs/DeckPolicy"
+          },
+          "type": "array"
+        },
         "timing": {
           "anyOf": [
             {
@@ -305,6 +312,47 @@
         "deck",
         "kept_at",
         "win_rate_by_mulligans"
+      ],
+      "type": "object"
+    },
+    "DeckPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "counters": {
+          "additionalProperties": {
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "description": "Totals over its games: `playbook:answered`, `fallback:answered`,\n`playbook:errors`, `tag:<name>`, ….",
+          "type": "object"
+        },
+        "deck": {
+          "type": "string"
+        },
+        "errors": {
+          "description": "A few runtime errors, if any.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "playbook_share": {
+          "description": "Share of its decisions the playbook answered.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "recipe": {
+          "description": "\"playbook(kinnan.rhai) → greedy\".",
+          "type": "string"
+        }
+      },
+      "required": [
+        "deck",
+        "recipe"
       ],
       "type": "object"
     },

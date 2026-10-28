@@ -19,11 +19,6 @@ use super::stats::{
 };
 use super::{ExperimentError, OPPONENT, store};
 
-/// Rounds to 4 decimal places, as reports do.
-pub fn r4_pub(x: f64) -> f64 {
-    r4(x)
-}
-
 /// The Comprehensive Rules version the engine implements.
 pub const CR_VERSION: &str = "2026-06-19";
 
@@ -328,7 +323,73 @@ fn config_report(spec: &Spec, config: &str, records: &[&GameRecord]) -> ConfigRe
         interaction: m.interaction.then(|| interaction_report(spec, records)),
         mana: m.mana.then(|| mana_report(spec, records)),
         timing,
+        policies: policy_report(spec, records),
     }
+}
+
+/// A policy recipe in words ("playbook(kinnan.rhai) → greedy").
+pub fn recipe(p: &PolicySpec) -> String {
+    match p {
+        PolicySpec::Random { pass } => format!("random(pass {pass}‰)"),
+        PolicySpec::Greedy => "greedy".into(),
+        PolicySpec::Passive => "passive".into(),
+        PolicySpec::Playbook { playbook, fallback } => format!(
+            "playbook({playbook}) → {}",
+            fallback.as_deref().map_or_else(|| "greedy".into(), recipe)
+        ),
+        PolicySpec::Compose { chain } => chain.iter().map(recipe).collect::<Vec<_>>().join(" → "),
+        PolicySpec::Search { .. } => "search".into(),
+        PolicySpec::Llm { .. } => "llm".into(),
+    }
+}
+
+/// Each deck's recipe and component counts (Policy Composition: "the report
+/// states each seat's policy recipe, and how often each component answered").
+fn policy_report(spec: &Spec, records: &[&GameRecord]) -> Vec<kiln_protocol::report::DeckPolicy> {
+    deck_order(spec, records)
+        .into_iter()
+        .map(|d| {
+            let base = spec.variants.get(&d).map(|v| v.base.clone());
+            let p = spec
+                .policies
+                .get(&d)
+                .or_else(|| base.as_ref().and_then(|b| spec.policies.get(b)))
+                .or_else(|| spec.policies.get("default"))
+                .cloned()
+                .unwrap_or_default();
+            let mut counters: BTreeMap<String, u64> = BTreeMap::new();
+            let mut errors: Vec<String> = Vec::new();
+            for r in records {
+                let Some(seat) = r.seats.iter().position(|s| *s == d) else {
+                    continue;
+                };
+                if let Some(s) = r.policy_stats.as_ref().and_then(|v| v.get(seat)) {
+                    for (k, n) in s {
+                        *counters.entry(k.clone()).or_default() += n;
+                    }
+                }
+                let prefix = format!("seat {}: ", seat + 1);
+                for e in r.policy_errors.iter().flatten() {
+                    if let Some(msg) = e.strip_prefix(&prefix)
+                        && errors.len() < 5
+                        && !errors.iter().any(|x| x == msg)
+                    {
+                        errors.push(msg.to_owned());
+                    }
+                }
+            }
+            let answered = counters.get("playbook:answered").copied().unwrap_or(0);
+            let fallback = counters.get("fallback:answered").copied().unwrap_or(0);
+            kiln_protocol::report::DeckPolicy {
+                deck: d,
+                recipe: recipe(&p),
+                playbook_share: (answered + fallback > 0)
+                    .then(|| r4(answered as f64 / (answered + fallback) as f64)),
+                counters,
+                errors,
+            }
+        })
+        .collect()
 }
 
 /// Validity warnings computed from results (Validity & Caveats).
@@ -354,6 +415,18 @@ fn result_warnings(spec: &Spec, manifest: &RunManifest, configs: &[ConfigReport]
         "pilots are baseline policies ({}): results measure this play, not expert play (search AI arrives in M9)",
         kinds.into_iter().collect::<Vec<_>>().join(", ")
     ));
+    for c in configs {
+        for p in &c.policies {
+            if let Some(e) = p.errors.first() {
+                w.push(format!(
+                    "{}: {}'s playbook raised {} runtime error(s), which deferred to its fallback; first: {e}",
+                    c.config,
+                    p.deck,
+                    p.counters.get("playbook:errors").copied().unwrap_or(0)
+                ));
+            }
+        }
+    }
     if spec.metrics.per_card.enabled {
         w.push("per-card statistics are correlational (long games see more cards; tutors bias what's seen): use mode: ab for causal answers".into());
     }
@@ -680,6 +753,34 @@ pub fn markdown(r: &Report) -> String {
                         let _ = writeln!(s, "| {} | — | | no wins |", d.deck);
                     }
                 }
+            }
+            s.push('\n');
+        }
+        if c.policies.iter().any(|p| !p.counters.is_empty()) {
+            let _ = writeln!(
+                s,
+                "| Deck | Policy | Playbook answered | Top tags |\n|---|---|---|---|"
+            );
+            for p in &c.policies {
+                let mut tags: Vec<(&String, &u64)> = p
+                    .counters
+                    .iter()
+                    .filter(|(k, _)| k.starts_with("tag:"))
+                    .collect();
+                tags.sort_by(|a, b| b.1.cmp(a.1).then(a.0.cmp(b.0)));
+                let tags: Vec<String> = tags
+                    .iter()
+                    .take(4)
+                    .map(|(k, n)| format!("{} ×{n}", k.trim_start_matches("tag:")))
+                    .collect();
+                let _ = writeln!(
+                    s,
+                    "| {} | {} | {} | {} |",
+                    p.deck,
+                    p.recipe,
+                    p.playbook_share.map_or_else(|| "—".into(), pct),
+                    tags.join(", ")
+                );
             }
             s.push('\n');
         }

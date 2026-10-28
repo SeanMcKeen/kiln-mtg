@@ -132,7 +132,11 @@ pub enum PolicySpec {
     Greedy,
     /// Always passes and declines (goldfish opponents).
     Passive,
-    /// A deck playbook (M8).
+    /// Ask each in turn; the first that answers decides (the last must
+    /// always answer: random, greedy, passive or a playbook).
+    Compose { chain: Vec<PolicySpec> },
+    /// A deck playbook (a Rhai script, relative to the spec); decisions it
+    /// doesn't answer go to `fallback` (greedy by default).
     Playbook {
         playbook: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -165,6 +169,7 @@ impl PolicySpec {
             Self::Random { .. } => "random",
             Self::Greedy => "greedy",
             Self::Passive => "passive",
+            Self::Compose { .. } => "compose",
             Self::Playbook { .. } => "playbook",
             Self::Search { .. } => "search",
             Self::Llm { .. } => "llm",

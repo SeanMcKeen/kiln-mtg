@@ -1,0 +1,19 @@
+# Playbook pilots: each deck uses its own playbook with a greedy fallback.
+# Compare with examples/specs/m6-pod.yaml (same decks and seed, greedy pilots):
+#   kiln sim run examples/specs/m8-playbook-pod.yaml --threads 2
+#   kiln sim compare runs/m6-pod runs/m8-playbook-pod
+spec: kiln-spec/1
+name: m8-playbook-pod
+games: 400
+seed: 20261027
+decks:
+  - { id: kinnan, source: { file: ../../tests/fixtures/decks/kinnan-verified.txt } }
+  - { id: thrasios_tymna, source: { file: ../../tests/fixtures/decks/thrasios-tymna.txt } }
+  - { id: najeela, source: { file: ../../tests/fixtures/decks/najeela.txt } }
+  - { id: rograkh_silas, source: { file: ../../tests/fixtures/decks/rograkh-silas.txt } }
+policies:
+  kinnan: { kind: playbook, playbook: ../playbooks/kinnan.rhai }
+  thrasios_tymna: { kind: playbook, playbook: ../playbooks/thrasios-tymna.rhai }
+  najeela: { kind: playbook, playbook: ../playbooks/najeela.rhai }
+  rograkh_silas: { kind: playbook, playbook: ../playbooks/rograkh-silas.rhai }
+limits: { max_turns: 100 }

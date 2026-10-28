@@ -18,7 +18,7 @@ A live table is in `Decisions.base`. New ADRs use the [[ADR Template]]. Accepted
 | [[ADR-0005 Determinism and Replay]] | Seeded, replayable, bit-identical | ✅ accepted 2026-10-21 |
 | [[ADR-0006 Pluggable Decision-Makers]] | All four policy kinds | ✅ accepted |
 | [[ADR-0007 Card Definition Approach]] | How cards get behaviour | ✅ accepted 2026-10-21: D (hybrid) |
-| [[ADR-0008 AI-Agent and External Interfaces]] | Protocol + CLI + MCP + docs (+ Py/WASM) | 🟡 proposed (M7/M8) |
+| [[ADR-0008 AI-Agent and External Interfaces]] | Protocol + CLI + MCP + docs (+ Py/WASM) | ✅ accepted (M8) |
 | [[ADR-0009 Card Data Source of Truth]] | Scryfall primary, MTGJSON secondary | ✅ accepted 2026-10-21 |
 | [[ADR-0010 Commander-First N-Player Core]] | Commander-first | ✅ accepted |
 | [[ADR-0011 Experiment Spec and Report Schema]] | Spec, report, replay schemas | ✅ accepted (M7) |

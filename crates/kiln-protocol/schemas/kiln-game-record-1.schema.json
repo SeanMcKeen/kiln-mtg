@@ -282,6 +282,31 @@
     "outcome": {
       "$ref": "#/$defs/Outcome"
     },
+    "policy_errors": {
+      "description": "The first playbook runtime errors (\"seat 2: priority: …\").",
+      "items": {
+        "type": "string"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "policy_stats": {
+      "description": "Per seat: which policy component answered, playbook tags and errors.",
+      "items": {
+        "additionalProperties": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "type": "object"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
     "seats": {
       "description": "The deck id in each seat, in turn order (seat 1 plays first).\nGoldfish opponents are `opponent`.",
       "items": {

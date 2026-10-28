@@ -55,6 +55,12 @@ pub struct GameRecord {
     /// `mode: opening_hands`: the hand seat 1 kept.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hand: Option<Vec<String>>,
+    /// Per seat: which policy component answered, playbook tags and errors.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub policy_stats: Option<Vec<BTreeMap<String, u64>>>,
+    /// The first playbook runtime errors ("seat 2: priority: …").
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub policy_errors: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

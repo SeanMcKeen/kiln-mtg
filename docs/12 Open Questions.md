@@ -35,8 +35,8 @@ Each question has an owner note and a target milestone. Move a question to **Res
 ## Simulation & policies
 | # | Question | Owner note | Target |
 |---|---|---|---|
+| Q40 | **MCP over Streamable HTTP.** M8 serves MCP over stdio only. `rmcp`'s Streamable HTTP server needs an HTTP stack (axum/hyper/tower). Add it behind a cargo feature when remote agents need it? | [[MCP Server Tool Catalog]] | M10 |
 | Q39 | **No seat-1 advantage with baseline pilots.** In US-1 (5,000 greedy games) seat 1 wins 24.2% and seat 4 25.6%, while real cEDH shows a strong first-seat edge ([[Statistics for Multiplayer Simulation]]). Greedy games run long (median 46 turns), so turn order washes out. Reproducing the seat-1 advantage should be one of M9's play-quality checks ([[Measuring Play Quality]]). | [[Measuring Play Quality]] | M9 |
-| Q30 | Playbook language: Rhai vs. Lua vs. declarative YAML | [[B - Playbooks]] | M8 |
 | Q31 | Multiplayer search backup rule (max^n vs. paranoid vs. other) | [[D - Search AI]] | M9 |
 | Q32 | Should `open_decklists` default to true? | [[Hidden Information & Player Views]] | M7 |
 | Q33 | Where run artifacts live for remote MCP clients | [[AI-Agent Integration Research]] | M8 |
@@ -47,6 +47,7 @@ Each question has an owner note and a target milestone. Move a question to **Res
 ## Resolved
 | # | Question | Resolution |
 |---|---|---|
+| Q30 | Playbook language | Rhai (M8): pure Rust, a built-in sandbox with limits, deterministic, JS-like syntax. See [[B - Playbooks]]. |
 | Q26 | Loops that move cards between zones | M6 6.7d: loop identity hashes object ids by arena slot (`kiln_types::hash_ids_by_slot`, CR 400.7), without object timestamps or attachments of departed objects. Worldgorger Dragon + Animate Dead is detected as a mandatory loop and drawn (T12, CR 104.4b). |
 | Q27 | An Aura entering without being cast chooses its host | M6 6.7d: it chooses as it enters (CR 303.4f; a `choose_card` decision with purpose `Enchant`, automatic with one legal object) and stays in its zone with none (303.4g). |
 | R1 | Language | Rust ([[ADR-0001 Rust as Engine Language]]) |
