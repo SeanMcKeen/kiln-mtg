@@ -18,6 +18,7 @@ use kiln_policy::{Compose, GreedyPolicy, PassivePolicy, Policy, RandomPolicy};
 use kiln_protocol::record::{BASE_CONFIG, Elimination, GameRecord, Outcome, Timing};
 use kiln_protocol::spec::{Mode, PolicySpec, Seating};
 use kiln_protocol::{ResolvedSpec, parse};
+use kiln_search::{PolicyFactory, SearchConfig, SearchPolicy};
 use kiln_types::{OracleId, PlayerId};
 
 use super::{ExperimentError, ResolvedDeck, facts, resolve_decks};
@@ -66,7 +67,7 @@ pub struct Experiment {
     play: Vec<PlayDeck>,
     configs: Vec<Config>,
     /// Compiled playbooks by their path in the spec.
-    books: BTreeMap<String, Arc<Playbook>>,
+    books: Books,
 }
 
 impl Experiment {
@@ -206,7 +207,7 @@ impl Experiment {
             pool: Arc::new(pool),
             play,
             configs,
-            books,
+            books: Arc::new(books),
         })
     }
 
@@ -292,29 +293,8 @@ impl Experiment {
             .collect()
     }
 
-    /// A policy from its recipe (M8 plan P4).
     fn build_policy(&self, p: &PolicySpec) -> Box<dyn Policy> {
-        match p {
-            PolicySpec::Random { pass } => Box::new(RandomPolicy::new(*pass)),
-            PolicySpec::Passive => Box::new(PassivePolicy),
-            PolicySpec::Playbook { playbook, fallback } => {
-                let fallback = fallback.as_deref().map_or_else(
-                    || self.build_policy(&PolicySpec::Greedy),
-                    |f| self.build_policy(f),
-                );
-                match self.books.get(playbook) {
-                    Some(b) => Box::new(PlaybookPolicy::new(Arc::clone(b), fallback)),
-                    None => fallback,
-                }
-            }
-            PolicySpec::Compose { chain } => Box::new(Compose::new(
-                chain.iter().map(|q| self.build_policy(q)).collect(),
-            )),
-            // Rejected by validation until their milestones.
-            PolicySpec::Greedy | PolicySpec::Search { .. } | PolicySpec::Llm { .. } => {
-                Box::new(GreedyPolicy::default())
-            }
-        }
+        build_policy(p, &self.books)
     }
 
     /// The policy recipe of each deck, for reports.
@@ -572,6 +552,48 @@ impl Experiment {
     ) -> Result<Self, ExperimentError> {
         let resolved = kiln_protocol::load_spec(text)?;
         Self::prepare(resolved, spec_dir, db, lib)
+    }
+}
+
+/// Compiled playbooks by their path in the spec.
+type Books = Arc<BTreeMap<String, Arc<Playbook>>>;
+
+/// A policy from its recipe (M8 plan P4).
+fn build_policy(p: &PolicySpec, books: &Books) -> Box<dyn Policy> {
+    match p {
+        PolicySpec::Random { pass } => Box::new(RandomPolicy::new(*pass)),
+        PolicySpec::Passive => Box::new(PassivePolicy),
+        PolicySpec::Playbook { playbook, fallback } => {
+            let fallback = fallback.as_deref().map_or_else(
+                || build_policy(&PolicySpec::Greedy, books),
+                |f| build_policy(f, books),
+            );
+            match books.get(playbook) {
+                Some(b) => Box::new(PlaybookPolicy::new(Arc::clone(b), fallback)),
+                None => fallback,
+            }
+        }
+        PolicySpec::Compose { chain } => Box::new(Compose::new(
+            chain.iter().map(|q| build_policy(q, books)).collect(),
+        )),
+        PolicySpec::Search { budget, guide } => {
+            let guide = guide.as_deref().cloned().unwrap_or(PolicySpec::Greedy);
+            let name = build_policy(&guide, books).name();
+            let books = Arc::clone(books);
+            let make: PolicyFactory = Arc::new(move || build_policy(&guide, &books));
+            Box::new(SearchPolicy::guided(
+                SearchConfig {
+                    iterations: budget.iterations,
+                    rollout_depth: budget.rollout_depth,
+                    max_ms: budget.ms,
+                    ..SearchConfig::default()
+                },
+                name,
+                make,
+            ))
+        }
+        // Rejected by validation until M10.
+        PolicySpec::Greedy | PolicySpec::Llm { .. } => Box::new(GreedyPolicy::default()),
     }
 }
 

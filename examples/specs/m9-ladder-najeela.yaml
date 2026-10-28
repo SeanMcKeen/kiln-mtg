@@ -1,0 +1,20 @@
+# Policy ladder (M9 plan S10): a Najeela mirror with two search seats and two
+# greedy seats. Balanced rotation moves every copy through every seat; the
+# search seats' share of the wins measures search against greedy (50% = no
+# better). The v1 bar is 70% ([[Measuring Play Quality]]).
+# Run: kiln sim run examples/specs/m9-ladder-najeela.yaml --threads 2
+spec: kiln-spec/1
+name: m9-ladder-najeela
+games: 200
+seed: 9
+seating: balanced_rotation
+open_decklists: true
+decks:
+  - { id: search_a, source: { file: ../../tests/fixtures/decks/najeela.txt } }
+  - { id: greedy_a, source: { file: ../../tests/fixtures/decks/najeela.txt } }
+  - { id: search_b, source: { file: ../../tests/fixtures/decks/najeela.txt } }
+  - { id: greedy_b, source: { file: ../../tests/fixtures/decks/najeela.txt } }
+policies:
+  default: { kind: greedy }
+  search_a: { kind: search }
+  search_b: { kind: search }

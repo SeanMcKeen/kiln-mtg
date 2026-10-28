@@ -14,6 +14,7 @@ mod commander;
 mod counters;
 pub mod decision;
 pub mod decks;
+mod determinize;
 mod effects;
 mod engine;
 pub mod escapes;

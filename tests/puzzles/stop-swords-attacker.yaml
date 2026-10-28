@@ -1,0 +1,19 @@
+puzzle: kiln-puzzle/1
+name: "Swords to Plowshares an attacker to survive"
+kind: stop_the_win
+solver: P2
+within_turns: 0
+opponents: greedy
+board:
+  scenario: kiln-scenario/1
+  name: "Swords to Plowshares an attacker to survive"
+  players:
+    - battlefield: [Grizzly Bears, Grizzly Bears]
+    - battlefield: [Plains]
+      hand: [Swords to Plowshares]
+      life: 3
+  turn: { number: 3, active: P1, step: declare_attackers }
+  script:
+    - choose: Grizzly Bears attacks P2
+    - choose: Grizzly Bears attacks P2
+    - pass: 1

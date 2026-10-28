@@ -27,5 +27,10 @@ Without measurement, "the search AI plays decently" is just a claim ([[Design Pr
 - Beats `greedy` with ≥ 70% head-to-head win share in mirror pods.
 - Monotone in budget.
 
+## As implemented (M9)
+- Puzzle suite: `tests/puzzles/*.yaml` (`kiln-puzzle/1`: a scenario board plus `kind`, `solver`, `within_turns`, `opponents`), run with `kiln dev puzzles --policy search|greedy [--iterations N]`. Nine "win now" and five "stop the win" puzzles on real cards.
+- Ladder: `examples/specs/m9-ladder-najeela.yaml` (two search and two greedy Najeela seats); budget monotonicity: `examples/specs/m9-budget-najeela.yaml`.
+- Results against the v1 bar are in [[M9 Search AI]]: 8/9 and 5/5 puzzles, 82% mirror share, monotone in budget.
+
 ## Related
 [[D - Search AI]] · [[Validity & Caveats]] · [[M9 Search AI]]

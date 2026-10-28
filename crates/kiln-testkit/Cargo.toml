@@ -12,6 +12,7 @@ kiln-types.workspace = true
 kiln-cards.workspace = true
 kiln-data = { workspace = true, default-features = false }
 kiln-engine.workspace = true
+kiln-policy.workspace = true
 regex.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -19,7 +20,6 @@ thiserror.workspace = true
 yaml_serde.workspace = true
 
 [dev-dependencies]
-kiln-policy.workspace = true
 kiln-sim.workspace = true
 kiln-protocol.workspace = true
 

@@ -405,6 +405,13 @@ impl Policy for GreedyPolicy {
         "greedy".into()
     }
 
+    /// Forgets the last game's once-per-turn bookkeeping (search reuses one
+    /// greedy pilot across playouts).
+    fn begin_game(&mut self, _seat: PlayerId, _seed: u64) {
+        self.turn = 0;
+        self.activated.clear();
+    }
+
     fn decide(&mut self, view: &PlayerView<'_>, d: &PendingDecision) -> u32 {
         let i = match &d.kind {
             DecisionKind::Mulligan { mulligans_taken } => Self::mulligan(view, *mulligans_taken),

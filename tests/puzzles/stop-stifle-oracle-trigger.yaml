@@ -1,0 +1,20 @@
+puzzle: kiln-puzzle/1
+name: "Stifle Thassa's Oracle's trigger"
+kind: stop_the_win
+solver: P2
+within_turns: 0
+opponents: greedy
+board:
+  scenario: kiln-scenario/1
+  name: "Stifle Thassa's Oracle's trigger"
+  players:
+    - battlefield: [Island, Island]
+      hand: ["Thassa's Oracle"]
+      library: []
+    - battlefield: [Island]
+      hand: [Stifle]
+  script:
+    - choose: "Cast Thassa's Oracle"
+    - choose: "Pay with Island, Island"
+    - pass_all
+    - pass: 1

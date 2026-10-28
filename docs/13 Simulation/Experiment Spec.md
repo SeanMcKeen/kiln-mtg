@@ -31,8 +31,8 @@ decks:
     source: { file: decks/thrasios-tymna.txt }
 
 policies:                    # per deck (follows the deck across seats); can also be per seat
-  default: { kind: search, budget: { iterations: 400 }, playbook_hints: true }
-  kinnan:  { kind: search, budget: { iterations: 400 }, playbook: playbooks/kinnan.rhai }
+  default: { kind: search, budget: { iterations: 32, rollout_depth: 100 } }
+  kinnan:  { kind: search, guide: { kind: playbook, playbook: playbooks/kinnan.rhai } }
   najeela: { kind: playbook, playbook: playbooks/najeela.rhai, fallback: { kind: greedy } }
 
 limits:
@@ -80,7 +80,7 @@ paired: true                 # same seeds per pair → common random numbers
 ## As implemented (M7)
 - Types live in `kiln-protocol` (`crates/kiln-protocol/src/spec.rs`); the JSON Schema is `crates/kiln-protocol/schemas/kiln-spec-1.schema.json`. Examples: `examples/specs/`.
 - Defaults: `format: commander`, `mode: pod`, `games: 1000`, `seed: 0`, `seating: balanced_rotation`, `limits: { max_turns: 100, max_decisions: 200000, coverage: require_verified }`, metrics `win_rates`, `game_shape` and `mulligans` on, `outputs: { dir: runs/<name>, summary: json, tables: jsonl, replays: { keep: interesting, max: 50 } }`.
-- Policy kinds now: `random { pass }`, `greedy` (the default), `passive`. `playbook` (M8), `search` (M9) and `llm` (M10) are rejected with the milestone that brings them. Policies follow the deck; a variant uses its own entry, else its base deck's, else `default`.
+- Policy kinds now: `random { pass }`, `greedy` (the default), `passive`, `playbook { playbook, fallback }` and `compose { chain }` (M8), and `search { budget: { iterations, rollout_depth, ms }, guide }` (M9; defaults 32 iterations, depth 100, guide greedy). `llm` (M10) is rejected with the milestone that brings it. A search `guide` must always answer and not search; a playbook guide makes it playbook-guided search ([[D - Search AI]]). Policies follow the deck; a variant uses its own entry, else its base deck's, else `default`.
 - Deck sources: `file` (relative to the spec), `text`, `moxfield_export` (pasted text). URLs arrive with M8.
 - Seat 1 always plays first; seating moves the decks. `all_permutations` cycles through all N! orders.
 - Goldfish opponents play decks of Islands and never act. `opening_hands` deals and mulligans each deck in a 4-player pod with three passive opponents (so the first mulligan is free, CR 103.5c) and stops as turn 1 begins; `opening_hands.features` names card groups to look for in kept hands.

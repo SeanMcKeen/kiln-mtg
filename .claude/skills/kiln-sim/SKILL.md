@@ -27,5 +27,6 @@ Kiln plays thousands of rules-exact Commander games from decklists and an experi
 
 - Give win rates **with their intervals**. If intervals overlap, say the decks can't be ranked from this run.
 - Pass on the report's warnings: baseline pilots (greedy/random aren't expert play), capped games, unverified cards, few games.
+- For stronger play use `{ kind: search }` (about 3 s per game per thread; start with a few hundred games, `open_decklists: true`), optionally `guide: { kind: playbook, … }`.
 - For "should I play X?", run `mode: ab`. Per-card numbers are correlational.
 - Win turn means the deck's own turn number.

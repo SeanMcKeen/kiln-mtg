@@ -7,5 +7,14 @@ license.workspace = true
 publish.workspace = true
 description = "ISMCTS search player."
 
+[dependencies]
+kiln-engine.workspace = true
+kiln-policy.workspace = true
+kiln-types.workspace = true
+
+[dev-dependencies]
+kiln-cards.workspace = true
+kiln-testkit.workspace = true
+
 [lints]
 workspace = true

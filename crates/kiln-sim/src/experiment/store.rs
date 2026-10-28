@@ -154,7 +154,17 @@ pub fn run(
         done: manifest.games_done,
         total,
     });
-    for chunk in todo.chunks(CHUNK) {
+    // Search games take seconds each: checkpoint (and report progress) often.
+    let searching = spec
+        .policies
+        .values()
+        .any(|p| matches!(p, kiln_protocol::spec::PolicySpec::Search { .. }));
+    let chunk_size = if searching {
+        (pool.current_num_threads() * 2).max(2)
+    } else {
+        CHUNK
+    };
+    for chunk in todo.chunks(chunk_size) {
         let played: Vec<Option<Played>> = pool.install(|| {
             chunk
                 .par_iter()

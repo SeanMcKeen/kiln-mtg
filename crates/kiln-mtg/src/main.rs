@@ -157,6 +157,25 @@ enum DevCmd {
         #[arg(long)]
         json: bool,
     },
+    /// Run the puzzle suite (`tests/puzzles/`, M9): positions with a known
+    /// answer, solved by greedy or the search AI. Prints solve rates by kind.
+    Puzzles {
+        #[command(flatten)]
+        db: DbArgs,
+        /// `greedy` or `search`.
+        #[arg(long, default_value = "search")]
+        policy: String,
+        /// Search iterations per decision.
+        #[arg(long, default_value_t = 32)]
+        iterations: u32,
+        /// Search playout depth (real choices).
+        #[arg(long, default_value_t = 100)]
+        depth: u32,
+        #[arg(long, default_value = "tests/puzzles")]
+        dir: PathBuf,
+        #[arg(long)]
+        json: bool,
+    },
     /// Check every `CR x.y` citation in code and docs against the Comprehensive Rules.
     CrCheck {
         /// Normalized CR text (see CLAUDE.md for how to download it).
@@ -317,6 +336,60 @@ fn run(cli: Cli) -> Result<ExitCode> {
         Command::Game(cmd) => game::game(cmd),
         Command::Playbook(cmd) => playbook::playbook(cmd),
         Command::Mcp(cmd) => mcp::mcp(cmd),
+        Command::Dev(DevCmd::Puzzles {
+            db,
+            policy,
+            iterations,
+            depth,
+            dir,
+            json,
+        }) => {
+            let (db, _) = db.load()?;
+            let defs =
+                kiln_cards::defs::load_dir(&kiln_testkit::real::repo_root().join("cards/defs"))?;
+            let pool = std::sync::Arc::new(kiln_testkit::real::real_pool(&db, &defs).0);
+            let make: Box<dyn Fn() -> Box<dyn kiln_policy::Policy>> = match policy.as_str() {
+                "greedy" => Box::new(|| Box::new(kiln_policy::GreedyPolicy::default())),
+                "search" => Box::new(move || {
+                    Box::new(kiln_search::SearchPolicy::greedy(
+                        kiln_search::SearchConfig {
+                            iterations,
+                            rollout_depth: depth,
+                            ..kiln_search::SearchConfig::default()
+                        },
+                    ))
+                }),
+                other => anyhow::bail!("--policy must be greedy or search, not {other:?}"),
+            };
+            let s = kiln_testkit::puzzle::run_suite(&dir, &pool, make.as_ref())
+                .map_err(|e| anyhow::anyhow!(e))?;
+            if json {
+                print_json(&s)?;
+            } else {
+                println!("{}", s.policy);
+                for r in &s.results {
+                    println!(
+                        "  {}  {:<36} {} ({} decisions)",
+                        if r.solved { "solved" } else { "FAILED" },
+                        r.file,
+                        r.outcome,
+                        r.decisions
+                    );
+                }
+                for e in &s.errors {
+                    println!("  ERROR  {e}");
+                }
+                println!(
+                    "win now: {}/{}, stop the win: {}/{}",
+                    s.win_now.0, s.win_now.1, s.stop_the_win.0, s.stop_the_win.1
+                );
+            }
+            Ok(if s.errors.is_empty() {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::from(2)
+            })
+        }
         Command::Dev(DevCmd::VerifyCards { db, list, json }) => {
             let (db, _) = db.load()?;
             let r = kiln_testkit::real::verify(&db).map_err(|e| anyhow::anyhow!(e))?;

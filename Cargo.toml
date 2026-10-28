@@ -21,6 +21,7 @@ kiln-protocol = { path = "crates/kiln-protocol" }
 kiln-testkit = { path = "crates/kiln-testkit" }
 kiln-playbook = { path = "crates/kiln-playbook" }
 kiln-mcp = { path = "crates/kiln-mcp" }
+kiln-search = { path = "crates/kiln-search" }
 
 # External
 anyhow = "1"

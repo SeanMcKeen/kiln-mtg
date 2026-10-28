@@ -1,0 +1,15 @@
+puzzle: kiln-puzzle/1
+name: "Attack with everything: one blocker can't stop lethal"
+kind: win_now
+solver: P1
+within_turns: 0
+opponents: greedy
+board:
+  scenario: kiln-scenario/1
+  name: "Attack with everything: one blocker can't stop lethal"
+  players:
+    - battlefield: [Grizzly Bears, Grizzly Bears, Grizzly Bears]
+    - battlefield: [Grizzly Bears]
+      life: 4
+  turn: { number: 3, active: P1, step: precombat_main }
+  script: []

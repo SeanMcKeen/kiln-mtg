@@ -1,0 +1,14 @@
+puzzle: kiln-puzzle/1
+name: "Dark Ritual first so Brain Freeze's storm mills all six cards"
+kind: win_now
+solver: P1
+within_turns: 1
+opponents: greedy
+board:
+  scenario: kiln-scenario/1
+  name: "Dark Ritual first so Brain Freeze's storm mills all six cards"
+  players:
+    - battlefield: [Swamp, Island]
+      hand: [Dark Ritual, Brain Freeze]
+    - library: [Island, Island, Island, Island, Island, Island]
+  script: []

@@ -37,7 +37,6 @@ Each question has an owner note and a target milestone. Move a question to **Res
 |---|---|---|---|
 | Q40 | **MCP over Streamable HTTP.** M8 serves MCP over stdio only. `rmcp`'s Streamable HTTP server needs an HTTP stack (axum/hyper/tower). Add it behind a cargo feature when remote agents need it? | [[MCP Server Tool Catalog]] | M10 |
 | Q39 | **No seat-1 advantage with baseline pilots.** In US-1 (5,000 greedy games) seat 1 wins 24.2% and seat 4 25.6%, while real cEDH shows a strong first-seat edge ([[Statistics for Multiplayer Simulation]]). Greedy games run long (median 46 turns), so turn order washes out. Reproducing the seat-1 advantage should be one of M9's play-quality checks ([[Measuring Play Quality]]). | [[Measuring Play Quality]] | M9 |
-| Q31 | Multiplayer search backup rule (max^n vs. paranoid vs. other) | [[D - Search AI]] | M9 |
 | Q32 | Should `open_decklists` default to true? | [[Hidden Information & Player Views]] | M7 |
 | Q33 | Where run artifacts live for remote MCP clients | [[AI-Agent Integration Research]] | M8 |
 | Q34 | Observation encoding for the Python RL environment | [[Python Package]] | M12 |
@@ -47,6 +46,7 @@ Each question has an owner note and a target milestone. Move a question to **Res
 ## Resolved
 | # | Question | Resolution |
 |---|---|---|
+| Q31 | Multiplayer search backup rule | Opponent-model backups (M9): the tree holds only the searcher's decisions and each player's value is its own expected outcome, with greedy playing the others. With tens of iterations per decision, opponents' nodes in a max^n tree would get no visits. See [[ADR-0014 Search AI Design]]. |
 | Q41 | Turn limits in own turns? | Kept in game turns (they match the event log and the CR's turn numbers). The default `max_turns: 100` is 25 own turns in a pod; the 60-turn override in the goldfish example was the problem and is gone (Najeela goldfish capped 32.9% → 1.4%). The capped warning now states the limit in turns per player. The fastest-win hint ranks by the winner's own turn and puts wins by opponents decking last. |
 | Q30 | Playbook language | Rhai (M8): pure Rust, a built-in sandbox with limits, deterministic, JS-like syntax. See [[B - Playbooks]]. |
 | Q26 | Loops that move cards between zones | M6 6.7d: loop identity hashes object ids by arena slot (`kiln_types::hash_ids_by_slot`, CR 400.7), without object timestamps or attachments of departed objects. Worldgorger Dragon + Animate Dead is detected as a mandatory loop and drawn (T12, CR 104.4b). |

@@ -1,0 +1,15 @@
+puzzle: kiln-puzzle/1
+name: "Thassa's Oracle with Tainted Pact exiling a singleton library"
+kind: win_now
+solver: P1
+within_turns: 0
+opponents: greedy
+board:
+  scenario: kiln-scenario/1
+  name: "Thassa's Oracle with Tainted Pact exiling a singleton library"
+  players:
+    - battlefield: [Island, Island, Swamp, Swamp]
+      hand: ["Thassa's Oracle", Tainted Pact]
+      library: [Opt, Ponder, Preordain, Brainstorm]
+    - {}
+  script: []

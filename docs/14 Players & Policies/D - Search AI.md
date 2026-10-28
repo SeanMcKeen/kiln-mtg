@@ -39,3 +39,13 @@ Clone cost and playout speed set quality per millisecond ([[Performance & Cheap 
 
 ## Related
 [[MCTS & ISMCTS for MTG]] · [[Measuring Play Quality]] · [[M9 Search AI]]
+
+## As implemented (M9)
+`kiln-search` (`SearchPolicy`), decided in [[ADR-0014 Search AI Design]]:
+- `PlayerView::determinize(seed)` in the engine samples a game consistent with the view (others' hands and libraries redealt from their real decks, own library reshuffled, RNG reseeded).
+- SO-ISMCTS over the searching player's own decisions; every seat plays greedy inside playouts, the searcher's too (a playbook guide gives the prior; a Rhai call per playout decision was five times slower). Q31: opponent-model backups, no max^n tree in v1.
+- Integer PUCT (exploration 0.7, the guide's pick 40% of the prior), progressive widening for priority, up to 8 options elsewhere; the final choice is the best mean value among well-tried options.
+- Playouts cut at `rollout_depth` real choices (default 100) and scored by `evaluate_after`: discounted wins (1000 − 25/turn, ≥ 850), late losses (≤ 40), heuristic positions in 50–800.
+- Guards: each ability at most once a turn; at most 40 searched decisions a turn.
+- Spec: `{ kind: search, budget: { iterations: 32, rollout_depth: 100, ms }, guide: <policy> }`. `SearchPolicy::last_search()` exposes the last decision's options with visits and values.
+- Puzzle suite: `tests/puzzles/` and `kiln dev puzzles` ([[Measuring Play Quality]]).
