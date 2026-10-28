@@ -1,0 +1,9 @@
+card: "Wayfarer's Bauble"
+faces:
+  - abilities:
+      - activated:
+          cost: [{ mana: "{2}" }, tap, { sacrifice: { one: this } }]
+          effect:
+            seq:
+              - search: { who: you, filter: { types: [land], supertypes: [basic] }, count: 1, to: battlefield_tapped, reveal: false }
+              - shuffle: you

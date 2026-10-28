@@ -544,6 +544,9 @@ pub enum PlayerRuleKind {
     CreaturesCantAttack,
     /// "You have no maximum hand size" (Reliquary Tower; CR 402.2, 514.1).
     NoMaximumHandSize,
+    /// "Untap all permanents you control during each other player's untap
+    /// step" (Seedborn Muse; CR 502.3).
+    UntapDuringOthersUntapSteps,
 }
 
 /// A base power or toughness set by a static ability (CR 613.4b).

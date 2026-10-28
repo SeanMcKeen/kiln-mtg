@@ -1,0 +1,19 @@
+scenario: kiln-scenario/1
+name: "Painlands: {C} painlessly, or one of two colors with 1 damage"
+cr: ["605.1a", "106.1"]
+verifies: [Shivan Reef, Battlefield Forge, Caves of Koilos, Yavimaya Coast]
+players:
+  - battlefield: [Shivan Reef, Battlefield Forge, Caves of Koilos, Yavimaya Coast]
+  - {}
+script:
+  - choose: "Tap Shivan Reef for {C}"
+  - choose: Tap Battlefield Forge for mana
+  - choose: "Add {R}"
+  - choose: Tap Caves of Koilos for mana
+  - choose: "Add {B}"
+  - choose: Tap Yavimaya Coast for mana
+  - choose: "Add {G}"
+  - check:
+      pool: { P1: "{B}{R}{G}{C}" }
+expect:
+  life: { P1: 17 }

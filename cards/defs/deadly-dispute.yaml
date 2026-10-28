@@ -1,0 +1,10 @@
+card: Deadly Dispute
+faces:
+  - abilities:
+      - spell:
+          additional_costs:
+            - sacrifice: { chosen_from: { who: you, zone: battlefield, filter: { types: [artifact, creature] }, count: 1 } }
+          effect:
+            seq:
+              - draw: { who: you, amount: 2 }
+              - create_token: { token: { predefined: Treasure }, count: 1, controller: you }

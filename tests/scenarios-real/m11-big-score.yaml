@@ -1,0 +1,19 @@
+scenario: kiln-scenario/1
+name: "Big Score: discard a card as an additional cost; draw two and make two Treasures"
+cr: ["601.2b", "111.10a"]
+verifies: [Big Score]
+players:
+  - battlefield: [Mountain, Mountain, Mountain, Mountain]
+    hand: [Big Score, Island]
+    library: [Opt, Ponder]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Big Score
+  - choose: "Pay with Mountain, Mountain, Mountain, Mountain"
+  - pass_all
+expect:
+  zones:
+    P1.hand: [Opt, Ponder]
+    P1.graveyard: [Island, Big Score]
+    P1.battlefield: [Mountain, Mountain, Mountain, Mountain, Treasure, Treasure]

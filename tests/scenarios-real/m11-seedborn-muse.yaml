@@ -1,0 +1,14 @@
+scenario: kiln-scenario/1
+name: "Seedborn Muse: untap all permanents you control during each other player's untap step"
+cr: ["502.3"]
+verifies: [Seedborn Muse]
+players:
+  - battlefield: [Seedborn Muse, { card: Forest, tapped: true }, { card: Mana Vault, tapped: true }]
+  - battlefield: [{ card: Island, tapped: true }]
+  - battlefield: [{ card: Swamp, tapped: true }]
+turn: { number: 3, active: P2, step: end }
+script:
+  - pass_all
+expect:
+  # Mana Vault "doesn't untap during your untap step", but this is P3's.
+  tapped: { Forest: false, Mana Vault: false, Island: true, Swamp: false }

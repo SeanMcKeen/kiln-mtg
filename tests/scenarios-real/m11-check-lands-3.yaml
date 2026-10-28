@@ -1,0 +1,13 @@
+scenario: kiln-scenario/1
+name: "Rootbound Crag enters untapped with a Mountain"
+cr: ["614.1c"]
+verifies: [Rootbound Crag]
+players:
+  - battlefield: [Mountain]
+    hand: [Rootbound Crag]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Play Rootbound Crag
+expect:
+  tapped: { Rootbound Crag: false }

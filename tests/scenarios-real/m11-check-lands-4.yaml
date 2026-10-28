@@ -1,0 +1,13 @@
+scenario: kiln-scenario/1
+name: "Sunpetal Grove enters tapped without a Forest or a Plains"
+cr: ["614.1c"]
+verifies: [Sunpetal Grove]
+players:
+  - battlefield: [Island, Mountain]
+    hand: [Sunpetal Grove]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Play Sunpetal Grove
+expect:
+  tapped: { Sunpetal Grove: true }

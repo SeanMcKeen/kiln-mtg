@@ -1714,14 +1714,29 @@ impl Game {
                 // CR 502.3: untap all permanents the active player controls. No priority (CR 117.3a).
                 if self.active_in_game() {
                     let exempt = self.untap_exempt();
+                    // Seedborn Muse: other players untap theirs too; "doesn't
+                    // untap during your untap step" doesn't stop that.
+                    let others: SmallVec<[PlayerId; 4]> = self
+                        .turn_order_from(active)
+                        .into_iter()
+                        .filter(|p| {
+                            *p != active
+                                && self.player_has_rule(
+                                    *p,
+                                    kiln_cards::ir::PlayerRuleKind::UntapDuringOthersUntapSteps,
+                                )
+                        })
+                        .collect();
                     let ids: Vec<ObjectId> = self
                         .battlefield
                         .iter()
                         .copied()
                         .filter(|id| {
-                            self.obj(*id)
-                                .is_some_and(|o| o.controller == active && o.tapped)
-                                && !exempt.contains(id)
+                            self.obj(*id).is_some_and(|o| {
+                                o.tapped
+                                    && ((o.controller == active && !exempt.contains(id))
+                                        || others.contains(&o.controller))
+                            })
                         })
                         .collect();
                     for id in ids {
