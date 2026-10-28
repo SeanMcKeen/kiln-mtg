@@ -1,0 +1,19 @@
+scenario: kiln-scenario/1
+name: "Nature's Lore puts a land from the library onto the battlefield"
+cr: ["701.23a"]
+verifies: ["Nature's Lore"]
+players:
+  - battlefield: [Forest, Forest]
+    hand: ["Nature's Lore"]
+    library: [Island, Forest, Grizzly Bears]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: "Cast Nature's Lore"
+  - choose: "Pay with Forest, Forest"
+  - pass_all
+  - choose: Find Forest
+expect:
+  zones:
+    P1.battlefield: [Forest, Forest, Forest]
+  tapped: { Forest#3: false }

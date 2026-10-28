@@ -1,0 +1,13 @@
+scenario: kiln-scenario/1
+name: "Sunken Hollow enters untapped with two basic lands"
+cr: ["614.1c", "305.6"]
+verifies: ["Sunken Hollow"]
+players:
+  - battlefield: [Island, Forest]
+    hand: ["Sunken Hollow"]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: "Play Sunken Hollow"
+expect:
+  tapped: { "Sunken Hollow": false }

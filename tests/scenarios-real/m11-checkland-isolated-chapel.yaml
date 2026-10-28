@@ -1,0 +1,19 @@
+scenario: kiln-scenario/1
+name: "Isolated Chapel enters untapped with a Swamp and taps for either color"
+cr: ["614.1c", "305.6"]
+verifies: ["Isolated Chapel"]
+players:
+  - battlefield: [Swamp]
+    hand: ["Isolated Chapel"]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: "Play Isolated Chapel"
+  - check:
+      tapped: { "Isolated Chapel": false }
+  - choose: "Tap Isolated Chapel for mana"
+  - check:
+      decision: { player: P1, kind: choose_mana, options_include: ["Add {W}", "Add {B}"] }
+  - choose: "Add {B}"
+expect:
+  pool: { P1: "{B}" }

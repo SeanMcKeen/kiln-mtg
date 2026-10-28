@@ -194,21 +194,34 @@ impl Game {
     /// Whether a permanent with definition `def` entering under `controller`'s
     /// control enters tapped: its own "enters tapped" or another permanent's
     /// (CR 614.12: an effect from another source doesn't apply to itself).
-    pub(crate) fn enters_tapped(&self, def: DefId, controller: PlayerId) -> bool {
+    pub(crate) fn enters_tapped(&self, def: DefId, controller: PlayerId, id: ObjectId) -> bool {
         let taps = |r: &ir::ReplacementAbility| {
             matches!(r.instead, Effect::EntersTapped) && r.condition.is_none()
         };
-        self.replacements(def)
-            .any(|(_, r)| matches!(&r.event, ReplaceEvent::WouldEnter(f) if f.this) && taps(r))
-            || self.battlefield.iter().any(|&s| {
-                self.obj(s).is_some_and(|o| {
-                    self.abilities_of(s).iter().any(|(_, a)| {
-                        matches!(a, Ability::Replacement(r) if taps(r)
+        // Its own "enters tapped unless [condition]" (check lands, battle lands):
+        // the condition is checked as it would enter, so it doesn't count itself.
+        let self_taps = |i: u8, r: &ir::ReplacementAbility| {
+            matches!(r.instead, Effect::EntersTapped)
+                && r.condition.as_ref().is_none_or(|c| {
+                    let ctx = crate::effects::EffectCtx::new(
+                        crate::effects::AbilityRef { def, ability: i },
+                        id,
+                        controller,
+                    );
+                    self.condition(&ctx, c)
+                })
+        };
+        self.replacements(def).any(|(i, r)| {
+            matches!(&r.event, ReplaceEvent::WouldEnter(f) if f.this) && self_taps(i, r)
+        }) || self.battlefield.iter().any(|&s| {
+            self.obj(s).is_some_and(|o| {
+                self.abilities_of(s).iter().any(|(_, a)| {
+                    matches!(a, Ability::Replacement(r) if taps(r)
                             && matches!(&r.event, ReplaceEvent::WouldEnter(f)
                                 if !f.this && def_matches(self, def, controller, f, o.controller)))
-                    })
                 })
             })
+        })
     }
 
     /// A self-replacement that replaces this object entering ("If this would

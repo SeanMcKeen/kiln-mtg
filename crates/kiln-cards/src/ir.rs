@@ -529,6 +529,8 @@ pub enum PlayerRuleKind {
     /// "Creatures [player] controls can't attack" (Orim's Chant kicked:
     /// "creatures can't attack this turn" applies to every player).
     CreaturesCantAttack,
+    /// "You have no maximum hand size" (Reliquary Tower; CR 402.2, 514.1).
+    NoMaximumHandSize,
 }
 
 /// A base power or toughness set by a static ability (CR 613.4b).
@@ -692,6 +694,10 @@ pub enum Effect {
         /// "Search your library and/or graveyard" (Finale of Devastation).
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         graveyard: bool,
+        /// "put one onto [to] and the other into [rest_to]" (Cultivate): the
+        /// first card found goes to `to`, the rest here.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        rest_to: Option<Destination>,
     },
     Shuffle(PlayerRef),
     /// CR 701.22

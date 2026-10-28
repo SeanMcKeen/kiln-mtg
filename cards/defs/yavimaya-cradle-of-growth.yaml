@@ -1,0 +1,10 @@
+card: "Yavimaya, Cradle of Growth"
+faces:
+  - abilities:
+      # Layer 4: every land gains the Forest type and so its mana ability (CR 305.6).
+      - static:
+          effect:
+            land_type:
+              affected: { types: [land] }
+              land_type: Forest
+              replace: false

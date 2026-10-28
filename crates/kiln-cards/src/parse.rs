@@ -868,6 +868,7 @@ fn search(c: &mut Cur) -> Option<Effect> {
         reveal,
         max_mana_value: None,
         graveyard: false,
+        rest_to: None,
     })
 }
 

@@ -1,0 +1,9 @@
+card: "Glacial Fortress"
+faces:
+  - abilities:
+      # "This land enters tapped unless you control an Plains or a Island" (CR 614.1c).
+      - replacement:
+          event: { would_enter: { this: true } }
+          condition: { not: { at_least: [{ count: { subtypes: [Plains, Island], controller: you } }, 1] } }
+          instead: enters_tapped
+      - activated: { cost: [tap], effect: { add_mana: { mana: { one_of: ["{W}", "{U}"] } } } }

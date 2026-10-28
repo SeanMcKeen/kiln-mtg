@@ -1,0 +1,9 @@
+card: Kodama's Reach
+faces:
+  - abilities:
+      - spell:
+          effect:
+            seq:
+              # One search: the first card found goes onto the battlefield tapped, the other to hand.
+              - search: { who: you, filter: { types: [land], supertypes: [basic] }, count: 2, to: battlefield_tapped, rest_to: hand, reveal: true }
+              - shuffle: you

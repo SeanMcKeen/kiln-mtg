@@ -1,0 +1,19 @@
+scenario: kiln-scenario/1
+name: "Clifftop Retreat enters untapped with a Plains and taps for either color"
+cr: ["614.1c", "305.6"]
+verifies: ["Clifftop Retreat"]
+players:
+  - battlefield: [Plains]
+    hand: ["Clifftop Retreat"]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: "Play Clifftop Retreat"
+  - check:
+      tapped: { "Clifftop Retreat": false }
+  - choose: "Tap Clifftop Retreat for mana"
+  - check:
+      decision: { player: P1, kind: choose_mana, options_include: ["Add {R}", "Add {W}"] }
+  - choose: "Add {W}"
+expect:
+  pool: { P1: "{W}" }

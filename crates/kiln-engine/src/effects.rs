@@ -275,6 +275,8 @@ pub(crate) enum AfterPick {
         /// An Opposition Agent whose controller controls the search.
         agent: Option<ObjectId>,
         to: Destination,
+        /// Where the cards after the first go (Cultivate).
+        rest_to: Option<Destination>,
         reveal: bool,
     },
     /// Put this many +1/+1 counters on the pick (amass, CR 701.47a).
@@ -1370,6 +1372,7 @@ impl Game {
                 reveal,
                 max_mana_value,
                 graveyard,
+                rest_to,
             } => {
                 let Some(p) = self.player_ref(&t.ctx, who) else {
                     return Flow::Continue;
@@ -1426,6 +1429,7 @@ impl Game {
                         searcher: p,
                         agent: agent.map(|(a, _)| a),
                         to: *to,
+                        rest_to: *rest_to,
                         reveal: *reveal,
                     },
                 }));
@@ -3561,6 +3565,7 @@ impl Game {
                 searcher,
                 agent,
                 to,
+                rest_to,
                 reveal,
             } => {
                 let who = searcher;
@@ -3603,8 +3608,9 @@ impl Game {
                         self.player_mut(who).library.push(id);
                     }
                 } else {
-                    for id in picked {
-                        self.place_or_defer(t, id, to, who);
+                    for (i, id) in picked.into_iter().enumerate() {
+                        let dest = if i == 0 { to } else { rest_to.unwrap_or(to) };
+                        self.place_or_defer(t, id, dest, who);
                     }
                 }
             }

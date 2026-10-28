@@ -543,6 +543,10 @@ fn replacement(r: &kiln_cards::ir::ReplacementAbility) -> Check {
     use kiln_cards::ir::ReplaceEvent as R;
     match (&r.event, &r.instead) {
         (R::WouldEnter(_), Effect::EntersTapped) if r.condition.is_none() => Ok(()),
+        // Its own "enters tapped unless …" (check lands, battle lands).
+        (R::WouldEnter(f), Effect::EntersTapped) if f.this => {
+            r.condition.as_ref().map_or(Ok(()), condition)
+        }
         (R::WouldEnter(f), Effect::EntersWithCounters { amount, .. })
             if f.this && r.condition.is_none() =>
         {

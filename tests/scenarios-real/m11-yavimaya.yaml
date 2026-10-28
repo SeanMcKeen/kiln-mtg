@@ -1,0 +1,14 @@
+scenario: kiln-scenario/1
+name: "Yavimaya, Cradle of Growth makes every land a Forest too"
+cr: ["305.6", "613.1d"]
+verifies: ["Yavimaya, Cradle of Growth"]
+players:
+  - battlefield: ["Yavimaya, Cradle of Growth", Island]
+  - battlefield: [Swamp]
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - check:
+      decision: { player: P1, kind: priority, options_include: ["Tap Island for {U}", "Tap Island for {G}", "Tap Yavimaya, Cradle of Growth for {G}"] }
+  - choose: "Tap Island for {G}"
+expect:
+  pool: { P1: "{G}" }

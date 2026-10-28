@@ -1,0 +1,22 @@
+scenario: kiln-scenario/1
+name: "Path to Exile: the exiled creature's controller may fetch a basic land tapped"
+cr: ["608.2d", "701.23a"]
+verifies: [Path to Exile]
+players:
+  - battlefield: [Plains]
+    hand: [Path to Exile]
+  - battlefield: [Grizzly Bears]
+    library: [Forest, Island]
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Cast Path to Exile
+  - choose: Target Grizzly Bears (P2)
+  - choose: Pay with Plains
+  - pass_all
+  - { player: P2, choose: "Yes" }
+  - { player: P2, choose: Find Island }
+expect:
+  zones:
+    exile: [Grizzly Bears]
+    P2.battlefield: [Island]
+  tapped: { Island: true }

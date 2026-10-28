@@ -1,0 +1,13 @@
+scenario: kiln-scenario/1
+name: "A check land enters tapped without the land types it checks for"
+cr: ["614.1c"]
+verifies: [Sulfur Falls]
+players:
+  - battlefield: [Forest]
+    hand: [Sulfur Falls]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: Play Sulfur Falls
+expect:
+  tapped: { Sulfur Falls: true }

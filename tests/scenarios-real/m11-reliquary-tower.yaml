@@ -1,0 +1,15 @@
+scenario: kiln-scenario/1
+name: "Reliquary Tower: no maximum hand size, so cleanup discards nothing"
+cr: ["402.2", "514.1"]
+verifies: [Reliquary Tower]
+players:
+  - battlefield: [Reliquary Tower]
+    hand: [Island, Island, Island, Island, Island, Island, Island, Island, Island]
+  - {}
+turn: { number: 3, active: P1, step: end }
+script:
+  - pass_all
+expect:
+  zones:
+    P1.hand: [Island, Island, Island, Island, Island, Island, Island, Island, Island]
+    P1.graveyard: []

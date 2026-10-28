@@ -918,7 +918,7 @@ impl Game {
         // CR 614.1c-d, 614.12: "enters tapped" modifies the event itself.
         let tapped = to == ZoneId::Battlefield
             && self.pool.has_replacements()
-            && self.enters_tapped(old.def, controller);
+            && self.enters_tapped(old.def, controller, id);
         let timestamp = self.next_timestamp();
         self.bump_layers();
         let new = self.objects.alloc(GameObject {
@@ -1859,7 +1859,9 @@ impl Game {
     /// CR 514: cleanup.
     fn cleanup(&mut self, discarded: bool) {
         let active = self.turn.active;
-        if !discarded && self.active_in_game() {
+        let no_maximum =
+            self.player_has_rule(active, kiln_cards::ir::PlayerRuleKind::NoMaximumHandSize);
+        if !discarded && !no_maximum && self.active_in_game() {
             // CR 514.1: discard down to maximum hand size, one card at a time (D1).
             let hand = self.player(active).hand.clone();
             let excess = u32::try_from(hand.len())

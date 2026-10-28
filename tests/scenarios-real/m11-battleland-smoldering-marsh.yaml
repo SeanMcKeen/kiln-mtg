@@ -1,0 +1,13 @@
+scenario: kiln-scenario/1
+name: "Smoldering Marsh enters untapped with two basic lands"
+cr: ["614.1c", "305.6"]
+verifies: ["Smoldering Marsh"]
+players:
+  - battlefield: [Island, Forest]
+    hand: ["Smoldering Marsh"]
+  - {}
+turn: { number: 3, active: P1, step: precombat_main }
+script:
+  - choose: "Play Smoldering Marsh"
+expect:
+  tapped: { "Smoldering Marsh": false }

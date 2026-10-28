@@ -1,0 +1,8 @@
+card: Nature's Lore
+faces:
+  - abilities:
+      - spell:
+          effect:
+            seq:
+              - search: { who: you, filter: { subtypes: [Forest] }, count: 1, to: battlefield, reveal: false }
+              - shuffle: you
