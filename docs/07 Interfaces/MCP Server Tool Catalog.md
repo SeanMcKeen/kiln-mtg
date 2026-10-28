@@ -50,6 +50,7 @@ These are workflow-shaped and namespaced `kiln_*` tools, served by `kiln mcp ser
 
 ## Evaluation (M8)
 Write about 15 realistic agent tasks (US-1 through US-8 variants), run them with Claude, and measure success, tool calls, tokens and errors. Iterate on descriptions.
+- M10: `kiln_rules_scenario` takes judge `commands` (`why-not`, `why`, choices). `--live` adds `kiln_live_start` / `kiln_live_decide` / `kiln_live_view` ([[C - LLM Live Decisions]] has the payload); they're removed from the tool list otherwise.
 
 ## Related
 [[AI-Agent Integration Research]] · [[CLI & REPL]] · [[Output Formats & Report Schema]]

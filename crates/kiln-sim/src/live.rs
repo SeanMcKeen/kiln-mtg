@@ -180,6 +180,54 @@ impl LiveGame {
         self.advance()
     }
 
+    /// Lets the seat's own spec policy (search, a playbook…) answer the
+    /// caller's next `count` decisions (0: the rest of the game), keeping its
+    /// reasons in the replay. For handing the routine part of a game back.
+    pub fn auto(&mut self, count: u32) -> Result<u32, String> {
+        let me = self.me.0 as usize;
+        let mut done = 0;
+        while self.waiting() && (count == 0 || done < count) {
+            let Some(d) = self.game.pending().cloned() else {
+                break;
+            };
+            let p = &mut self.policies[me];
+            let c = p.decide(&self.game.view(self.me), &d);
+            let why = p.rationale();
+            self.recorder
+                .apply(
+                    &mut self.game,
+                    c.min(u32::try_from(d.option_count().saturating_sub(1)).unwrap_or(0)),
+                )
+                .map_err(|e| e.to_string())?;
+            if let Some(w) = why {
+                self.recorder.annotate(format!("{} (auto): {w}", self.me));
+            }
+            done += 1;
+            self.advance()?;
+        }
+        Ok(done)
+    }
+
+    /// Why the caller can't take an action now (`Cast <card>`, `Play <land>`,
+    /// `Activate <card> ability <n>`, or a card name): the engine's reasons
+    /// with CR rules, or that it's available.
+    pub fn why_not(&self, what: &str) -> String {
+        let Some(action) = self.game.action_for(self.me, what) else {
+            return format!(
+                "{what}: you have no card or ability by that name in your hand, on the battlefield, in your graveyard, exile or the command zone"
+            );
+        };
+        let reasons = self.game.why_not(self.me, &action);
+        if reasons.is_empty() {
+            return format!("{what}: available now");
+        }
+        let r: Vec<String> = reasons
+            .iter()
+            .map(|e| format!("CR {}: {}", e.cr, e.reason))
+            .collect();
+        format!("{what}: {}", r.join("; "))
+    }
+
     /// The game so far as an annotated replay.
     pub fn replay(&self) -> Replay {
         self.recorder.clone().finish(&self.game, self.setup.clone())
@@ -251,6 +299,7 @@ pub fn view_payload(
             "deck": decks.get(p).cloned().unwrap_or_default(),
             "you": pid == me,
             "in_game": pub_.in_game,
+            "won": matches!(view.result(), Some(GameResult::Win { player, .. }) if *player == pid),
             "life": pub_.life,
             "hand": pub_.hand_count,
             "library": pub_.library_count,

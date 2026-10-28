@@ -21,5 +21,11 @@ updated: 2026-10-20
 ## Explanation quality bar
 Every explanation must cite a CR rule or an Oracle ruling. Policies never generate explanations. They come from the engine's event metadata ([[Event System]]). LLMs may *phrase* explanations nicely, but they must not invent rules.
 
+## As implemented (M10)
+- `kiln judge <scenario.yaml> [-c <command>]…`: runs the scenario's script, then reads commands (interactive, or `-c` for agents): a number or label chooses; `why-not [P2] <label or card>`; `why <event #>`; `events [n]`; `view`; `branch` / `back`; `result`. The real-card pool is used when the card DB exists.
+- `why-not` comes from `Game::why_not`, which walks the engine's own legality checks in order and names the responsible card (e.g. `CR 101.2: Test Abolisher: it says this player can't cast this spell now`); `why` gives the event's rule and the cast, activation, trigger, resolution or combat declaration before it.
+- MCP: `kiln_rules_scenario` takes the same `commands`.
+- Not yet: validation of impossible states (two copies of a singleton), "why" chains longer than one step, and explanations for non-priority decisions (targets that aren't offered).
+
 ## Related
 [[CLI & REPL]] · US-5 in [[User Stories]] · [[M10 LLM Bridge & Judge]]

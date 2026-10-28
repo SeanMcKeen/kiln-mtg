@@ -35,6 +35,7 @@ Each question has an owner note and a target milestone. Move a question to **Res
 ## Simulation & policies
 | # | Question | Owner note | Target |
 |---|---|---|---|
+| Q42 | **US-6 at scale.** The in-chat run piloted one game. Twenty games by an LLM need either a fresh agent session on `kiln mcp serve --live` or `{ kind: llm }` with an API key (about one request per key decision, roughly 100 per game). Run it when the user approves the spend? | [[C - LLM Live Decisions]] | M10 follow-up |
 | Q40 | **MCP over Streamable HTTP.** M8 serves MCP over stdio only. `rmcp`'s Streamable HTTP server needs an HTTP stack (axum/hyper/tower). Add it behind a cargo feature when remote agents need it? | [[MCP Server Tool Catalog]] | M10 |
 | Q39 | **No seat-1 advantage with baseline pilots.** In US-1 (5,000 greedy games) seat 1 wins 24.2% and seat 4 25.6%, while real cEDH shows a strong first-seat edge ([[Statistics for Multiplayer Simulation]]). Greedy games run long (median 46 turns), so turn order washes out. Reproducing the seat-1 advantage should be one of M9's play-quality checks ([[Measuring Play Quality]]). | [[Measuring Play Quality]] | M9 |
 | Q32 | Should `open_decklists` default to true? | [[Hidden Information & Player Views]] | M7 |

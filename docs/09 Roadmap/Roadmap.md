@@ -37,7 +37,7 @@ M0 Groundwork ─► M1 Foundations & Data ─► M2 Core Game Loop ─► M3 Ca
 | M7 | [[M7 Simulation Lab v1]] | Specs, runner, metrics with flags, reports, CLI JSON | US-2 and US-4 work. US-1 runs (with baseline-quality caveats); **in review** |
 | M8 | [[M8 Agent Integration & Playbooks]] | MCP server, agent docs, playbook policy | An agent completes US-1 end to end via MCP; **done** 2026-10-27 (in-chat eval 15/15) |
 | M9 | [[M9 Search AI]] | ISMCTS player, playbook-guided search, play-quality suite | Meets the [[Measuring Play Quality]] v1 bar; **done** 2026-10-28 (puzzles 8/9 + 5/5, 82% mirror share) |
-| M10 | [[M10 LLM Bridge & Judge]] | Live LLM policy, judge REPL with explanations | US-5 and US-6 work |
+| M10 | [[M10 LLM Bridge & Judge]] | Live LLM policy, judge REPL with explanations | US-5 and US-6 work; **done** 2026-10-28 (US-6 in chat; API run awaits go-ahead, Q42) |
 | M11 | [[M11 Full Card Pool]] | Scale to all Commander-legal cards, cEDH-legal first | ≥ 95% of cEDH-relevant cards verified, coverage dashboard |
 | M12 | [[M12 More Formats & Bindings]] | 1v1, 2HG and teams, Limited, Python, WASM | Each format has its own scenario suite. Wheels and npm published |
 

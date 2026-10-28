@@ -32,5 +32,11 @@ An LLM answers each decision for a seat. It's an *external* policy driven throug
 ## Reproducibility
 LLM runs are marked `reproducible: false`. Their replays are fully reproducible because choices are logged ([[Reproducibility]]).
 
+## As implemented (M10)
+- **Live toolset** (`kiln mcp serve --live`): `kiln_live_start` deals game `game` of a kiln-spec/1 pod with the caller on `deck`, replaying `moves` first (games are deterministic, so a new session resumes a game); `kiln_live_decide` answers with an index or label and a rationale, or `auto` to let the seat's spec policy (search, a playbook) take `count` decisions; `kiln_live_view` adds `detailed` and `why_not`. `ask: key` (default) auto-answers trivial decisions with greedy.
+- **Payload** (`kiln_sim::live::view_payload`, shared with the adapter): the decision (kind, CR rule, options by index and label), each player's public state and battlefield, the viewer's hand, the stack, events since the last payload (at most 40; cards moving between hidden zones are "a card"), and Oracle text for the cards the decision and hand name (`detailed`: everything visible). A test plays whole games checking no opponent's hidden card is named.
+- **Adapter**: `{ kind: llm, model (claude-opus-5-5), ask: key|all, max_calls (200), effort, fallback (greedy) }`. One Messages API request per key decision with structured outputs (`{option, reason}`) and server-side refusal fallbacks; refusals, HTTP errors, unparseable or out-of-range answers fall back and are counted (`llm:answered`, `llm:failed`). LLM-at-key-moments is just `ask: key` with a strong fallback (`fallback: { kind: search }`).
+- **Rationales** go into replay `annotations` (`Policy::rationale`): the model's reason, the live caller's, or the options search weighed.
+
 ## Related
 [[LLMs Playing MTG]] · [[Policy Composition]]

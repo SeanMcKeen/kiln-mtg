@@ -266,13 +266,28 @@ pub struct LiveStartParams {
     /// attacks, blocks and choices; greedy answers payments and other trivia. `all`: every decision.
     #[serde(default)]
     pub ask: Option<String>,
+    /// Answers to replay first, in order (the game is deterministic, so this resumes a
+    /// game in a new session): each an option index or label, or `auto`.
+    #[serde(default)]
+    pub moves: Vec<LiveMove>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct LiveMove {
+    pub option: String,
+    #[serde(default)]
+    pub rationale: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct LiveDecideParams {
     pub game_id: String,
-    /// The option's index or its exact label.
+    /// The option's index or its exact label, or `auto`: the seat's own spec policy
+    /// (search, a playbook…) answers your next `count` decisions (0: the rest of the game).
     pub option: String,
+    /// With `auto`: how many decisions (default 1; 0 = to the end).
+    #[serde(default)]
+    pub count: Option<u32>,
     /// Why (kept in the game's annotated replay).
     #[serde(default)]
     pub rationale: Option<String>,
@@ -284,6 +299,10 @@ pub struct LiveViewParams {
     /// Add graveyards, exile and the text of every visible card.
     #[serde(default)]
     pub detailed: bool,
+    /// Ask why actions aren't offered (`Cast <card>`, `Play <land>`, `Activate <card>
+    /// ability <n>`): the engine's reasons with CR rules.
+    #[serde(default)]
+    pub why_not: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -826,10 +845,24 @@ impl KilnServer {
             Some(other) => return Err(format!("ask must be key or all, not {other:?}")),
         };
         let (deck, game) = (p.deck.clone(), p.game);
+        let moves: Vec<(String, Option<String>)> = p
+            .moves
+            .into_iter()
+            .map(|m| (m.option, m.rationale))
+            .collect();
         let mut live = blocking(move || {
             let exp = Experiment::prepare(resolved, &st.workdir, &st.db, &st.lib)
                 .map_err(|e| e.to_string())?;
-            kiln_sim::live::LiveGame::start(&exp, &deck, game, ask_all)
+            let mut live = kiln_sim::live::LiveGame::start(&exp, &deck, game, ask_all)?;
+            for (k, (option, why)) in moves.iter().enumerate() {
+                let r = if option == "auto" {
+                    live.auto(1).map(|_| ())
+                } else {
+                    live.decide(option, why.as_deref())
+                };
+                r.map_err(|e| format!("move {k} ({option:?}): {e}"))?;
+            }
+            Ok::<_, String>(live)
         })
         .await??;
         let mut games = self.games.lock().map_err(|e| e.to_string())?;
@@ -853,12 +886,16 @@ impl KilnServer {
                 p.game_id
             )
         })?;
-        live.decide(&p.option, p.rationale.as_deref())?;
+        if p.option == "auto" {
+            live.auto(p.count.unwrap_or(1))?;
+        } else {
+            live.decide(&p.option, p.rationale.as_deref())?;
+        }
         Ok(self.live_payload(&p.game_id, live, false))
     }
 
     #[tool(
-        description = "Live play: the current view of a live game (your decision, the board, recent events, card text). detailed=true adds graveyards, exile and every visible card's text."
+        description = "Live play: the current view of a live game (your decision, the board, recent events, card text). detailed=true adds graveyards, exile and every visible card's text. why_not=[\"Cast <card>\"] explains, with CR rules, why an action isn't among your options."
     )]
     async fn kiln_live_view(
         &self,
@@ -871,7 +908,14 @@ impl KilnServer {
                 p.game_id
             )
         })?;
-        Ok(self.live_payload(&p.game_id, live, p.detailed))
+        let mut text = self.live_payload(&p.game_id, live, p.detailed);
+        if !p.why_not.is_empty() {
+            let answers: Vec<String> = p.why_not.iter().map(|w| live.why_not(w)).collect();
+            let mut v: Value = serde_json::from_str(&text).unwrap_or_default();
+            v["why_not"] = json!(answers);
+            text = to_text(&v);
+        }
+        Ok(text)
     }
 
     #[tool(
@@ -1030,6 +1074,7 @@ mod tests {
                 deck: "najeela".into(),
                 game: 0,
                 ask: None,
+                moves: Vec::new(),
             }))
             .await
             .unwrap_or_else(|e| panic!("{e}"));
@@ -1063,6 +1108,7 @@ mod tests {
                 .kiln_live_decide(Parameters(LiveDecideParams {
                     game_id: id.clone(),
                     option: "0".into(),
+                    count: None,
                     rationale: Some("test".into()),
                 }))
                 .await

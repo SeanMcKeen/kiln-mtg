@@ -1,7 +1,7 @@
 # CLAUDE.md: orientation for AI sessions
 
 ## Project
-**Kiln** (crate `kiln-mtg`, CLI binary `kiln`) is a Rust MTG rules engine plus a simulation lab. Crates use the `kiln-` prefix, MCP tools the `kiln_` prefix (see `docs/10 Decisions/ADR-0013 Project Name.md`). The headline use case: an AI agent runs "deck X vs Y, Z, C in a cEDH pod" for thousands of games and gets statistics. Commander-first, with N players from day one. **Current phase: M9 (search AI: `PlayerView::determinize`, `kiln-search` SO-ISMCTS, `{ kind: search }`, the puzzle suite `tests/puzzles/` with `kiln dev puzzles`) done (ADR-0014); M10 (LLM bridge and judge) next.** The engine executes card IR v1; the card library (ADR-0007 hybrid, accepted) supports 3,074 Commander-legal cards, 278 of them verified. Four verified 100-card Commander test decks are in `tests/fixtures/decks/`; example experiment specs are in `examples/specs/`. Check `docs/09 Roadmap/Roadmap.md` for the active milestone.
+**Kiln** (crate `kiln-mtg`, CLI binary `kiln`) is a Rust MTG rules engine plus a simulation lab. Crates use the `kiln-` prefix, MCP tools the `kiln_` prefix (see `docs/10 Decisions/ADR-0013 Project Name.md`). The headline use case: an AI agent runs "deck X vs Y, Z, C in a cEDH pod" for thousands of games and gets statistics. Commander-first, with N players from day one. **Current phase: M10 (LLM bridge and judge: `kiln judge` with `why-not`/`why`, `kiln mcp serve --live` live-play tools, `{ kind: llm }` via the Anthropic API, annotated replays) done; M11 next. The API-backed US-6 run waits for the user's go-ahead (Q42).** The engine executes card IR v1; the card library (ADR-0007 hybrid, accepted) supports 3,074 Commander-legal cards, 278 of them verified. Four verified 100-card Commander test decks are in `tests/fixtures/decks/`; example experiment specs are in `examples/specs/`. Check `docs/09 Roadmap/Roadmap.md` for the active milestone.
 
 ## Where things are
 - `crates/` is the Cargo workspace (layout in `docs/03 Architecture/Crate Layout.md`). The CLI binary is `kiln` (`crates/kiln-mtg`).
@@ -44,6 +44,8 @@ cargo clippy --workspace --all-targets -- -D warnings && cargo fmt --all --check
 ./target/release/kiln data coverage                                                    # card library coverage and top gaps
 ./target/release/kiln dev verify-cards --list                                          # real-card verification (needs the card DB)
 ./target/release/kiln dev puzzles --policy search                                      # puzzle suite (tests/puzzles/; --policy greedy, --iterations N)
+./target/release/kiln judge examples/judge/us5-oracle-notion-thief.yaml               # rules judge REPL (-c "why-not Cast X" -c 0 …)
+./target/release/kiln mcp serve --workdir /tmp/kiln-work --live                       # plus the live-play tools
 ./target/release/kiln sim run examples/specs/m9-ladder-najeela.yaml --threads 2        # search vs greedy mirror (about 4 min)
 cargo bench -p kiln-engine                                                             # clone / enumeration / game benchmarks
 ```
