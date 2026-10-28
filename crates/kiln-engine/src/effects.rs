@@ -286,6 +286,19 @@ pub(crate) enum AfterPick {
         reveal: bool,
         /// Remember the found cards under this name (Fabled Passage).
         remember: Option<String>,
+        /// Each pick removes the candidates sharing its name (Gifts Ungiven).
+        different_names: bool,
+        /// A player chooses this many found cards for this destination;
+        /// the rest go `to` (Intuition).
+        split: Option<(PlayerId, u32, Destination)>,
+    },
+    /// The picks go `to`, the other cards of `all` go `rest_to`; `owner`
+    /// puts them there.
+    Split {
+        to: Destination,
+        rest_to: Destination,
+        owner: PlayerId,
+        all: Vec<ObjectId>,
     },
     /// Put this many +1/+1 counters on the pick (amass, CR 701.47a).
     PutCounters(u32),
@@ -604,6 +617,21 @@ impl Game {
                 None => self.finish_pick(&mut t, p),
                 Some(id) => {
                     p.candidates.retain(|c| *c != id);
+                    // "different names": no other card with the picked one's name.
+                    if matches!(
+                        p.then,
+                        AfterPick::Search {
+                            different_names: true,
+                            ..
+                        }
+                    ) && let Some(def) = self.obj(id).map(|o| o.def)
+                    {
+                        p.candidates
+                            .retain(|c| self.obj(*c).is_some_and(|o| o.def != def));
+                        p.max = p
+                            .max
+                            .min(u32::try_from(p.candidates.len()).unwrap_or(u32::MAX) + 1);
+                    }
                     p.max -= 1;
                     p.min = p.min.saturating_sub(1);
                     match &p.then {
@@ -680,8 +708,9 @@ impl Game {
                 DecisionKind::Optional { .. },
             ) => {
                 if option == 1 {
+                    // CR 903.9b: a commander's owner may choose the command zone.
                     let who = t.ctx.controller;
-                    self.place(&mut t.ctx, card, Destination::Hand, who);
+                    self.place_or_defer(&mut t, card, Destination::Hand, who);
                 } else {
                     t.frames.push(Frame::TaintedPact { names, last: None });
                 }
@@ -1412,9 +1441,21 @@ impl Game {
                 graveyard,
                 rest_to,
                 remember,
+                up_to,
+                different_names,
+                split,
             } => {
                 let Some(p) = self.player_ref(&t.ctx, who) else {
                     return Flow::Continue;
+                };
+                let split = match split {
+                    Some(s) => match self.player_ref(&t.ctx, &s.chooser) {
+                        Some(chooser) => {
+                            Some((chooser, self.amount(&t.ctx, &s.count), s.chosen_to))
+                        }
+                        None => None,
+                    },
+                    None => None,
                 };
                 let count = self.amount(&t.ctx, count);
                 let library = self.player(p).library.clone();
@@ -1451,7 +1492,7 @@ impl Game {
                 }
                 // CR 701.23b/d: a search for a stated quality may fail to find;
                 // a search for a quantity of cards must find as many as possible.
-                let quality = *filter != ObjectFilter::default() || cap.is_some();
+                let quality = *filter != ObjectFilter::default() || cap.is_some() || *up_to;
                 let n = count.min(u32::try_from(candidates.len()).unwrap_or(u32::MAX));
                 // CR 723.5: a player controlling the searcher makes the choices.
                 let agent = self.search_controller(p);
@@ -1469,6 +1510,8 @@ impl Game {
                         rest_to: *rest_to,
                         reveal: *reveal,
                         remember: remember.clone(),
+                        different_names: *different_names,
+                        split,
                     },
                 }));
             }
@@ -3476,7 +3519,15 @@ impl Game {
             self.finish_pick(t, p);
             return Flow::Continue;
         }
-        let ordered = matches!(p.then, AfterPick::Place(_) | AfterPick::ScryBottom);
+        let ordered = matches!(p.then, AfterPick::Place(_) | AfterPick::ScryBottom)
+            // Taking every candidate could break "different names".
+            || matches!(
+                p.then,
+                AfterPick::Search {
+                    different_names: true,
+                    ..
+                }
+            );
         // No choice exists when every remaining candidate must be taken and
         // their order doesn't matter, or only one card is left to place.
         if p.min == left && (!ordered || left == 1) {
@@ -3533,6 +3584,17 @@ impl Game {
         } = p;
         match then {
             AfterPick::Place(_) => {}
+            AfterPick::Split {
+                to,
+                rest_to,
+                owner,
+                all,
+            } => {
+                for id in all {
+                    let dest = if picked.contains(&id) { to } else { rest_to };
+                    self.place_or_defer(t, id, dest, owner);
+                }
+            }
             AfterPick::ScryBottom => {
                 // The rest go on top in any order (CR 701.22a).
                 let n = u32::try_from(candidates.len()).unwrap_or(0);
@@ -3632,6 +3694,8 @@ impl Game {
                 rest_to,
                 reveal,
                 remember,
+                split,
+                ..
             } => {
                 let who = searcher;
                 // The found cards are followed into the public zone they go
@@ -3670,6 +3734,22 @@ impl Game {
                         player: who,
                         objects: picked.clone(),
                     });
+                }
+                // Intuition: the chooser splits the revealed cards.
+                if let Some((chooser, n, chosen_to)) = split {
+                    t.frames.push(Frame::Pick(exact_pick(
+                        chooser,
+                        purpose_for(chosen_to),
+                        picked.clone(),
+                        n,
+                        AfterPick::Split {
+                            to: chosen_to,
+                            rest_to: to,
+                            owner: who,
+                            all: picked,
+                        },
+                    )));
+                    return;
                 }
                 if to == Destination::TopOfLibrary {
                     // CR 701.24b: search, shuffle, then put the found cards on top.

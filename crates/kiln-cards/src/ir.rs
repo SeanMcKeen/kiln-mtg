@@ -504,6 +504,15 @@ pub struct CopyExcept {
     pub counters: Vec<TypedCounter>,
 }
 
+/// A player choosing among the cards a search found (Intuition).
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SearchSplit {
+    pub chooser: PlayerRef,
+    pub count: Quantity,
+    pub chosen_to: Destination,
+}
+
 /// A choice players can vote for, and what each vote for it does.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -720,6 +729,16 @@ pub enum Effect {
         /// land"; CR 400.7j finds them in the public zone they went to).
         #[serde(default, skip_serializing_if = "Option::is_none")]
         remember: Option<String>,
+        /// "up to N cards": finding fewer is allowed (CR 701.23d).
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        up_to: bool,
+        /// "cards with different names" (Gifts Ungiven).
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        different_names: bool,
+        /// "[player] chooses N of them. Put the chosen cards [there] and the
+        /// rest [`to`]" (Intuition, Gifts Ungiven).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        split: Option<SearchSplit>,
     },
     Shuffle(PlayerRef),
     /// CR 701.22

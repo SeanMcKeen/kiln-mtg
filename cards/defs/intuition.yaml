@@ -1,0 +1,10 @@
+card: Intuition
+faces:
+  - abilities:
+      - spell:
+          targets: [{ what: { player: opponent } }]
+          effect:
+            seq:
+              # "Target opponent chooses one. Put that card into your hand and the rest into your graveyard."
+              - search: { who: you, filter: {}, count: 3, to: graveyard, reveal: true, split: { chooser: { target: 0 }, count: 1, chosen_to: hand } }
+              - shuffle: you

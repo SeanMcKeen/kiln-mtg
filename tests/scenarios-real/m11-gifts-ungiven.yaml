@@ -1,0 +1,29 @@
+scenario: kiln-scenario/1
+name: "Gifts Ungiven: up to four cards with different names; target opponent chooses two for your graveyard, the rest to your hand"
+cr: ["701.23a", "701.23d", "701.20a"]
+verifies: [Gifts Ungiven]
+players:
+  - battlefield: [Island, Island, Island, Island]
+    hand: [Gifts Ungiven]
+    library: [Opt, Opt, Ponder, Preordain, Brainstorm]
+  - {}
+script:
+  - choose: Cast Gifts Ungiven
+  - choose: Target P2
+  - choose: "Pay with Island, Island, Island, Island"
+  - pass_all
+  - choose: Find Opt
+  - check:
+      decision: { player: P1, options: [Stop, Find Ponder, Find Preordain, Find Brainstorm] }
+  - choose: Find Ponder
+  - choose: Find Preordain
+  - choose: Find Brainstorm
+  - check:
+      decision: { player: P2 }
+  - choose: Put into graveyard Ponder
+  - choose: Put into graveyard Brainstorm
+expect:
+  zones:
+    P1.hand: [Opt, Preordain]
+    P1.graveyard: [Gifts Ungiven, Ponder, Brainstorm]
+    P1.library: [Opt]

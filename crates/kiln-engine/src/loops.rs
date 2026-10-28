@@ -314,8 +314,10 @@ impl Game {
                 max = max.min(cap(have, -per));
             }
         }
+        // A player who can't lose (Platinum Angel) isn't ended by the loop:
+        // their life or poison doesn't limit it (CR 104.4b may apply).
         for (p, &per) in d.life.iter().enumerate() {
-            if per < 0 && self.players[p].in_game() {
+            if per < 0 && self.players[p].in_game() && self.can_lose(self.players[p].id) {
                 // CR 704.5a: the iteration that takes them to 0 or less.
                 let life = now.life[p].max(0);
                 let n = u64::try_from((life + (-per) - 1) / (-per))
@@ -328,7 +330,7 @@ impl Game {
             }
         }
         for (p, &per) in d.poison.iter().enumerate() {
-            if per > 0 && self.players[p].in_game() {
+            if per > 0 && self.players[p].in_game() && self.can_lose(self.players[p].id) {
                 let left = (10 - i64::from(now.poison[p])).max(0);
                 let n = u64::try_from((left + per - 1) / per).unwrap_or(0).max(1);
                 if n <= max {

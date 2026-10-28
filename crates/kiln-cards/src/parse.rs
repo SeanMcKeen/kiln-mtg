@@ -871,6 +871,9 @@ fn search(c: &mut Cur) -> Option<Effect> {
         graveyard: false,
         rest_to: None,
         remember: None,
+        up_to: false,
+        different_names: false,
+        split: None,
     })
 }
 

@@ -1,0 +1,32 @@
+scenario: kiln-scenario/1
+name: "A mandatory life-drain loop against a player who can't lose never ends: the game is a draw"
+cr: ["104.4b", "732.4", "119.3"]
+verifies: [Sanguine Bond, Exquisite Blood, Platinum Angel]
+players:
+  - battlefield: [Sanguine Bond, Exquisite Blood, Mountain]
+    hand: [Lightning Bolt]
+  - battlefield: [Platinum Angel]
+    life: 2
+script:
+  - choose: Cast Lightning Bolt
+  - choose: Target P2
+  - choose: Pay with Mountain
+  - pass_all
+  - pass_all
+  - choose: Target P2
+  - pass_all
+  - pass_all
+  - choose: Target P2
+  - pass_all
+  - pass_all
+  - choose: Target P2
+  - pass_all
+  - pass_all
+  - choose: Target P2
+  - pass_all
+  - check:
+      decision: { player: P1, kind: respond_shortcut }
+  - choose: Let the loop continue
+  - choose: Let the loop continue
+expect:
+  result: draw
